@@ -14,59 +14,61 @@ int retry_limit=0;
 
 int main(int argc,char *argv[])
 {
+
     char pHttpUrl[200];
     char pfilename[200];
-    LONG *pValue = NULL;
+    LONG pValue ;
 	int ret_code = 0;
     int http_status,reboot_status;
     int reset_device;
 
 	if(strcmp(argv[1],"set_http_url") == 0)
-    {
-        if( ((argv[2]) != NULL) && ((argv[3]) != NULL) )
-            {
-                strcpy(pHttpUrl,argv[2]);
-                strcpy(pfilename,argv[3]);
-            	ret_code = Set_HTTP_Download_Url(pHttpUrl,pfilename);			
-           	}
-    }
+	{
+		if( ((argv[2]) != NULL) && ((argv[3]) != NULL) )
+		{
+			strcpy(pHttpUrl,argv[2]);
+			strcpy(pfilename,argv[3]);
+			ret_code = Set_HTTP_Download_Url(pHttpUrl,pfilename);			
+		}
+	}
 
 	else if (strcmp(argv[1],"http_download")==0)
 	{
-	    http_status = HTTP_Download();
+		http_status = HTTP_Download();
 
-        //The return code is after RETRY_HTTP_DOWNLOAD_LIMIT has been reached 
-        if(http_status == 200)
-            ret_code = 0;
-        
-        else
-            ret_code = 1;     
-                          
+	    // The return code is after RETRY_HTTP_DOWNLOAD_LIMIT has been reached
+        // For 200, return SUCCESS, else FAILURE and retry in the next window
+		if(http_status == 200)
+			ret_code = 0;
+
+		else
+			ret_code = 1;     
+	  
 	}
 
-    else if (strcmp(argv[1],"http_reboot_status")==0)
+	else if (strcmp(argv[1],"http_reboot_status")==0)
 	{
 
-		reboot_status = Reboot_Ready(pValue);
+		reboot_status = Reboot_Ready(&pValue);
+		printf("XCONF BIN : Reboot_Ready status %d \n",pValue);
+			if(reboot_status == RETURN_OK && pValue == 1)
+				ret_code = 0;
 
-        if(reboot_status == 1)
-            ret_code = 0;
-         
-        else
-            ret_code= 1;    
+			else
+				ret_code= 1;    
 	}
 
-    else if(strcmp(argv[1],"http_reboot")==0)
-    {
+	else if(strcmp(argv[1],"http_reboot")==0)
+	{
 		reset_device = HTTP_Download_Reboot_Now();
-        
-        if(reset_device == RETURN_OK)
-            ret_code = 0;
 
-        else
-            ret_code= 1;
-    }
+			if(reset_device == RETURN_OK)
+				ret_code = 0;
 
+			else
+				ret_code= 1;
+	}
+    
     return ret_code;
 }
 
@@ -124,7 +126,8 @@ INT HTTP_Download ()
                  * Sleeping since the status returned is 
                  * 500 on immediate status query
                  */
-                sleep(1);
+                printf("\nXCONF BIN : Sleeping to prevent 500 error"); 
+                sleep(10);
 
                 while(retry_http_status ==1)
                 {    
@@ -165,8 +168,8 @@ INT HTTP_Download ()
                     }
                 
 
-                    /* If an error is received, set the retry_http_dl flag
-                     * and retry the download
+                    /* If an error is received, fail the HTTP download
+                     * It will be retried in the next window
                      */
                     else if (http_dl_status > 400)
                     {
@@ -203,7 +206,7 @@ INT HTTP_Download ()
     /*
      * The return status can either be
      * 200  : The download was succesful
-     * >400 : An error was encountered even after RETRY_HTTP_DOWNLOAD_LIMIT retries
+     * >400 : An error was encountered . Retry in the next HTTP download window.
      * -1   : The actual http dl never started due to a secondary dl in progress or the primary dl not starting
      */
     return http_dl_status;  
@@ -213,8 +216,9 @@ INT HTTP_Download ()
 
 INT Reboot_Ready(LONG *pValue)
 {
-    //cm_hal_Reboot_Ready(pValue);
-    return RETURN_OK;    
+    int reboot_ready_status;
+    reboot_ready_status = cm_hal_Reboot_Ready(pValue);
+    return reboot_ready_status;    
 }
 
 INT HTTP_Download_Reboot_Now ()
