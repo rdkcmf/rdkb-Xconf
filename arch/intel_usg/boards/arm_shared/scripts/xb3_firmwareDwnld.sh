@@ -1,7 +1,7 @@
 #!/bin/sh
 
 CURL_PATH=/fss/gw
-interface=wan0
+interface=erouter0
 BIN_PATH=/fss/gw/usr/ccsp
 
 #GLOBAL DECLARATIONS
@@ -69,6 +69,20 @@ getFirmwareUpgDetail()
     xconf_retry_count=1
     retry_flag=1
 
+    # Set the XCONF server url and env read from /etc/Xconf 
+    env=`cat /etc/Xconf | cut -d "=" -f1`
+    xconf_url=`cat /etc/Xconf | cut -d "=" -f2`
+    
+    # If an /etc/Xconf file was not created, use the default values
+    if [ ! -f /etc/Xconf ]; then
+        echo "XCONF SCRIPT : ERROR : /etc/Xconf file not found! Using defaults"
+        env="PROD"
+        xconf_url="https://xconf.xcal.tv/xconf/swu/stb/"
+    fi
+
+    echo "XCONF SCRIPT : env is $env"
+    echo "XCONF SCRIPT : xconf url  is $xconf_url"
+
     # Check with the XCONF server if an update is available 
     while [ $xconf_retry_count -le 3 ] && [ $retry_flag -eq 1 ]
     do
@@ -94,20 +108,23 @@ getFirmwareUpgDetail()
 
 
         # Query the  XCONF Server
-        HTTP_RESPONSE_CODE=`$CURL_PATH/curl -k -w '%{http_code}\n' -d "eStbMac=$MAC&firmwareVersion=$currentVersion&env=dev&model=TG1682G&localtime=$date&timezone=EST05&capabilities="rebootDecoupled"&capabilities="RCDL"&capabilities="supportsFullHttpUrl"" -o "/tmp/response.txt" "https://xconf.poa.xcal.tv/xconf/swu/stb/" --connect-timeout 10 -m 10`
+        HTTP_RESPONSE_CODE=`$CURL_PATH/curl --interface $interface -k -w '%{http_code}\n' -d "eStbMac=$MAC&firmwareVersion=$currentVersion&env=$env&model=TG1682G&localtime=$date&timezone=EST05&capabilities="rebootDecoupled"&capabilities="RCDL"&capabilities="supportsFullHttpUrl"" -o "/tmp/response.txt" "$xconf_url" --connect-timeout 30 -m 30`
 	    
         echo "XCONF SCRIPT : HTTP RESPONSE CODE is" $HTTP_RESPONSE_CODE
 
         # Print the response
         cat /tmp/response.txt
 
+
 	    if [ $HTTP_RESPONSE_CODE -eq 200 ];then
 		    retry_flag=0
 		    firmwareDownloadProtocol=`head -1 /tmp/response.txt | cut -d "," -f1 | cut -d ":" -f2 | cut -d '"' -f2`
 
 		    if [ $firmwareDownloadProtocol = "http" ];then
+                echo "XCONF SCRIPT : Download image from HTTP server"
                 firmwareLocation=`head -1 /tmp/response.txt | cut -d "," -f3 | cut -d ":" -f2- | cut -d '"' -f2`
             else
+                echo "XCONF SCRIPT : Download from TFTP server not suported, check XCONF server configurations"
                 firmwareLocation=`head -1 /tmp/response.txt | cut -d "," -f3 | cut -d ":" -f2 | cut -d '"' -f2`    
             fi
 
@@ -150,6 +167,11 @@ getFirmwareUpgDetail()
         # If a response code of 0 was received, the server is unreachable
         # Try reconnecting 
         elif [ $HTTP_RESPONSE_CODE -eq 0 ]; then
+            
+            echo "XCONF SCRIPT : Response code 0, sleeping for 2 minutes and retrying"
+            # sleep for 2 minutes and retry
+            sleep 120;
+
             retry_flag=1
             image_upg_avl=0
 
@@ -245,6 +267,9 @@ calcRandTime()
     fi
 
     echo "XCONF SCRIPT : SLEEPING FOR $min_to_sleep minutes or $sec_to_sleep seconds"
+    
+    #echo "XCONF SCRIPT : SPIN 8 : sleeping for 600 sec, EROUTER DEFUALT HARDCODED"
+    #sec_to_sleep=600
 
     sleep $sec_to_sleep
     echo "XCONF script : got up after $sec_to_sleep seconds"
@@ -256,19 +281,71 @@ getMacAddress()
 	ifconfig  | grep $interface |  grep -v $interface:0 | tr -s ' ' | cut -d ' ' -f5
 }
 
+getBuildType()
+{
+   IMAGENAME=`cat /fss/gw/version.txt | grep ^imagename= | cut -d "=" -f 2`
+
+   TEMPDEV=`echo $IMAGENAME | grep DEV`
+   if [ "$TEMPDEV" != "" ]
+   then
+       type="DEV"
+   fi
+
+   TEMPVBN=`echo $IMAGENAME | grep VBN`
+   if [ "$TEMPVBN" != "" ]
+   then
+       type="VBN"
+   fi
+
+   TEMPPROD=`echo $IMAGENAME | grep PROD`
+   if [ "$TEMPPROD" != "" ]
+   then
+       type="PROD"
+   fi
+
+   TEMPCQA=`echo $IMAGENAME | grep CQA`
+   if [ "$TEMPPROD" != "" ]
+   then
+       type="GSLB"
+   fi
+}
+
+
 #####################################################Main Application#####################################################
+
+# Determine the env type and url and write to /etc/Xconf
+#type=`printenv model | cut -d "=" -f2`
+
+getBuildType
+
+echo XCONF SCRIPT : MODEL IS $type
+
+if [ $type == "DEV" ] || [ $type == "dev" ];then
+    url="https://xconf.poa.xcal.tv/xconf/swu/stb/"
+else
+    url="https://xconf.xcal.tv/xconf/swu/stb/"
+fi
+
+echo "$type=$url" > /etc/Xconf
+echo "XCONF SCRIPT : Values written to /etc/Xconf are $type=$url"
+
 
 # Check if the WAN interface has an ip address, if not , wait for it to receives one
 estbIp=`ifconfig $interface | grep "inet addr" | tr -s " " | cut -d ":" -f2 | cut -d " " -f1`
+estbIp6=`ifconfig $interface | grep "inet6 addr" | grep "Global" | tr -s " " | cut -d ":" -f2- | cut -d "/" -f1 | tr -d " "`
 
-while [ "$estbIp" = "" ] ; 
+
+while [ "$estbIp" = "" ] && [ "$estbIp6" = "" ]
 do
     sleep 1
+
     estbIp=`ifconfig $interface | grep "inet addr" | tr -s " " | cut -d ":" -f2 | cut -d " " -f1`
-    echo "XCONF SCRIPT : Sleeping for an ip to the $interface interface "
+    estbIp6=`ifconfig $interface | grep "inet6 addr" | grep "Global" | tr -s " " | cut -d ":" -f2- | cut -d "/" -f1 | tr -d " "`
+
+    echo "XCONF SCRIPT : Sleeping for an ipv4 or an ipv6 address on the $interface interface "
 done;
 
-echo "XCONF SCRIPT : $interface has an ip address of  $estbIp"
+echo "XCONF SCRIPT : $interface has an ipv4 address of $estbIp or an ipv6 address of $estbIp6"
 
 # Check if new image is available	
 getFirmwareUpgDetail
@@ -286,8 +363,28 @@ do
     getFirmwareUpgDetail
 done
 
-if [ $image_upg_avl -eq 1 ];then
+if [ $rebootImmediately == "true" ];then
+    echo"XCONF SCRIPT : Reboot Immediately : TRUE!! Issuing reboot "
     
+    $BIN_PATH/XconfHttpDl http_reboot
+    reboot_device=$?
+
+    if [ $reboot_device -eq 0 ];then
+        echo "XCONF SCRIPT : REBOOTING DEVICE"
+    else
+        echo "XCONF SCRIPT : ERROR IN REBOOTING DEVICE"    
+    fi
+else
+    echo "XCONF SCRIPT : Reboot Immediately : FALSE."
+
+fi    
+
+if [ $image_upg_avl -eq 1 ];then
+
+    # Whitelist the returned firmrware location
+    echo "XCONF SCRIPT : Whitelisting download location : $firmwareLocation"
+    /etc/whitelist.sh "$firmwareLocation"
+
     # Set the url and filename
     echo "XCONF SCRIPT : URL --- $firmwareLocation and NAME --- $firmwareFilename"
     $BIN_PATH/XconfHttpDl set_http_url $firmwareLocation $firmwareFilename
@@ -322,24 +419,40 @@ if [ $image_upg_avl -eq 1 ];then
                 # Indicate succesful download
                 download_image_success=1
 
-                # Try rebooting the device succesfully till the following conidtions are met 
-                # 1. We calculate and remain within the reboot maintenance window
-                # 2. The reboot ready status is OK within the maintenance window
-                # 3. Reboot_Now returns success and is going to reboot the device
+                # Try rebooting the device succesfully if :
+                # 1. Issue an immediate reboot if still within the maintenance window and phone is on hook
+                # 2. If an immediate reboot is not possile ,calculate and remain within the reboot maintenance window
+                # 3. The reboot ready status is OK within the maintenance window
+                # 4. Reboot_Now returns success and is going to reboot the device
 
                 while [ $reboot_device_success -eq 0 ]; do
-		            # Determine the time to reboot in the maintenance window
-                    # and then check the reboot status
+
+                    # Check if still within reboot window
+                    reb_hr=`date +"%H"`
+                    reb_min=`date +"%M"`
+                    reb_sec=`date +"%S"`
+
+                    if [ $reb_hr -le 4 ] && [ $reb_min -le 59 ] && [ $reb_sec -le 59 ];then
+                        echo "XCONF SCRIPT : Still within current maintenance window for reboot"
+                        reboot_now=1    
+                    else
+                        echo "XCONF SCRIPT : Not within current maintenance window for reboot.Rebooting in  the next "
+                        reboot_now=0
+                    fi
+
+                    # If we are not supposed to reboot now, calculate random time
+                    # to reboot in next maintenance window 
+                    if [ $reboot_now -eq 0 ];then
                     calcRandTime 0 1 r
+                    fi    
 
                     # Check the Reboot status
                     # Continously check reboot status every 10 seconds  
                     # till the end of the maintenace window until the reboot status is OK
-            
                     $BIN_PATH/XconfHttpDl http_reboot_status
                     http_reboot_ready_stat=$?
 
-                    while [ $http_reboot_ready_stat -eq 1]   
+                    while [ $http_reboot_ready_stat -eq 1 ]   
                     do     
                         sleep 10
                         cur_hr=`date +"%H"`
@@ -388,7 +501,7 @@ if [ $image_upg_avl -eq 1 ];then
                     
                 done # While loop for reboot manager
 
-	        else # http_dl_image != 0
+	        else # http_dl_image !=0 ,FAILURE
 		        
                 # The http download failed. 
                 # Indicate unsuccesful download to retry

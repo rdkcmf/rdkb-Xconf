@@ -10,7 +10,7 @@ typedef int INT;
 typedef long LONG;
 
 /*Global Definitions*/
-int retry_limit=0;
+int retry_limit = 0;
 
 int main(int argc,char *argv[])
 {
@@ -105,6 +105,13 @@ INT HTTP_Download ()
     int http_dl_status=0;
     int retry_http_status=1;
     int retry_http_dl=1;
+
+    /* interface=0 for wan0, interface=1 for erouter0 */
+    unsigned int interface=1;
+
+    /*Set the download interface*/
+    printf("\nXCONF BIN : Setting download interface to %d",interface);
+    cm_hal_Set_HTTP_Download_Interface(interface);
 
     while((retry_limit < RETRY_HTTP_DOWNLOAD_LIMIT) && (retry_http_dl==1))
     {
