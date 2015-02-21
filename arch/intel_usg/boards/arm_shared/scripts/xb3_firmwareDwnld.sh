@@ -120,7 +120,7 @@ getFirmwareUpgDetail()
 		    retry_flag=0
 		    firmwareDownloadProtocol=`head -1 /tmp/response.txt | cut -d "," -f1 | cut -d ":" -f2 | cut -d '"' -f2`
 
-		    if [ $firmwareDownloadProtocol = "http" ];then
+		    if [ $firmwareDownloadProtocol == "http" ];then
                 echo "XCONF SCRIPT : Download image from HTTP server"
                 firmwareLocation=`head -1 /tmp/response.txt | cut -d "," -f3 | cut -d ":" -f2- | cut -d '"' -f2`
             else
@@ -131,8 +131,14 @@ getFirmwareUpgDetail()
     	    firmwareFilename=`head -1 /tmp/response.txt | cut -d "," -f2 | cut -d ":" -f2 | cut -d '"' -f2`
     	   	firmwareVersion=`head -1 /tmp/response.txt | cut -d "," -f4 | cut -d ":" -f2 | cut -d '"' -f2`
 	    	ipv6FirmwareLocation=`head -1 /tmp/response.txt | cut -d "," -f5 | cut -d ":" -f2-`
-	    	upgradeDelay=`head -1 /tmp/response.txt | cut -d "," -f6 | cut -d ":" -f2`		
-    	   	rebootImmediately=`head -1 /tmp/response.txt | cut -d "," -f7 | cut -d ":" -f2 | cut -d '}' -f1`
+	    	upgradeDelay=`head -1 /tmp/response.txt | cut -d "," -f6 | cut -d ":" -f2`
+            
+            if [ $env == "dev" ] || [ $env == "DEV" ];then
+    	   	    rebootImmediately=`head -1 /tmp/response.txt | cut -d "," -f7 | cut -d ":" -f2 | cut -d '}' -f1`
+            else
+                rebootImmediately=`head -1 /tmp/response.txt | cut -d "," -f5 | cut -d ":" -f2 | cut -d '}' -f1`
+            fi    
+                                    
 
             # firmwareLocation=http://162.150.228.179:8080/Images
             # firmwareVersion=TG1682_0.3s5_VBNsd_signed.bin
@@ -268,8 +274,8 @@ calcRandTime()
 
     echo "XCONF SCRIPT : SLEEPING FOR $min_to_sleep minutes or $sec_to_sleep seconds"
     
-    #echo "XCONF SCRIPT : SPIN 8 : sleeping for 600 sec, EROUTER DEFUALT HARDCODED"
-    #sec_to_sleep=600
+    #echo "XCONF SCRIPT : SPIN 12 : sleeping for 30 sec, *******TEST BUILD***********"
+    #sec_to_sleep=30
 
     sleep $sec_to_sleep
     echo "XCONF script : got up after $sec_to_sleep seconds"

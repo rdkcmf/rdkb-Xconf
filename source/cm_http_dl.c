@@ -105,6 +105,7 @@ INT HTTP_Download ()
     int http_dl_status=0;
     int retry_http_status=1;
     int retry_http_dl=1;
+    FILE *log_wget = NULL;
 
     /* interface=0 for wan0, interface=1 for erouter0 */
     unsigned int interface=1;
@@ -135,6 +136,23 @@ INT HTTP_Download ()
                  */
                 printf("\nXCONF BIN : Sleeping to prevent 500 error"); 
                 sleep(10);
+
+                
+                /* Check if the /tmp/wget.log file was created, if not wait an adidtional time
+                */
+                log_wget= fopen("/tmp/wget.log", "r");
+
+                if (log_wget == NULL) 
+                {
+                    printf("\n XCONF BIN : /tmp/wget.log doesn't exist. Sleeping an additional 10 seconds");
+                    sleep(10);
+                }
+                else 
+                {
+                    fclose(log_wget);
+                    printf("XCONF BIN : /tmp/wget.log created . Continue ...\n");
+                }
+
 
                 while(retry_http_status ==1)
                 {    
