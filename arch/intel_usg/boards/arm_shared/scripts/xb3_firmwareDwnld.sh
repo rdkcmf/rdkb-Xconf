@@ -125,7 +125,18 @@ getFirmwareUpgDetail()
                 firmwareLocation=`head -1 /tmp/response.txt | cut -d "," -f3 | cut -d ":" -f2- | cut -d '"' -f2`
             else
                 echo "XCONF SCRIPT : Download from TFTP server not suported, check XCONF server configurations"
-                firmwareLocation=`head -1 /tmp/response.txt | cut -d "," -f3 | cut -d ":" -f2 | cut -d '"' -f2`    
+                
+                # sleep for 2 minutes and retry
+                sleep 120;
+
+                retry_flag=1
+                image_upg_avl=0
+
+                #Increment the retry count
+                xconf_retry_count=$((xconf_retry_count+1))
+
+                continue
+                #firmwareLocation=`head -1 /tmp/response.txt | cut -d "," -f3 | cut -d ":" -f2 | cut -d '"' -f2`    
             fi
 
     	    firmwareFilename=`head -1 /tmp/response.txt | cut -d "," -f2 | cut -d ":" -f2 | cut -d '"' -f2`
