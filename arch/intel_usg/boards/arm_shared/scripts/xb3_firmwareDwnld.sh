@@ -153,6 +153,8 @@ getFirmwareUpgDetail()
 
             # firmwareLocation=http://162.150.228.179:8080/Images
             # firmwareVersion=TG1682_0.3s5_VBNsd_signed.bin
+            # HARDCODED 
+            # rebootImmediately=true
 
     	   	 echo "XCONF SCRIPT : Protocol :"$firmwareDownloadProtocol
     	   	 echo "XCONF SCRIPT : Filename :"$firmwareFilename
@@ -381,16 +383,16 @@ do
 done
 
 if [ $rebootImmediately == "true" ];then
-    echo"XCONF SCRIPT : Reboot Immediately : TRUE!! Issuing reboot "
+    echo "XCONF SCRIPT : Reboot Immediately : TRUE!!"
     
-    $BIN_PATH/XconfHttpDl http_reboot
-    reboot_device=$?
+    # 0304 $BIN_PATH/XconfHttpDl http_reboot
+    #  reboot_device=$?
 
-    if [ $reboot_device -eq 0 ];then
-        echo "XCONF SCRIPT : REBOOTING DEVICE"
-    else
-        echo "XCONF SCRIPT : ERROR IN REBOOTING DEVICE"    
-    fi
+    #if [ $reboot_device -eq 0 ];then
+    #    echo "XCONF SCRIPT : REBOOTING DEVICE"
+    #else
+    #    echo "XCONF SCRIPT : ERROR IN REBOOTING DEVICE"    
+    # 0304 fi
 else
     echo "XCONF SCRIPT : Reboot Immediately : FALSE."
 
@@ -414,10 +416,23 @@ if [ $image_upg_avl -eq 1 ];then
         reboot_device_success=0
                 
         while [ $download_image_success -eq 0 ]; do
+            
             # An upgrade is available and the URL has ben set 
-       	    # Determine a time in maintenance window 
-       	    # and initiate the download
-	        calcRandTime 0 1 h
+            # Wait to download in the maintenance window if the RebootImmediately is FALSE
+            # else download the image immediately
+
+            if [ $rebootImmediately == "false" ];then
+                echo "XCONF SCRIPT : Reboot Immediately : FALSE. Downloading image in maintenance window"
+       	        # Determine a time in the maintenance window 
+       	        # and initiate the download
+	            calcRandTime 0 1 h
+
+            else
+                echo "XCONF SCRIPT : Reboot Immediately : TRUE Waiting for the device to complete bootup"
+                sleep 300
+                echo  "XCONF SCRIPT : Reboot Immediately : TRUE : Downloading image now"
+            fi
+
 
 	        # Start the image download
 	        $BIN_PATH/XconfHttpDl http_download
@@ -443,51 +458,63 @@ if [ $image_upg_avl -eq 1 ];then
                 # 4. Reboot_Now returns success and is going to reboot the device
 
                 while [ $reboot_device_success -eq 0 ]; do
-
-                    # Check if still within reboot window
-                    reb_hr=`date +"%H"`
-                    reb_min=`date +"%M"`
-                    reb_sec=`date +"%S"`
-
-                    if [ $reb_hr -le 4 ] && [ $reb_min -le 59 ] && [ $reb_sec -le 59 ];then
-                        echo "XCONF SCRIPT : Still within current maintenance window for reboot"
-                        reboot_now=1    
-                    else
-                        echo "XCONF SCRIPT : Not within current maintenance window for reboot.Rebooting in  the next "
-                        reboot_now=0
-                    fi
-
-                    # If we are not supposed to reboot now, calculate random time
-                    # to reboot in next maintenance window 
-                    if [ $reboot_now -eq 0 ];then
-                    calcRandTime 0 1 r
-                    fi    
-
-                    # Check the Reboot status
-                    # Continously check reboot status every 10 seconds  
-                    # till the end of the maintenace window until the reboot status is OK
-                    $BIN_PATH/XconfHttpDl http_reboot_status
-                    http_reboot_ready_stat=$?
-
-                    while [ $http_reboot_ready_stat -eq 1 ]   
-                    do     
-                        sleep 10
-                        cur_hr=`date +"%H"`
-                        cur_min=`date +"%M"`
-                        cur_sec=`date +"%S"`
-
-                        if [ $cur_hr -le 4 ] && [ $cur_min -le 59 ] && [ $cur_sec -le 59 ];
-                        then
-                            #We're still within the reboot window 
-                            $BIN_PATH/XconfHttpDl http_reboot_status
-                            http_reboot_ready_stat=$?
                     
+                    # Verify reboot criteria ONLY if rebootImmediately is FALSE
+                    if [ $rebootImmediately == "false" ];then
+
+                        # Check if still within reboot window
+                        reb_hr=`date +"%H"`
+                        reb_min=`date +"%M"`
+                        reb_sec=`date +"%S"`
+
+                        if [ $reb_hr -le 4 ] && [ $reb_min -le 59 ] && [ $reb_sec -le 59 ];then
+                            echo "XCONF SCRIPT : Still within current maintenance window for reboot"
+                            reboot_now=1    
                         else
-                            #If we're out of the reboot window, exit while loop
-                            break
+                            echo "XCONF SCRIPT : Not within current maintenance window for reboot.Rebooting in  the next "
+                            reboot_now=0
                         fi
-                    done 
-               
+
+                        # If we are not supposed to reboot now, calculate random time
+                        # to reboot in next maintenance window 
+                        if [ $reboot_now -eq 0 ];then
+                            calcRandTime 0 1 r
+                        fi    
+
+                        # Check the Reboot status
+                        # Continously check reboot status every 10 seconds  
+                        # till the end of the maintenace window until the reboot status is OK
+                        $BIN_PATH/XconfHttpDl http_reboot_status
+                        http_reboot_ready_stat=$?
+
+                        while [ $http_reboot_ready_stat -eq 1 ]   
+                        do     
+                            sleep 10
+                            cur_hr=`date +"%H"`
+                            cur_min=`date +"%M"`
+                            cur_sec=`date +"%S"`
+
+                            if [ $cur_hr -le 4 ] && [ $cur_min -le 59 ] && [ $cur_sec -le 59 ];
+                            then
+                                #We're still within the reboot window 
+                                $BIN_PATH/XconfHttpDl http_reboot_status
+                                http_reboot_ready_stat=$?
+                    
+                            else
+                                #If we're out of the reboot window, exit while loop
+                                break
+                            fi
+                        done 
+
+                    else
+                        #Setting http_reboot_ready_stat to 0 when RebootImmediately is TRUE
+                        echo "XCONF SCRIPT : Reboot Immediately : TRUE!, rebooting device now"
+                        http_reboot_ready_stat=0    
+                        echo "XCONF SCRIPT : http_reboot_ready_stat is $http_reboot_ready_stat"
+                            
+                    fi # if condition  for RebootImmediate check and checking reboot criteria
+                    
+                     
                     # The reboot ready status changed to OK within the maintenance window,proceed
 		            if [ $http_reboot_ready_stat -eq 0 ];then
 		        
@@ -496,7 +523,7 @@ if [ $image_upg_avl -eq 1 ];then
 		                $BIN_PATH/XconfHttpDl http_reboot 
 		                reboot_device=$?
 		       
-                        # This indicates we're within the maintenace window
+                        # This indicates we're within the maintenace window/rebootImmediate=TRUE
                         # and the reboot ready status is OK, issue the reboot
                         # command and check if it returned correctly
 		                if [ $reboot_device -eq 0 ];then
