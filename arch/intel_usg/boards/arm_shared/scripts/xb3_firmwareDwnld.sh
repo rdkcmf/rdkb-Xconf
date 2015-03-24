@@ -9,6 +9,8 @@ image_upg_avl=0
 
 checkFirmwareUpgCriteria()
 {
+    image_upg_avl=0;
+
     # Retrieve current firmware version
     currentVersion=`dmcli eRT getvalues Device.DeviceInfo.X_CISCO_COM_FirmwareName | grep TG1682 | cut -d ":" -f 3 | tr -d ' '`
 
@@ -84,6 +86,7 @@ getFirmwareUpgDetail()
     # If an /etc/Xconf file was not created, use the default values
     if [ ! -f /etc/Xconf ]; then
         echo "XCONF SCRIPT : ERROR : /etc/Xconf file not found! Using defaults"
+        echo "XCONF SCRIPT : ERROR : /etc/Xconf file not found! Using defaults" >> /etc/Xcong.log
         env="PROD"
         xconf_url="https://xconf.xcal.tv/xconf/swu/stb/"
     fi
@@ -94,12 +97,10 @@ getFirmwareUpgDetail()
     # Check with the XCONF server if an update is available 
     while [ $xconf_retry_count -le 3 ] && [ $retry_flag -eq 1 ]
     do
-        echo RETRY is $xconf_retry_count and RETRY_FLAG is $retry_flag
+
         echo "**RETRY is $xconf_retry_count and RETRY_FLAG is $retry_flag**" >> /etc/Xconf.log
         
-        # White list the Xconf server url and if
-        # an /etc/Xconf file was not created, 
-        # use the default values
+        # White list the Xconf server url
         echo "XCONF SCRIPT : Whitelisting Xconf Server url : $xconf_url"
         echo "XCONF SCRIPT : Whitelisting Xconf Server url : $xconf_url" >> /etc/Xconf.log
         /etc/whitelist.sh "$xconf_url"
@@ -139,8 +140,8 @@ getFirmwareUpgDetail()
                 echo "XCONF SCRIPT : Download image from HTTP server"
                 firmwareLocation=`head -1 /tmp/response.txt | cut -d "," -f3 | cut -d ":" -f2- | cut -d '"' -f2`
             else
-                echo "XCONF SCRIPT : Download from TFTP server not suported, check XCONF server configurations"
-                echo "XCONF SCRIPT : Retrying query in 2 mintues"
+                echo "XCONF SCRIPT : Download from TFTP server not supported, check XCONF server configurations"
+                echo "XCONF SCRIPT : Retrying query in 2 minutes"
                 
                 # sleep for 2 minutes and retry
                 sleep 120;
@@ -152,7 +153,6 @@ getFirmwareUpgDetail()
                 xconf_retry_count=$((xconf_retry_count+1))
 
                 continue
-                #firmwareLocation=`head -1 /tmp/response.txt | cut -d "," -f3 | cut -d ":" -f2 | cut -d '"' -f2`    
             fi
 
     	    firmwareFilename=`head -1 /tmp/response.txt | cut -d "," -f2 | cut -d ":" -f2 | cut -d '"' -f2`
@@ -222,7 +222,6 @@ calcRandTime()
     rand_min=0
     rand_sec=0
 
-    
     # Calculate random min
     rand_min=`awk -v min=0 -v max=59 -v seed="$(date +%N)" 'BEGIN{srand(seed);print int(min+rand()*(max-min+1))}'`
 
@@ -254,7 +253,6 @@ calcRandTime()
 
         echo "Checking update on $date_upgch_final" >> /etc/Xconf.log
 
-
     fi
 
     #
@@ -283,7 +281,12 @@ calcRandTime()
         cur_sec=`date +"%S"`
 
         # Time to maintenance window
-        start_hr=`expr 23 - ${cur_hr} + 1`
+        if [ $cur_hr -eq 0 ];then
+            start_hr=0
+        else
+            start_hr=`expr 23 - ${cur_hr} + 1`
+        fi
+
         start_min=`expr 59 - ${cur_min}`
         start_sec=`expr 59 - ${cur_sec}`
 
@@ -314,7 +317,7 @@ calcRandTime()
 
     echo "XCONF SCRIPT : SLEEPING FOR $min_to_sleep minutes or $sec_to_sleep seconds"
     
-    #echo "XCONF SCRIPT : SPIN 15 : sleeping for 30 sec, *******TEST BUILD***********"
+    #echo "XCONF SCRIPT : SPIN 17 : sleeping for 30 sec, *******TEST BUILD***********"
     #sec_to_sleep=30
 
     sleep $sec_to_sleep
@@ -329,7 +332,7 @@ getMacAddress()
 
 getBuildType()
 {
-   IMAGENAME=`cat /fss/gw/version.txt | grep ^imagename= | cut -d "=" -f 2`
+   IMAGENAME=`cat /fss/gw/version.txt | grep imagename= | cut -d "=" -f 2`
 
    TEMPDEV=`echo $IMAGENAME | grep DEV`
    if [ "$TEMPDEV" != "" ]
@@ -383,7 +386,7 @@ estbIp6=`ifconfig $interface | grep "inet6 addr" | grep "Global" | tr -s " " | c
 
 while [ "$estbIp" = "" ] && [ "$estbIp6" = "" ]
 do
-    sleep 1
+    sleep 5
 
     estbIp=`ifconfig $interface | grep "inet addr" | tr -s " " | cut -d ":" -f2 | cut -d " " -f1`
     estbIp6=`ifconfig $interface | grep "inet6 addr" | grep "Global" | tr -s " " | cut -d ":" -f2- | cut -d "/" -f1 | tr -d " "`
@@ -415,7 +418,7 @@ while [ $download_image_success -eq 0 ];
 do
     # If an image wasn't available, check it's 
     # availability at a random time,every 24 hrs
-    while  [ $image_upg_avl = 0 ];
+    while  [ $image_upg_avl -eq 0 ];
     do
         echo "XCONF SCRIPT : Rechecking image availability within 24 hrs" 
         echo "XCONF SCRIPT : Rechecking image availability within 24 hrs" >> /etc/Xconf.log
@@ -444,7 +447,7 @@ do
         echo "XCONF SCRIPT : dnsmasq process  started!!"
         echo "XCONF SCRIPT : dnsmasq process  started!!" >> /etc/Xconf.log
     
-        # Whitelist the returned firmrware location
+        # Whitelist the returned firmware location
         echo "XCONF SCRIPT : Whitelisting download location : $firmwareLocation"
         echo "XCONF SCRIPT : Whitelisting download location : $firmwareLocation" >> /etc/Xconf.log
         /etc/whitelist.sh "$firmwareLocation"
@@ -463,14 +466,36 @@ do
             # else download the image immediately
 
             if [ $rebootImmediately == "false" ];then
-                echo "XCONF SCRIPT : Reboot Immediately : FALSE. Downloading image in maintenance window"
-                echo "XCONF SCRIPT : Reboot Immediately : FALSE. Downloading image in maintenance window" >> /etc/Xconf.log
-       	        # Determine a time in the maintenance window 
-       	        # and initiate the download
-	            calcRandTime 0 1 h
+                
+                # Initialize the download flag    
+                download_now=0
+
+                # If we are within the maintenance window,download the image NOW,
+                # WITHOUT calculating a download time in the next window
+                dl_hr=`date +"%H"`
+
+                if [ $dl_hr -le 4 ] && [ $dl_hr -ge 1 ];then
+                    # We're still within the reboot window
+                    download_now=1
+                fi
+                
+                # Calculate a downlaod time in maint window only when
+                # download_now is 0
+                if [ $download_now -eq 0 ];then
+                    echo "XCONF SCRIPT : Reboot Immediately : FALSE. Calculating time & downloading image in maintenance window"
+                    echo "XCONF SCRIPT : Reboot Immediately : FALSE. Calculating time & downloading image in maintenance window" >> /etc/Xconf.log
+       	            # Determine a time in the maintenance window 
+       	            # and initiate the download
+	                calcRandTime 0 1 h
+                else
+                    echo "XCONF SCRIPT : Reboot Immediately : FALSE. Within maintenance window , downloading image now"
+                    echo "XCONF SCRIPT : Reboot Immediately : FALSE. Within maintenance window , downloading image now" >> /etc/Xconf.log
+                    echo "XCONF SCRIPT : Reboot Immediately : FALSE. Sleep to prevent gw refresh error"
+                    sleep 60
+                fi
 
             else
-                echo "XCONF SCRIPT : Reboot Immediately : TRUE . Sleep to prevent gw refresh"
+                echo "XCONF SCRIPT : Reboot Immediately : TRUE. Sleep to prevent gw refresh"
                 sleep 60
                 echo  "XCONF SCRIPT : Reboot Immediately : TRUE : Downloading image now"
                 echo  "XCONF SCRIPT : Reboot Immediately : TRUE : Downloading image now" >> /etc/Xconf.log
@@ -525,10 +550,8 @@ while [ $reboot_device_success -eq 0 ]; do
 
         # Check if still within reboot window
         reb_hr=`date +"%H"`
-        reb_min=`date +"%M"`
-        reb_sec=`date +"%S"`
 
-        if [ $reb_hr -le 4 ] && [ $reb_min -le 59 ] && [ $reb_sec -le 59 ];then
+        if [ $reb_hr -le 4 ] && [ $reb_hr -ge 1 ]; then
             echo "XCONF SCRIPT : Still within current maintenance window for reboot"
             echo "XCONF SCRIPT : Still within current maintenance window for reboot" >> /etc/Xconf.log
             reboot_now=1    
