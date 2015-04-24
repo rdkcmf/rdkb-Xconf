@@ -27,7 +27,7 @@ CFLAGS += $(addprefix -I, $(INCPATH))
 
 
 LDFLAGS += -lccsp_common
-
+LDFLAGS += -L$(CCSP_INSTALL_ROOT)/lib -lhal_cm
 #
 #	Xconf 
 #
