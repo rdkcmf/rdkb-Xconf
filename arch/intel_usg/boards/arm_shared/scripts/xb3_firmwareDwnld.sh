@@ -1,5 +1,10 @@
 #!/bin/sh
 
+XCONF_LOG_PATH=/var/tmp/logs
+XCONF_LOG_FILE_NAME=xconf.txt.0
+XCONF_LOG_FILE_PATHNAME=${XCONF_LOG_PATH}/${XCONF_LOG_FILE_NAME}
+XCONF_LOG_FILE=${XCONF_LOG_FILE_PATHNAME}
+
 CURL_PATH=/fss/gw
 interface=erouter0
 BIN_PATH=/fss/gw/usr/ccsp
@@ -17,8 +22,8 @@ checkFirmwareUpgCriteria()
     echo "XCONF SCRIPT : CurrentVersion : $currentVersion"
     echo "XCONF SCRIPT : UpgradeVersion : $firmwareVersion"
 
-    echo "XCONF SCRIPT : CurrentVersion : $currentVersion" >> /etc/Xconf.log
-    echo "XCONF SCRIPT : UpgradeVersion : $firmwareVersion" >> /etc/Xconf.log
+    echo "XCONF SCRIPT : CurrentVersion : $currentVersion" >> $XCONF_LOG_FILE
+    echo "XCONF SCRIPT : UpgradeVersion : $firmwareVersion" >> $XCONF_LOG_FILE
 
     # Parse current firmware version
     cur_num=`echo $currentVersion | cut -d "_" -f 2`
@@ -62,7 +67,7 @@ checkFirmwareUpgCriteria()
     fi
 
     echo "XCONF SCRIPT : Image available is $image_upg_avl" 
-    echo "XCONF SCRIPT : Image available is $image_upg_avl" >> /etc/Xconf.log
+    echo "XCONF SCRIPT : Image available is $image_upg_avl" >> $XCONF_LOG_FILE
 
     
 }
@@ -86,7 +91,7 @@ getFirmwareUpgDetail()
     # If an /etc/Xconf file was not created, use the default values
     if [ ! -f /etc/Xconf ]; then
         echo "XCONF SCRIPT : ERROR : /etc/Xconf file not found! Using defaults"
-        echo "XCONF SCRIPT : ERROR : /etc/Xconf file not found! Using defaults" >> /etc/Xcong.log
+        echo "XCONF SCRIPT : ERROR : /etc/Xconf file not found! Using defaults" >> $XCONF_LOG_FILE
         env="PROD"
         xconf_url="https://xconf.xcal.tv/xconf/swu/stb/"
     fi
@@ -98,11 +103,11 @@ getFirmwareUpgDetail()
     while [ $xconf_retry_count -le 3 ] && [ $retry_flag -eq 1 ]
     do
 
-        echo "**RETRY is $xconf_retry_count and RETRY_FLAG is $retry_flag**" >> /etc/Xconf.log
+        echo "**RETRY is $xconf_retry_count and RETRY_FLAG is $retry_flag**" >> $XCONF_LOG_FILE
         
         # White list the Xconf server url
         echo "XCONF SCRIPT : Whitelisting Xconf Server url : $xconf_url"
-        echo "XCONF SCRIPT : Whitelisting Xconf Server url : $xconf_url" >> /etc/Xconf.log
+        echo "XCONF SCRIPT : Whitelisting Xconf Server url : $xconf_url" >> $XCONF_LOG_FILE
         /etc/whitelist.sh "$xconf_url"
         
 	    # Perform cleanup by deleting any previous responses
@@ -130,7 +135,7 @@ getFirmwareUpgDetail()
         echo "XCONF SCRIPT : HTTP RESPONSE CODE is" $HTTP_RESPONSE_CODE
         # Print the response
         cat /tmp/response.txt
-        cat "/tmp/response.txt" >> /etc/Xconf.log
+        cat "/tmp/response.txt" >> $XCONF_LOG_FILE
 
 	    if [ $HTTP_RESPONSE_CODE -eq 200 ];then
 		    retry_flag=0
@@ -234,7 +239,7 @@ calcRandTime()
     if [ $1 -eq '1' ]; then
         
         echo "XCONF SCRIPT : Check Update time being calculated within 24 hrs."
-        echo "XCONF SCRIPT : Check Update time being calculated within 24 hrs." >> /etc/Xconf.log
+        echo "XCONF SCRIPT : Check Update time being calculated within 24 hrs." >> $XCONF_LOG_FILE
 
         # Calculate random hour
         # The max random time can be 23:59:59
@@ -251,7 +256,7 @@ calcRandTime()
         date_upgch_part="$(( `date +%s`+$sec_to_sleep ))"
         date_upgch_final=`date -D '%s' -d "$date_upgch_part"`
 
-        echo "Checking update on $date_upgch_final" >> /etc/Xconf.log
+        echo "Checking update on $date_upgch_final" >> $XCONF_LOG_FILE
 
     fi
 
@@ -262,12 +267,12 @@ calcRandTime()
     if [ $2 -eq '1' ]; then
        
         if [ $3 == "h" ]; then
-            echo "XCONF SCRIPT : Http download time being calculated in maintenance window"
-            echo "XCONF SCRIPT : Http download time being calculated in maintenance window" >> /etc/Xconf.log
+            echo "XCONF SCRIPT : Http download time being calculated"
+            echo "XCONF SCRIPT : Http download time being calculated" >> $XCONF_LOG_FILE
             
         else
             echo "XCONF SCRIPT : Device reboot time being calculated in maintenance window"
-            echo "XCONF SCRIPT : Device reboot time being calculated in maintenance window" >> /etc/Xconf.log
+            echo "XCONF SCRIPT : Device reboot time being calculated in maintenance window" >> $XCONF_LOG_FILE
         fi 
                  
         # Calculate random hour
@@ -297,11 +302,16 @@ calcRandTime()
         date -D '%s' -d "$(( `date +%s`+$(($min_wait*60 + $start_sec)) ))"
 
         # TIME TO START OF HTTP_DL/REBOOT_DEV
+
         total_hr=$(($start_hr + $rand_hr))
         total_min=$(($start_min + $rand_min))
         total_sec=$(($start_sec + $rand_sec))
-
-        min_to_sleep=$(($total_hr*60 + $total_min))
+        if [ $3 == "h" ]; then
+            dnld_total_hr=`awk -v min=0 -v max=$(($total_hr)) -v seed="$(date +%N)" 'BEGIN{srand(seed);print int(min+rand()*(max-min+1))}'`
+            min_to_sleep=$(($dnld_total_hr*60 + $total_min))
+        else
+            min_to_sleep=$(($total_hr*60 + $total_min))
+        fi 
         sec_to_sleep=$(($min_to_sleep*60 + $total_sec))
 
         printf "XCONF SCRIPT : Action will be performed on ";
@@ -311,7 +321,7 @@ calcRandTime()
         date_part="$(( `date +%s`+$sec_to_sleep ))"
         date_final=`date -D '%s' -d "$date_part"`
 
-        echo "Action on $date_final" >> /etc/Xconf.log
+        echo "Action on $date_final" >> $XCONF_LOG_FILE
 
     fi
 
@@ -359,12 +369,21 @@ getBuildType()
    fi
 }
 
+ 
+removeLegacyResources()
+{
+	#moved Xconf logging to /var/tmp/xconf.txt.0
+	rm /etc/Xconf.log
+	echo "XCONF SCRIPT : Done Cleanup"
+	echo "XCONF SCRIPT : Done Cleanup" >> $XCONF_LOG_FILE
+}
 
 #####################################################Main Application#####################################################
 
 # Determine the env type and url and write to /etc/Xconf
 #type=`printenv model | cut -d "=" -f2`
 
+removeLegacyResources
 getBuildType
 
 echo XCONF SCRIPT : MODEL IS $type
@@ -378,7 +397,7 @@ fi
 #s16 echo "$type=$url" > /etc/Xconf
 echo "URL=$url" > /etc/Xconf
 echo "XCONF SCRIPT : Values written to /etc/Xconf are URL=$url"
-echo "XCONF SCRIPT : Values written to /etc/Xconf are URL=$url" >> /etc/Xconf.log
+echo "XCONF SCRIPT : Values written to /etc/Xconf are URL=$url" >> $XCONF_LOG_FILE
 
 # Check if the WAN interface has an ip address, if not , wait for it to receive one
 estbIp=`ifconfig $interface | grep "inet addr" | tr -s " " | cut -d ":" -f2 | cut -d " " -f1`
@@ -401,7 +420,7 @@ echo "XCONF SCRIPT : $interface has an ipv4 address of $estbIp or an ipv6 addres
     ######################
 
 # Check if new image is available
-echo "XCONF SCRIPT : Checking image availability at boot up" >> /etc/Xconf.log	
+echo "XCONF SCRIPT : Checking image availability at boot up" >> $XCONF_LOG_FILE	
 getFirmwareUpgDetail
 
 if [ $rebootImmediately == "true" ];then
@@ -421,7 +440,7 @@ do
     while  [ $image_upg_avl -eq 0 ];
     do
         echo "XCONF SCRIPT : Rechecking image availability within 24 hrs" 
-        echo "XCONF SCRIPT : Rechecking image availability within 24 hrs" >> /etc/Xconf.log
+        echo "XCONF SCRIPT : Rechecking image availability within 24 hrs" >> $XCONF_LOG_FILE
 
         # Sleep for a random time less than 
         # a 24 hour duration 
@@ -440,21 +459,21 @@ do
         do
             sleep 10
             echo "XCONF SCRIPT : Waiting for dnsmasq process to start"
-            echo "XCONF SCRIPT : Waiting for dnsmasq process to start" >> /etc/Xconf.log
+            echo "XCONF SCRIPT : Waiting for dnsmasq process to start" >> $XCONF_LOG_FILE
             DNSMASQ_PID=`pidof dnsmasq`
         done
 
         echo "XCONF SCRIPT : dnsmasq process  started!!"
-        echo "XCONF SCRIPT : dnsmasq process  started!!" >> /etc/Xconf.log
+        echo "XCONF SCRIPT : dnsmasq process  started!!" >> $XCONF_LOG_FILE
     
         # Whitelist the returned firmware location
         echo "XCONF SCRIPT : Whitelisting download location : $firmwareLocation"
-        echo "XCONF SCRIPT : Whitelisting download location : $firmwareLocation" >> /etc/Xconf.log
+        echo "XCONF SCRIPT : Whitelisting download location : $firmwareLocation" >> $XCONF_LOG_FILE
         /etc/whitelist.sh "$firmwareLocation"
 
         # Set the url and filename
         echo "XCONF SCRIPT : URL --- $firmwareLocation and NAME --- $firmwareFilename"
-        echo "XCONF SCRIPT : URL --- $firmwareLocation and NAME --- $firmwareFilename" >> /etc/Xconf.log
+        echo "XCONF SCRIPT : URL --- $firmwareLocation and NAME --- $firmwareFilename" >> $XCONF_LOG_FILE
         $BIN_PATH/XconfHttpDl set_http_url $firmwareLocation $firmwareFilename
         set_url_stat=$?
         
@@ -483,13 +502,13 @@ do
                 # download_now is 0
                 if [ $download_now -eq 0 ];then
                     echo "XCONF SCRIPT : Reboot Immediately : FALSE. Calculating time & downloading image in maintenance window"
-                    echo "XCONF SCRIPT : Reboot Immediately : FALSE. Calculating time & downloading image in maintenance window" >> /etc/Xconf.log
+                    echo "XCONF SCRIPT : Reboot Immediately : FALSE. Calculating time & downloading image in maintenance window" >> $XCONF_LOG_FILE
        	            # Determine a time in the maintenance window 
        	            # and initiate the download
 	                calcRandTime 0 1 h
                 else
                     echo "XCONF SCRIPT : Reboot Immediately : FALSE. Within maintenance window , downloading image now"
-                    echo "XCONF SCRIPT : Reboot Immediately : FALSE. Within maintenance window , downloading image now" >> /etc/Xconf.log
+                    echo "XCONF SCRIPT : Reboot Immediately : FALSE. Within maintenance window , downloading image now" >> $XCONF_LOG_FILE
                     echo "XCONF SCRIPT : Reboot Immediately : FALSE. Sleep to prevent gw refresh error"
                     sleep 60
                 fi
@@ -498,25 +517,25 @@ do
                 echo "XCONF SCRIPT : Reboot Immediately : TRUE. Sleep to prevent gw refresh"
                 sleep 60
                 echo  "XCONF SCRIPT : Reboot Immediately : TRUE : Downloading image now"
-                echo  "XCONF SCRIPT : Reboot Immediately : TRUE : Downloading image now" >> /etc/Xconf.log
+                echo  "XCONF SCRIPT : Reboot Immediately : TRUE : Downloading image now" >> $XCONF_LOG_FILE
             fi
 
 	        # Start the image download
 	        $BIN_PATH/XconfHttpDl http_download
 	        http_dl_stat=$?
 	        echo "XCONF SCRIPT : HTTP DL STATUS $http_dl_stat"
-	        echo "**XCONF SCRIPT : HTTP DL STATUS $http_dl_stat**" >> /etc/Xconf.log
+	        echo "**XCONF SCRIPT : HTTP DL STATUS $http_dl_stat**" >> $XCONF_LOG_FILE
 			
 	        # If the http_dl_stat is 0, the download was succesful,          
             # Indicate a succesful download and continue to the reboot manager
 		
             if [ $http_dl_stat -eq 0 ];then
-                echo "XCONF SCRIPT : HTTP download Successful" >> /etc/Xconf.log
+                echo "XCONF SCRIPT : HTTP download Successful" >> $XCONF_LOG_FILE
                 # Indicate succesful download
                 download_image_success=1
             else
                 # Indicate an unsuccesful download
-                echo "XCONF SCRIPT : HTTP download NOT Successful" >> /etc/Xconf.log
+                echo "XCONF SCRIPT : HTTP download NOT Successful" >> $XCONF_LOG_FILE
                 download_image_success=0
                 # Set the flag to 0 to force a requery
                 image_upg_avl=0
@@ -524,7 +543,7 @@ do
 
         else
             echo "XCONF SCRIPT : ERROR : URL & Filename not set correctly.Requerying "
-            echo "XCONF SCRIPT : ERROR : URL & Filename not set correctly.Requerying " >> /etc/Xconf.log
+            echo "XCONF SCRIPT : ERROR : URL & Filename not set correctly.Requerying " >> $XCONF_LOG_FILE
             # Indicate an unsuccesful download
             download_image_success=0
             # Set the flag to 0 to force a requery
@@ -553,11 +572,11 @@ while [ $reboot_device_success -eq 0 ]; do
 
         if [ $reb_hr -le 4 ] && [ $reb_hr -ge 1 ]; then
             echo "XCONF SCRIPT : Still within current maintenance window for reboot"
-            echo "XCONF SCRIPT : Still within current maintenance window for reboot" >> /etc/Xconf.log
+            echo "XCONF SCRIPT : Still within current maintenance window for reboot" >> $XCONF_LOG_FILE
             reboot_now=1    
         else
             echo "XCONF SCRIPT : Not within current maintenance window for reboot.Rebooting in  the next "
-            echo "XCONF SCRIPT : Not within current maintenance window for reboot.Rebooting in  the next " >> /etc/Xconf.log
+            echo "XCONF SCRIPT : Not within current maintenance window for reboot.Rebooting in  the next " >> $XCONF_LOG_FILE
             reboot_now=0
         fi
 
@@ -600,7 +619,7 @@ while [ $reboot_device_success -eq 0 ]; do
                             
     fi 
                     
-    echo "XCONF SCRIPT : http_reboot_ready_stat is $http_reboot_ready_stat" >> /etc/Xconf.log
+    echo "XCONF SCRIPT : http_reboot_ready_stat is $http_reboot_ready_stat" >> $XCONF_LOG_FILE
 
     # The reboot ready status changed to OK within the maintenance window,proceed
     if [ $http_reboot_ready_stat -eq 0 ];then
