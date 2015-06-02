@@ -363,10 +363,13 @@ getBuildType()
    fi
 
    TEMPCQA=`echo $IMAGENAME | grep CQA`
-   if [ "$TEMPPROD" != "" ]
+   if [ "$TEMPCQA" != "" ]
    then
        type="GSLB"
    fi
+   
+   echo "XCONF SCRIPT : image_type is $type"
+   echo "XCONF SCRIPT : image_type is $type" >> $XCONF_LOG_FILE
 }
 
  
