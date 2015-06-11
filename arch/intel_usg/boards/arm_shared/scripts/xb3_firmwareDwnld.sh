@@ -392,7 +392,8 @@ getBuildType
 echo XCONF SCRIPT : MODEL IS $type
 
 if [ $type == "DEV" ] || [ $type == "dev" ];then
-    url="https://xconf.poa.xcal.tv/xconf/swu/stb/"
+    #url="https://xconf.poa.xcal.tv/xconf/swu/stb/"
+    url="http://69.252.111.22/xconf/swu/stb/"
 else
     url="https://xconf.xcal.tv/xconf/swu/stb/"
 fi
@@ -472,6 +473,7 @@ do
         # Whitelist the returned firmware location
         echo "XCONF SCRIPT : Whitelisting download location : $firmwareLocation"
         echo "XCONF SCRIPT : Whitelisting download location : $firmwareLocation" >> $XCONF_LOG_FILE
+        echo "$firmwareLocation" > /tmp/xconfdownloadurl
         /etc/whitelist.sh "$firmwareLocation"
 
         # Set the url and filename
