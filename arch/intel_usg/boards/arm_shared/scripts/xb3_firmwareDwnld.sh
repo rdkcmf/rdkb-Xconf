@@ -12,6 +12,37 @@ BIN_PATH=/fss/gw/usr/ccsp
 #GLOBAL DECLARATIONS
 image_upg_avl=0
 
+
+#
+# release numbering system rules
+#
+
+# 5 part release numbering scheme where the five parts consisted of 
+#+ "Major Rev"."Minor Rev"."Internal Rev". "Patch Level"."SPIN".
+
+# 1.Major  Rev and Minor Rev will follow the matching RDKB version.
+# 2.Any field which formerly contained  a zero (except for "Minor Rev") will be suppressed in the build number as well as the preceding "."
+# 3.The "Spin" field will be  preceded by  "s"  for spin,  rather than a ".'  ie s4
+# 4.The Spin field is always in the range of 1-x; Since it is  never 0, this field is always present.
+# 5.The "Patch Level" field will be preceded by  "p" (lower case)  for patch rather than a "." . ie p2
+# 6.The patch level field is in the range of 0-x.  If the patch level value is zero, the entire field will be suppressed including the leading "p". 
+# 7."Internal Rev" can be in the range of 0-x, When the value of Internal Rev is 0, it will be suppressed, including the preceding "."
+# 8.Initial State: We will be reverting the Internal Rev to Zero. This will allow us to suppress the field initially
+# 9. The "Patch level" filed if present will always preceed "Spin" field.
+
+# example build release numbers
+# 1.22s55555                    spin_on_minor           3
+# 1.22p4444s55555               spin_on_patch           1
+# 1.22.333s55555                spin_on_internal        2
+# 1.22.333p4444s55555           spin_on_patch           3
+# 
+
+# param1 : cur_rel_num param2 : upg_rel_num
+# assumption : 
+#       cur and upg firmware version are validated against release numbering system rules
+#       no assumption is made about the length of the fields
+# spin_on : 1 spin_on_patch 2 spin_on_internal 3 spin_on_minor
+
 checkFirmwareUpgCriteria()
 {
     image_upg_avl=0;
@@ -25,51 +56,186 @@ checkFirmwareUpgCriteria()
     echo "XCONF SCRIPT : CurrentVersion : $currentVersion" >> $XCONF_LOG_FILE
     echo "XCONF SCRIPT : UpgradeVersion : $firmwareVersion" >> $XCONF_LOG_FILE
 
-    # Parse current firmware version
-    cur_num=`echo $currentVersion | cut -d "_" -f 2`
-    cur_major=`echo $cur_num | cut -d "." -f 1`
-    cur_minor1=`echo $cur_num| cut -d "." -f 2 | cut -d "s" -f 1`
-    cur_minor2=`echo $cur_num| cut -d "." -f 2 | cut -d "s" -f 2`
+    cur_rel_num=`echo $currentVersion | cut -d "_" -f 2`
+    upg_rel_num=`echo $firmwareVersion | cut -d "_" -f 2`
 
-    # Parse upgrade firmware version 
-    upg_num=`echo $firmwareVersion | cut -d "_" -f 2`
-    upg_major=`echo $upg_num | cut -d "." -f 1`
-    upg_minor1=`echo $upg_num| cut -d "." -f 2 | cut -d "s" -f 1`
-    upg_minor2=`echo $upg_num| cut -d "." -f 2 | cut -d "s" -f 2`
+    cur_major_rev=0
+    cur_minor_rev=0
+    cur_internal_rev=0
+    cur_patch_level=0
+    cur_spin=1
+    cur_spin_on=0
 
-    if [ $upg_major -gt $cur_major ];then
-        image_upg_avl=1;
+    upg_major_rev=0
+    upg_minor_rev=0
+    upg_internal_rev=0
+    upg_patch_level=0
+    upg_spin=1
+    upg_spin_on=0
 
-    elif [ $upg_major -lt $cur_major ];then
-        image_upg_avl=0
+    #
+    # Parse and normalize current firmware version
+    #
 
-    elif [ $upg_major -eq $cur_major ];then
-        echo "XCONF SCRIPT : Current and upgrade firmware major versions equal,"
+    # major
+    cur_major_rev=`echo $cur_rel_num | cut -d "." -f 1`
 
-        if [ $upg_minor1 -gt $cur_minor1 ];then
-            image_upg_avl=1
+    # minor
+    cur_first_dot_length=`expr match "${cur_rel_num}" '[0-9]*\.'`
+    cur_second_dot_or_p_or_s_length=`expr match "${cur_rel_num}" '[0-9]*\.[0-9]*[\.,p,s]'`
+    length=${cur_second_dot_or_p_or_s_length}
+    length=$((length-$cur_first_dot_length))
+    length=$((length-1))
+    cur_minor_rev=${cur_rel_num:$cur_first_dot_length:$length}
 
-        elif [ $upg_minor1 -lt $cur_minor1 ];then
-            image_upg_avl=0
-
-        elif [ $upg_minor1 -eq $cur_minor1 ];then
-            echo "XCONF SCRIPT : Current and upgrade minor1 versions equal"
-
-            if [ $upg_minor2 -gt $cur_minor2 ];then
-                image_upg_avl=1
-
-            elif [ $upg_minor2 -le $cur_minor2 ];then
-                echo "XCONF SCRIPT : Current and upgrade  minor2 versions equal/less"
-                image_upg_avl=0
-
-            fi
-        fi
+    # internal
+    cur_second_dot_length=`expr match "${cur_rel_num}" '[0-9]*\.[0-9]*[\.]'`
+    #echo "XCONF SCRIPT : cur_second_dot_length=$cur_second_dot_length"
+    if [ $cur_second_dot_length -eq 0 ]; then
+        cur_internal_rev=0
+    else
+        cur_p_or_s_length=`expr match "${cur_rel_num}" '[0-9]*\.[0-9]*\.[0-9]*[p,s]'`
+        #echo "XCONF SCRIPT : cur_p_or_s_length=$cur_p_or_s_length"
+        length=${cur_p_or_s_length}
+        length=$((length-$cur_second_dot_length))
+        length=$((length-1))
+        cur_internal_rev=${cur_rel_num:$cur_second_dot_length:$length}
     fi
 
-    echo "XCONF SCRIPT : Image available is $image_upg_avl" 
-    echo "XCONF SCRIPT : Image available is $image_upg_avl" >> $XCONF_LOG_FILE
+    # patch
+    cur_s_npos=`expr index "${cur_rel_num}" s`
+    cur_p_npos=`expr index "${cur_rel_num}" p`
+    if [ $cur_p_npos -eq 0 ]; then
+        cur_patch_level=0
+    else
+        length=${cur_s_npos}
+        length=$((length-$cur_p_npos))
+        length=$((length-1))
+        cur_patch_level=${cur_rel_num:$cur_p_npos:$length}
+    fi
 
+    # spin
+    length=${cur_s_npos}
+    cur_spin=${cur_rel_num:$length}
+
+    if [ $cur_patch_level -ne 0 ];then
+        cur_spin_on=1;
+    elif [ $cur_internal_rev -ne 0 ];then
+        cur_spin_on=2;
+    else
+        cur_spin_on=3;
+    fi
     
+    #
+    # Parse and normalize upgrade firmware version
+    # 
+
+    # major
+    upg_major_rev=`echo $upg_rel_num | cut -d "." -f 1`
+
+    # minor
+    upg_first_dot_length=`expr match "${upg_rel_num}" '[0-9]*\.'`
+    upg_second_dot_or_p_or_s_length=`expr match "${upg_rel_num}" '[0-9]*\.[0-9]*[\.,p,s]'`
+    length=${upg_second_dot_or_p_or_s_length}
+    length=$((length-$upg_first_dot_length))
+    length=$((length-1))
+    upg_minor_rev=${upg_rel_num:$upg_first_dot_length:$length}
+
+    # internal
+    upg_second_dot_length=`expr match "${upg_rel_num}" '[0-9]*\.[0-9]*[\.]'`
+    #echo "XCONF SCRIPT : upg_second_dot_length=$upg_second_dot_length"
+    if [ $upg_second_dot_length -eq 0 ]; then
+        upg_internal_rev=0
+    else
+        upg_p_or_s_length=`expr match "${upg_rel_num}" '[0-9]*\.[0-9]*\.[0-9]*[p,s]'`
+        #echo "XCONF SCRIPT : upg_p_or_s_length=$upg_p_or_s_length"
+        length=${upg_p_or_s_length}
+        length=$((length-$upg_second_dot_length))
+        length=$((length-1))
+        upg_internal_rev=${upg_rel_num:$upg_second_dot_length:$length}
+    fi
+
+    # patch
+    upg_s_npos=`expr index "${upg_rel_num}" s`
+    upg_p_npos=`expr index "${upg_rel_num}" p`
+    if [ $upg_p_npos -eq 0 ]; then
+        upg_patch_level=0
+    else
+        length=${upg_s_npos}
+        length=$((length-$upg_p_npos))
+        length=$((length-1))
+        upg_patch_level=${upg_rel_num:$upg_p_npos:$length}
+    fi
+
+    # spin
+    length=${upg_s_npos}
+    upg_spin=${upg_rel_num:$length}
+
+    if [ $upg_patch_level -ne 0 ];then
+        upg_spin_on=1;
+    elif [ $upg_internal_rev -ne 0 ];then
+        upg_spin_on=2;
+    else
+        upg_spin_on=3;
+    fi
+
+        if [ $upg_major_rev -gt $cur_major_rev ];then
+            image_upg_avl=1;
+
+        elif [ $upg_major_rev -lt $cur_major_rev ];then
+            image_upg_avl=0
+
+        elif [ $upg_major_rev -eq $cur_major_rev ];then
+            echo "XCONF SCRIPT : Current and upgrade firmware major versions equal,"
+
+            if [ $upg_minor_rev -gt $cur_minor_rev ];then
+                image_upg_avl=1
+
+            elif [ $upg_minor_rev -lt $cur_minor_rev ];then
+                image_upg_avl=0
+
+            elif [ $upg_minor_rev -eq $cur_minor_rev ];then
+                echo "XCONF SCRIPT : Current and upgrade minor versions equal"
+
+                if [ $upg_internal_rev -gt $cur_internal_rev ];then
+                    image_upg_avl=1;
+
+                elif [ $upg_internal_rev -lt $cur_internal_rev ];then
+                    image_upg_avl=0
+
+                elif [ $upg_internal_rev -eq $cur_internal_rev ];then
+                    echo "XCONF SCRIPT : Current and upgrade firmware internal versions equal,"
+
+                    if [ $upg_patch_level -gt $cur_patch_level ];then
+                        image_upg_avl=1;
+
+                    elif [ $upg_patch_level -lt $cur_patch_level ];then
+                        image_upg_avl=0
+
+                    elif [ $upg_patch_level -eq $cur_patch_level ];then
+                        echo "XCONF SCRIPT : Current and upgrade firmware patch versions equal,"
+
+                        if [ $upg_spin -gt $cur_spin ];then
+                            image_upg_avl=1
+
+                        elif [ $upg_spin -le $cur_spin ];then
+                            echo "XCONF SCRIPT : Current and upgrade  spin versions equal/less"
+                            image_upg_avl=0
+                        fi
+                    fi
+                fi
+            fi
+        fi
+
+    echo "XCONF SCRIPT : current --> [$cur_major_rev , $cur_minor_rev , $cur_internal_rev , $cur_patch_level , $cur_spin , $cur_spin_on , $cur_p_npos , $cur_s_npos]" 
+    echo "XCONF SCRIPT : current --> [$cur_major_rev , $cur_minor_rev , $cur_internal_rev , $cur_patch_level , $cur_spin , $cur_spin_on , $cur_p_npos , $cur_s_npos]" >> $XCONF_LOG_FILE
+
+    echo "XCONF SCRIPT : upgrade --> [$upg_major_rev , $upg_minor_rev , $upg_internal_rev , $upg_patch_level , $upg_spin , $upg_spin_on , $upg_p_npos , $upg_s_npos]" 
+    echo "XCONF SCRIPT : upgrade --> [$upg_major_rev , $upg_minor_rev , $upg_internal_rev , $upg_patch_level , $upg_spin , $upg_spin_on , $upg_p_npos , $upg_s_npos]" >> $XCONF_LOG_FILE
+
+    echo "XCONF SCRIPT : [$image_upg_avl] $cur_rel_num --> $upg_rel_num"
+    echo "XCONF SCRIPT : [$image_upg_avl] $cur_rel_num --> $upg_rel_num" >> $XCONF_LOG_FILE
+
 }
 
 # Check if a new image is available on the XCONF server
@@ -266,11 +432,7 @@ calcRandTime()
     #
     if [ $2 -eq '1' ]; then
        
-        if [ $3 == "h" ]; then
-            echo "XCONF SCRIPT : Http download time being calculated"
-            echo "XCONF SCRIPT : Http download time being calculated" >> $XCONF_LOG_FILE
-            
-        else
+        if [ $3 == "r" ]; then
             echo "XCONF SCRIPT : Device reboot time being calculated in maintenance window"
             echo "XCONF SCRIPT : Device reboot time being calculated in maintenance window" >> $XCONF_LOG_FILE
         fi 
@@ -306,12 +468,8 @@ calcRandTime()
         total_hr=$(($start_hr + $rand_hr))
         total_min=$(($start_min + $rand_min))
         total_sec=$(($start_sec + $rand_sec))
-        if [ $3 == "h" ]; then
-            dnld_total_hr=`awk -v min=0 -v max=$(($total_hr)) -v seed="$(date +%N)" 'BEGIN{srand(seed);print int(min+rand()*(max-min+1))}'`
-            min_to_sleep=$(($dnld_total_hr*60 + $total_min))
-        else
-            min_to_sleep=$(($total_hr*60 + $total_min))
-        fi 
+
+        min_to_sleep=$(($total_hr*60 + $total_min)) 
         sec_to_sleep=$(($min_to_sleep*60 + $total_sec))
 
         printf "XCONF SCRIPT : Action will be performed on ";
@@ -376,7 +534,10 @@ getBuildType()
 removeLegacyResources()
 {
 	#moved Xconf logging to /var/tmp/xconf.txt.0
-	rm /etc/Xconf.log
+    if [ -f /etc/Xconf.log ]; then
+		rm /etc/Xconf.log
+    fi
+
 	echo "XCONF SCRIPT : Done Cleanup"
 	echo "XCONF SCRIPT : Done Cleanup" >> $XCONF_LOG_FILE
 }
@@ -490,40 +651,17 @@ do
             # else download the image immediately
 
             if [ $rebootImmediately == "false" ];then
-                
-                # Initialize the download flag    
-                download_now=0
 
-                # If we are within the maintenance window,download the image NOW,
-                # WITHOUT calculating a download time in the next window
-                dl_hr=`date +"%H"`
-
-                if [ $dl_hr -le 4 ] && [ $dl_hr -ge 1 ];then
-                    # We're still within the reboot window
-                    download_now=1
-                fi
-                
-                # Calculate a downlaod time in maint window only when
-                # download_now is 0
-                if [ $download_now -eq 0 ];then
-                    echo "XCONF SCRIPT : Reboot Immediately : FALSE. Calculating time & downloading image in maintenance window"
-                    echo "XCONF SCRIPT : Reboot Immediately : FALSE. Calculating time & downloading image in maintenance window" >> $XCONF_LOG_FILE
-       	            # Determine a time in the maintenance window 
-       	            # and initiate the download
-	                calcRandTime 0 1 h
-                else
-                    echo "XCONF SCRIPT : Reboot Immediately : FALSE. Within maintenance window , downloading image now"
-                    echo "XCONF SCRIPT : Reboot Immediately : FALSE. Within maintenance window , downloading image now" >> $XCONF_LOG_FILE
-                    echo "XCONF SCRIPT : Reboot Immediately : FALSE. Sleep to prevent gw refresh error"
-                    sleep 60
-                fi
-
+				echo "XCONF SCRIPT : Reboot Immediately : FALSE. Downloading image now"
+				echo "XCONF SCRIPT : Reboot Immediately : FALSE. Downloading image now" >> $XCONF_LOG_FILE
             else
-                echo "XCONF SCRIPT : Reboot Immediately : TRUE. Sleep to prevent gw refresh"
-                sleep 60
                 echo  "XCONF SCRIPT : Reboot Immediately : TRUE : Downloading image now"
                 echo  "XCONF SCRIPT : Reboot Immediately : TRUE : Downloading image now" >> $XCONF_LOG_FILE
             fi
+			
+			echo "XCONF SCRIPT : Sleep to prevent gw refresh error"
+			echo "XCONF SCRIPT : Sleep to prevent gw refresh error" >> $XCONF_LOG_FILE
+            sleep 60
 
 	        # Start the image download
 	        $BIN_PATH/XconfHttpDl http_download
