@@ -6,6 +6,7 @@
 
 #define RETRY_HTTP_DOWNLOAD_LIMIT 3
 #define RETURN_OK 0
+#define LONG long
 
 /*Typedefs Declared*/
 
