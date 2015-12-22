@@ -5,9 +5,9 @@ XCONF_LOG_FILE_NAME=xconf.txt.0
 XCONF_LOG_FILE_PATHNAME=${XCONF_LOG_PATH}/${XCONF_LOG_FILE_NAME}
 XCONF_LOG_FILE=${XCONF_LOG_FILE_PATHNAME}
 
-CURL_PATH=/fss/gw
+CURL_PATH=/fss/gw/usr/bin
 interface=erouter0
-BIN_PATH=/fss/gw/usr/ccsp
+BIN_PATH=/fss/gw/usr/bin
 
 #GLOBAL DECLARATIONS
 image_upg_avl=0
