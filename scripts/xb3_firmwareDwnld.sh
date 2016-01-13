@@ -305,11 +305,11 @@ getFirmwareUpgDetail()
 
 	    if [ $HTTP_RESPONSE_CODE -eq 200 ];then
 		    retry_flag=0
-		    firmwareDownloadProtocol=`head -1 /tmp/response.txt | cut -d "," -f1 | cut -d ":" -f2 | cut -d '"' -f2`
+		    firmwareDownloadProtocol=`head -n1 /tmp/response.txt | cut -d "," -f1 | cut -d ":" -f2 | cut -d '"' -f2`
 
 		    if [ $firmwareDownloadProtocol == "http" ];then
                 echo "XCONF SCRIPT : Download image from HTTP server"
-                firmwareLocation=`head -1 /tmp/response.txt | cut -d "," -f3 | cut -d ":" -f2- | cut -d '"' -f2`
+                firmwareLocation=`head -n1 /tmp/response.txt | cut -d "," -f3 | cut -d ":" -f2- | cut -d '"' -f2`
             else
                 echo "XCONF SCRIPT : Download from TFTP server not supported, check XCONF server configurations"
                 echo "XCONF SCRIPT : Retrying query in 2 minutes"
@@ -326,15 +326,15 @@ getFirmwareUpgDetail()
                 continue
             fi
 
-    	    firmwareFilename=`head -1 /tmp/response.txt | cut -d "," -f2 | cut -d ":" -f2 | cut -d '"' -f2`
-    	   	firmwareVersion=`head -1 /tmp/response.txt | cut -d "," -f4 | cut -d ":" -f2 | cut -d '"' -f2`
-	    	ipv6FirmwareLocation=`head -1 /tmp/response.txt | cut -d "," -f5 | cut -d ":" -f2-`
-	    	upgradeDelay=`head -1 /tmp/response.txt | cut -d "," -f6 | cut -d ":" -f2`
+    	    firmwareFilename=`head -n1 /tmp/response.txt | cut -d "," -f2 | cut -d ":" -f2 | cut -d '"' -f2`
+    	   	firmwareVersion=`head -n1 /tmp/response.txt | cut -d "," -f4 | cut -d ":" -f2 | cut -d '"' -f2`
+	    	ipv6FirmwareLocation=`head -n1 /tmp/response.txt | cut -d "," -f5 | cut -d ":" -f2-`
+	    	upgradeDelay=`head -n1 /tmp/response.txt | cut -d "," -f6 | cut -d ":" -f2`
             
             if [ $env == "dev" ] || [ $env == "DEV" ];then
-    	   	    rebootImmediately=`head -1 /tmp/response.txt | cut -d "," -f7 | cut -d ":" -f2 | cut -d '}' -f1`
+    	   	    rebootImmediately=`head -n1 /tmp/response.txt | cut -d "," -f7 | cut -d ":" -f2 | cut -d '}' -f1`
             else
-                rebootImmediately=`head -1 /tmp/response.txt | cut -d "," -f5 | cut -d ":" -f2 | cut -d '}' -f1`
+                rebootImmediately=`head -n1 /tmp/response.txt | cut -d "," -f5 | cut -d ":" -f2 | cut -d '}' -f1`
             fi    
                                     
     	   	 echo "XCONF SCRIPT : Protocol :"$firmwareDownloadProtocol
