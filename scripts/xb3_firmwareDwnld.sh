@@ -307,7 +307,7 @@ getFirmwareUpgDetail()
 		    retry_flag=0
 		    firmwareDownloadProtocol=`head -n1 /tmp/response.txt | cut -d "," -f1 | cut -d ":" -f2 | cut -d '"' -f2`
 
-		    if [ $firmwareDownloadProtocol == "http" ];then
+		    if [ "$firmwareDownloadProtocol" == "http" ];then
                 echo "XCONF SCRIPT : Download image from HTTP server"
                 firmwareLocation=`head -n1 /tmp/response.txt | cut -d "," -f3 | cut -d ":" -f2- | cut -d '"' -f2`
             else
@@ -331,7 +331,7 @@ getFirmwareUpgDetail()
 	    	ipv6FirmwareLocation=`head -n1 /tmp/response.txt | cut -d "," -f5 | cut -d ":" -f2-`
 	    	upgradeDelay=`head -n1 /tmp/response.txt | cut -d "," -f6 | cut -d ":" -f2`
             
-            if [ $env == "dev" ] || [ $env == "DEV" ];then
+            if [ "$env" == "dev" ] || [ "$env" == "DEV" ];then
     	   	    rebootImmediately=`head -n1 /tmp/response.txt | cut -d "," -f7 | cut -d ":" -f2 | cut -d '}' -f1`
             else
                 rebootImmediately=`head -n1 /tmp/response.txt | cut -d "," -f5 | cut -d ":" -f2 | cut -d '}' -f1`
@@ -432,7 +432,7 @@ calcRandTime()
     #
     if [ $2 -eq '1' ]; then
        
-        if [ $3 == "r" ]; then
+        if [ "$3" == "r" ]; then
             echo "XCONF SCRIPT : Device reboot time being calculated in maintenance window"
             echo "XCONF SCRIPT : Device reboot time being calculated in maintenance window" >> $XCONF_LOG_FILE
         fi 
@@ -552,7 +552,7 @@ getBuildType
 
 echo XCONF SCRIPT : MODEL IS $type
 
-if [ $type == "DEV" ] || [ $type == "dev" ];then
+if [ "$type" == "DEV" ] || [ "$type" == "dev" ];then
     #url="https://xconf.poa.xcal.tv/xconf/swu/stb/"
     url="http://69.252.111.22/xconf/swu/stb/"
 else
@@ -588,7 +588,7 @@ echo "XCONF SCRIPT : $interface has an ipv4 address of $estbIp or an ipv6 addres
 echo "XCONF SCRIPT : Checking image availability at boot up" >> $XCONF_LOG_FILE	
 getFirmwareUpgDetail
 
-if [ $rebootImmediately == "true" ];then
+if [ "$rebootImmediately" == "true" ];then
     echo "XCONF SCRIPT : Reboot Immediately : TRUE!!"
 else
     echo "XCONF SCRIPT : Reboot Immediately : FALSE."
@@ -650,7 +650,7 @@ do
             # Wait to download in the maintenance window if the RebootImmediately is FALSE
             # else download the image immediately
 
-            if [ $rebootImmediately == "false" ];then
+            if [ "$rebootImmediately" == "false" ];then
 
 				echo "XCONF SCRIPT : Reboot Immediately : FALSE. Downloading image now"
 				echo "XCONF SCRIPT : Reboot Immediately : FALSE. Downloading image now" >> $XCONF_LOG_FILE
@@ -708,7 +708,7 @@ done
 while [ $reboot_device_success -eq 0 ]; do
                     
     # Verify reboot criteria ONLY if rebootImmediately is FALSE
-    if [ $rebootImmediately == "false" ];then
+    if [ "$rebootImmediately" == "false" ];then
 
         # Check if still within reboot window
         reb_hr=`date +"%H"`
