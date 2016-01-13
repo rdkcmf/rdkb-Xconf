@@ -272,9 +272,9 @@ getFirmwareUpgDetail()
         echo "**RETRY is $xconf_retry_count and RETRY_FLAG is $retry_flag**" >> $XCONF_LOG_FILE
         
         # White list the Xconf server url
-        echo "XCONF SCRIPT : Whitelisting Xconf Server url : $xconf_url"
-        echo "XCONF SCRIPT : Whitelisting Xconf Server url : $xconf_url" >> $XCONF_LOG_FILE
-        /etc/whitelist.sh "$xconf_url"
+        #echo "XCONF SCRIPT : Whitelisting Xconf Server url : $xconf_url"
+        #echo "XCONF SCRIPT : Whitelisting Xconf Server url : $xconf_url" >> $XCONF_LOG_FILE
+        #/etc/whitelist.sh "$xconf_url"
         
 	    # Perform cleanup by deleting any previous responses
 	    rm -f /tmp/response.txt
@@ -632,10 +632,10 @@ do
         echo "XCONF SCRIPT : dnsmasq process  started!!" >> $XCONF_LOG_FILE
     
         # Whitelist the returned firmware location
-        echo "XCONF SCRIPT : Whitelisting download location : $firmwareLocation"
-        echo "XCONF SCRIPT : Whitelisting download location : $firmwareLocation" >> $XCONF_LOG_FILE
+        #echo "XCONF SCRIPT : Whitelisting download location : $firmwareLocation"
+        #echo "XCONF SCRIPT : Whitelisting download location : $firmwareLocation" >> $XCONF_LOG_FILE
         echo "$firmwareLocation" > /tmp/xconfdownloadurl
-        /etc/whitelist.sh "$firmwareLocation"
+        #/etc/whitelist.sh "$firmwareLocation"
 
         # Set the url and filename
         echo "XCONF SCRIPT : URL --- $firmwareLocation and NAME --- $firmwareFilename"
