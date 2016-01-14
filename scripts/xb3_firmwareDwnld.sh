@@ -247,17 +247,17 @@ getFirmwareUpgDetail()
     xconf_retry_count=1
     retry_flag=1
 
-    # Set the XCONF server url read from /etc/Xconf 
+    # Set the XCONF server url read from /tmp/Xconf 
     # Determine the env from $type
 
-    #s16 : env=`cat /etc/Xconf | cut -d "=" -f1`
+    #s16 : env=`cat /tmp/Xconf | cut -d "=" -f1`
     env=$type
-    xconf_url=`cat /etc/Xconf | cut -d "=" -f2`
+    xconf_url=`cat /tmp/Xconf | cut -d "=" -f2`
     
-    # If an /etc/Xconf file was not created, use the default values
-    if [ ! -f /etc/Xconf ]; then
-        echo "XCONF SCRIPT : ERROR : /etc/Xconf file not found! Using defaults"
-        echo "XCONF SCRIPT : ERROR : /etc/Xconf file not found! Using defaults" >> $XCONF_LOG_FILE
+    # If an /tmp/Xconf file was not created, use the default values
+    if [ ! -f /tmp/Xconf ]; then
+        echo "XCONF SCRIPT : ERROR : /tmp/Xconf file not found! Using defaults"
+        echo "XCONF SCRIPT : ERROR : /tmp/Xconf file not found! Using defaults" >> $XCONF_LOG_FILE
         env="PROD"
         xconf_url="https://xconf.xcal.tv/xconf/swu/stb/"
     fi
@@ -544,7 +544,7 @@ removeLegacyResources()
 
 #####################################################Main Application#####################################################
 
-# Determine the env type and url and write to /etc/Xconf
+# Determine the env type and url and write to /tmp/Xconf
 #type=`printenv model | cut -d "=" -f2`
 
 removeLegacyResources
@@ -559,10 +559,10 @@ else
     url="https://xconf.xcal.tv/xconf/swu/stb/"
 fi
 
-#s16 echo "$type=$url" > /etc/Xconf
-echo "URL=$url" > /etc/Xconf
-echo "XCONF SCRIPT : Values written to /etc/Xconf are URL=$url"
-echo "XCONF SCRIPT : Values written to /etc/Xconf are URL=$url" >> $XCONF_LOG_FILE
+#s16 echo "$type=$url" > /tmp/Xconf
+echo "URL=$url" > /tmp/Xconf
+echo "XCONF SCRIPT : Values written to /tmp/Xconf are URL=$url"
+echo "XCONF SCRIPT : Values written to /tmp/Xconf are URL=$url" >> $XCONF_LOG_FILE
 
 # Check if the WAN interface has an ip address, if not , wait for it to receive one
 estbIp=`ifconfig $interface | grep "inet addr" | tr -s " " | cut -d ":" -f2 | cut -d " " -f1`
