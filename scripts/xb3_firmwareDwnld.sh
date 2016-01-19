@@ -1,8 +1,10 @@
 #!/bin/sh
 
-XCONF_LOG_PATH=/var/tmp/logs
+source /etc/utopia/service.d/log_capture_path.sh
+source /fss/gw/etc/utopia/service.d/log_env_var.sh
+
 XCONF_LOG_FILE_NAME=xconf.txt.0
-XCONF_LOG_FILE_PATHNAME=${XCONF_LOG_PATH}/${XCONF_LOG_FILE_NAME}
+XCONF_LOG_FILE_PATHNAME=${LOG_PATH}/${XCONF_LOG_FILE_NAME}
 XCONF_LOG_FILE=${XCONF_LOG_FILE_PATHNAME}
 
 CURL_PATH=/fss/gw/usr/bin
@@ -568,8 +570,11 @@ echo "XCONF SCRIPT : Values written to /tmp/Xconf are URL=$url" >> $XCONF_LOG_FI
 estbIp=`ifconfig $interface | grep "inet addr" | tr -s " " | cut -d ":" -f2 | cut -d " " -f1`
 estbIp6=`ifconfig $interface | grep "inet6 addr" | grep "Global" | tr -s " " | cut -d ":" -f2- | cut -d "/" -f1 | tr -d " "`
 
+echo "[ $(date) ] XCONF SCRIPT - Check if the WAN interface has an ip address" >> $XCONF_LOG_FILE
+
 while [ "$estbIp" = "" ] && [ "$estbIp6" = "" ]
 do
+    echo "[ $(date) ] XCONF SCRIPT - No IP yet! sleep(5)" >> $XCONF_LOG_FILE
     sleep 5
 
     estbIp=`ifconfig $interface | grep "inet addr" | tr -s " " | cut -d ":" -f2 | cut -d " " -f1`
@@ -617,19 +622,7 @@ do
 
     if [ $image_upg_avl -eq 1 ];then
 
-        #Wait for dnsmasq to start
-        DNSMASQ_PID=`pidof dnsmasq`
 
-        while [ "$DNSMASQ_PID" = "" ]
-        do
-            sleep 10
-            echo "XCONF SCRIPT : Waiting for dnsmasq process to start"
-            echo "XCONF SCRIPT : Waiting for dnsmasq process to start" >> $XCONF_LOG_FILE
-            DNSMASQ_PID=`pidof dnsmasq`
-        done
-
-        echo "XCONF SCRIPT : dnsmasq process  started!!"
-        echo "XCONF SCRIPT : dnsmasq process  started!!" >> $XCONF_LOG_FILE
     
         # Whitelist the returned firmware location
         #echo "XCONF SCRIPT : Whitelisting download location : $firmwareLocation"
@@ -659,13 +652,15 @@ do
                 echo  "XCONF SCRIPT : Reboot Immediately : TRUE : Downloading image now" >> $XCONF_LOG_FILE
             fi
 			
-			echo "XCONF SCRIPT : Sleep to prevent gw refresh error"
-			echo "XCONF SCRIPT : Sleep to prevent gw refresh error" >> $XCONF_LOG_FILE
-            sleep 60
+			#echo "XCONF SCRIPT : Sleep to prevent gw refresh error"
+			#echo "XCONF SCRIPT : Sleep to prevent gw refresh error" >> $XCONF_LOG_FILE
+            #sleep 60
 
 	        # Start the image download
+			echo "[ $(date) ] XCONF SCRIPT  ### httpdownload started ###" >> $XCONF_LOG_FILE
 	        $BIN_PATH/XconfHttpDl http_download
 	        http_dl_stat=$?
+			echo "[ $(date) ] XCONF SCRIPT  ### httpdownload completed ###" >> $XCONF_LOG_FILE
 	        echo "XCONF SCRIPT : HTTP DL STATUS $http_dl_stat"
 	        echo "**XCONF SCRIPT : HTTP DL STATUS $http_dl_stat**" >> $XCONF_LOG_FILE
 			
@@ -769,6 +764,7 @@ while [ $reboot_device_success -eq 0 ]; do
 		        
         #Reboot the device
 	    echo "XCONF SCRIPT : Reboot possible. Issuing reboot command"
+	    echo "RDKB_REBOOT : Reboot command issued from XCONF"
 		$BIN_PATH/XconfHttpDl http_reboot 
 		reboot_device=$?
 		       
