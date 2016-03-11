@@ -298,7 +298,7 @@ getFirmwareUpgDetail()
 
 
         # Query the  XCONF Server
-        HTTP_RESPONSE_CODE=`$CURL_PATH/curl --interface $interface -k -w '%{http_code}\n' -d "eStbMac=$MAC&firmwareVersion=$currentVersion&env=$env&model=TG1682G&localtime=$date&timezone=EST05&capabilities="rebootDecoupled"&capabilities="RCDL"&capabilities="supportsFullHttpUrl"" -o "/tmp/response.txt" "$xconf_url" --connect-timeout 30 -m 30`
+        HTTP_RESPONSE_CODE=`$CURL_PATH/curl --interface $interface -k -w '%{http_code}\n' -d "eStbMac=$MAC&firmwareVersion=$currentVersion&env=$env&model=TG3482G&localtime=$date&timezone=EST05&capabilities="rebootDecoupled"&capabilities="RCDL"&capabilities="supportsFullHttpUrl"" -o "/tmp/response.txt" "$xconf_url" --connect-timeout 30 -m 30`
 	    
         echo "XCONF SCRIPT : HTTP RESPONSE CODE is" $HTTP_RESPONSE_CODE
         # Print the response
@@ -507,8 +507,8 @@ getBuildType()
 {
    IMAGENAME=`cat /version.txt | grep "imagename:" | cut -d ":" -f 2`
    
-   #Assigning default type as VBN
-   type="VBN"
+   #Assigning default type as DEV
+   type="DEV"
    echo "XCONF SCRIPT : Assigning default image type as: $type"
 
    TEMPDEV=`echo $IMAGENAME | grep DEV`
