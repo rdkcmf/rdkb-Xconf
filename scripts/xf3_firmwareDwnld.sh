@@ -736,11 +736,13 @@ do
 	
 	flash_image_count=$((flash_image_count + 1))
       done
-    fi
 
-    if [ $flash_image_success -eq 0 ]; then    
-      $download_image_success=0
-    fi    
+      if [ $flash_image_success -eq 0 ]; then
+         # flash failed, try it again in the near future
+         download_image_success=0
+         image_upg_avl=0
+      fi
+    fi
 done
 
     ##################
