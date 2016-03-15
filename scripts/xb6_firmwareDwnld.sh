@@ -48,7 +48,7 @@ checkFirmwareUpgCriteria()
     image_upg_avl=0;
 
     # Retrieve current firmware version
-    currentVersion=`dmcli eRT getvalues Device.DeviceInfo.X_CISCO_COM_FirmwareName | grep TG1682 | cut -d ":" -f 3 | tr -d ' '`
+	currentVersion=`dmcli eRT getvalues Device.DeviceInfo.X_CISCO_COM_FirmwareName | grep TG3482 | cut -d ":" -f 3 | tr -d ' '`
 
     echo "XCONF SCRIPT : CurrentVersion : $currentVersion"
     echo "XCONF SCRIPT : UpgradeVersion : $firmwareVersion"
@@ -235,6 +235,37 @@ checkFirmwareUpgCriteria()
 
     echo "XCONF SCRIPT : [$image_upg_avl] $cur_rel_num --> $upg_rel_num"
     echo "XCONF SCRIPT : [$image_upg_avl] $cur_rel_num --> $upg_rel_num" >> $XCONF_LOG_FILE
+}
+
+#This is a temporary function added to check FirmwareUpgCriteria
+#Need to be removed once ArrisXB6 project has release numbering system rules in place
+#This function will not check any other criteria other than matching current firmware and requested firmware
+
+checkFirmwareUpgCriteria_temp()
+{
+	image_upg_avl=0
+
+	currentVersion=`cat /version.txt | grep "imagename:" | cut -d ":" -f 2`
+	firmwareVersion=`head -n1 /tmp/response.txt | cut -d "," -f4 | cut -d ":" -f2 | cut -d '"' -f2`
+	currentVersion=`echo $currentVersion | tr '[A-Z]' '[a-z]'`
+	firmwareVersion=`echo $firmwareVersion | tr '[A-Z]' '[a-z]'`
+
+	if [ "$currentVersion" != "" ] && [ "$firmwareVersion" != "" ];then
+
+		if [ "$currentVersion" == "$firmwareVersion" ]; then
+			echo "XCONF SCRIPT : Current image ("$currentVersion") and Requested imgae ("$firmwareVersion") are same. No upgrade/downgrade required"
+			echo "XCONF SCRIPT : Current image ("$currentVersion") and Requested imgae ("$firmwareVersion") are same. No upgrade/downgrade required">> $XCONF_LOG_FILE
+			image_upg_avl=0
+		else
+			echo "XCONF SCRIPT : Current image ("$currentVersion") and Requested imgae ("$firmwareVersion") are different. Processing Upgrade/Downgrade"
+			echo "XCONF SCRIPT : Current image ("$currentVersion") and Requested imgae ("$firmwareVersion") are different. Processing Upgrade/Downgrade">> $XCONF_LOG_FILE
+			image_upg_avl=1
+		fi
+	else
+		echo "XCONF SCRIPT : Current image ("$currentVersion") Or Requested imgae ("$firmwareVersion") returned NULL. No Upgrade/Downgrade"
+		echo "XCONF SCRIPT : Current image ("$currentVersion") Or Requested imgae ("$firmwareVersion") returned NULL. No Upgrade/Downgrade">> $XCONF_LOG_FILE
+		image_upg_avl=0
+	fi
 
 }
 
@@ -358,9 +389,11 @@ getFirmwareUpgDetail()
             # If image_upg_avl = 0, retry reconnecting with XCONf in next window
             # If image_upg_avl = 1, download new firmware
 #TODO
-echo "Currently disbling checkFirmwareUpgCriteria temporarily. Once the XB6 image is having conventional PROD naming, then we have to enable it"
-#checkFirmwareUpgCriteria  
-#TODO	
+#Currently disbling checkFirmwareUpgCriteria. Once the XB6 image is having conventional PROD naming, then we have to enable it"
+#Using checkFirmwareUpgCriteria_temp instead
+
+		checkFirmwareUpgCriteria_temp  
+
 			fi
 		
 
