@@ -6,7 +6,7 @@ XCONF_LOG_FILE_PATHNAME=${XCONF_LOG_PATH}/${XCONF_LOG_FILE_NAME}
 XCONF_LOG_FILE=${XCONF_LOG_FILE_PATHNAME}
 
 CURL_PATH=/usr/bin
-interface=wanbridge
+interface=erouter0
 BIN_PATH=/usr/bin
 TMP_PATH=/tmp
 
