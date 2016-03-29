@@ -295,7 +295,7 @@ getFirmwareUpgDetail()
         echo "XCONF SCRIPT : CURRENT DATE : $date"
 
         # Query the  XCONF Server
-        HTTP_RESPONSE_CODE=`$CURL_PATH/curl --interface $interface -s -k -w '%{http_code}\n' -d "eStbMac=$MAC&firmwareVersion=$currentVersion&env=$env&model=TG1682G&localtime=$date&timezone=EST05&capabilities="rebootDecoupled"&capabilities="RCDL"&capabilities="supportsFullHttpUrl"" -o "/tmp/response.txt" "$xconf_url" --connect-timeout 30 -m 30`
+        HTTP_RESPONSE_CODE=`$CURL_PATH/curl --interface $interface -s -k -w '%{http_code}\n' -d "eStbMac=$MAC&firmwareVersion=$currentVersion&env=$env&model=PX5001&localtime=$date&timezone=EST05&capabilities="rebootDecoupled"&capabilities="RCDL"&capabilities="supportsFullHttpUrl"" -o "/tmp/response.txt" "$xconf_url" --connect-timeout 30 -m 30`
 
         echo "XCONF SCRIPT : HTTP RESPONSE CODE is" $HTTP_RESPONSE_CODE
         # Print the response
