@@ -50,6 +50,8 @@ checkFirmwareUpgCriteria()
 
     # Retrieve current firmware version
     currentVersion=`dmcli eRT getvalues Device.DeviceInfo.X_CISCO_COM_FirmwareName | grep PX5001 | cut -d ":" -f 3 | tr -d ' '`
+    #Non official builds use default where spin numbering is expected.  Convert it to a 0 value in this case
+    currentVersion=`echo $currentVersion | sed 's/_default_/_0.0s0_/'`
     firmwareVersion=`echo "$firmwareVersion" | cut -d "_" -f2`
     echo "XCONF SCRIPT : CurrentVersion : $currentVersion"
     echo "XCONF SCRIPT : UpgradeVersion : $firmwareVersion"
@@ -288,14 +290,16 @@ getFirmwareUpgDetail()
         currentVersion=`dmcli eRT getvalues Device.DeviceInfo.X_CISCO_COM_FirmwareName | grep PX5001 | cut -d ":" -f 3 | tr -d ' ' `
         
 	MAC=`ifconfig  | grep $interface |  grep -v $interface:0 | tr -s ' ' | cut -d ' ' -f5`
+        serialNumber=`grep SERIAL_NUMBER /nvram/serialization.txt | cut -f 2 -d "="`
         date=`date`
         
         echo "XCONF SCRIPT : CURRENT VERSION : $currentVersion"
         echo "XCONF SCRIPT : CURRENT MAC  : $MAC"
+        echo "XCONF SCRIPT : CURRENT SERIAL NUMBER : $serialNumber"
         echo "XCONF SCRIPT : CURRENT DATE : $date"
 
         # Query the  XCONF Server
-        HTTP_RESPONSE_CODE=`$CURL_PATH/curl --interface $interface -s -k -w '%{http_code}\n' -d "eStbMac=$MAC&firmwareVersion=$currentVersion&env=$env&model=PX5001&localtime=$date&timezone=EST05&capabilities="rebootDecoupled"&capabilities="RCDL"&capabilities="supportsFullHttpUrl"" -o "/tmp/response.txt" "$xconf_url" --connect-timeout 30 -m 30`
+        HTTP_RESPONSE_CODE=`$CURL_PATH/curl --interface $interface -s -k -w '%{http_code}\n' -d "eStbMac=$MAC&firmwareVersion=$currentVersion&serial=$serialNumber&env=$env&model=PX5001&localtime=$date&timezone=EST05&capabilities="rebootDecoupled"&capabilities="RCDL"&capabilities="supportsFullHttpUrl"" -o "/tmp/response.txt" "$xconf_url" --connect-timeout 30 -m 30`
 
         echo "XCONF SCRIPT : HTTP RESPONSE CODE is" $HTTP_RESPONSE_CODE
         # Print the response
@@ -575,6 +579,10 @@ if [ "$type" = "DEV" ] || [ "$type" = "dev" ];then
 else
     url="https://xconf.xcal.tv/xconf/swu/stb/"
     #url="http://172.24.128.124/xconf/swu/stb/"
+fi
+
+if [ -e /nvram/XconfUrlOverride ];then
+    url=`cat /nvram/XconfUrlOverride`
 fi
 
 #s16 echo "$type=$url" > /etc/Xconf
