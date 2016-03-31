@@ -694,7 +694,7 @@ do
         # Set the url and filename
         echo "XCONF SCRIPT : URL --- $firmwareLocation and NAME --- $firmwareFilename"
         echo "XCONF SCRIPT : URL --- $firmwareLocation and NAME --- $firmwareFilename" >> $XCONF_LOG_FILE
-        $BIN_PATH/XconfHttpDl set_http_url $firmwareLocation $firmwareFilename
+        $BIN_PATH/XconfHttpDl set_http_url $firmwareLocation $firmwareFilename >> $XCONF_LOG_FILE
         set_url_stat=$?
         
         # If the URL was correctly set, initiate the download
@@ -719,7 +719,7 @@ do
 
 	        # Start the image download
 			echo "[ $(date) ] XCONF SCRIPT  ### httpdownload started ###" >> $XCONF_LOG_FILE
-	        $BIN_PATH/XconfHttpDl http_download
+	        $BIN_PATH/XconfHttpDl http_download >> $XCONF_LOG_FILE
 	        http_dl_stat=$?
 			echo "[ $(date) ] XCONF SCRIPT  ### httpdownload completed ###" >> $XCONF_LOG_FILE
 	        echo "XCONF SCRIPT : HTTP DL STATUS $http_dl_stat"
@@ -788,7 +788,7 @@ while [ $reboot_device_success -eq 0 ]; do
         # Check the Reboot status
         # Continously check reboot status every 10 seconds  
         # till the end of the maintenace window until the reboot status is OK
-        $BIN_PATH/XconfHttpDl http_reboot_status
+        $BIN_PATH/XconfHttpDl http_reboot_status >> $XCONF_LOG_FILE
         http_reboot_ready_stat=$?
 
         while [ $http_reboot_ready_stat -eq 1 ]   
@@ -801,7 +801,7 @@ while [ $reboot_device_success -eq 0 ]; do
             if [ $cur_hr -le 4 ] && [ $cur_min -le 59 ] && [ $cur_sec -le 59 ];
             then
                 #We're still within the reboot window 
-                $BIN_PATH/XconfHttpDl http_reboot_status
+                $BIN_PATH/XconfHttpDl http_reboot_status >> $XCONF_LOG_FILE
                 http_reboot_ready_stat=$?
                     
             else
@@ -826,7 +826,7 @@ while [ $reboot_device_success -eq 0 ]; do
         #Reboot the device
 	    echo "XCONF SCRIPT : Reboot possible. Issuing reboot command"
 	    echo "RDKB_REBOOT : Reboot command issued from XCONF"
-		$BIN_PATH/XconfHttpDl http_reboot 
+		$BIN_PATH/XconfHttpDl http_reboot >> $XCONF_LOG_FILE 
 		reboot_device=$?
 		       
         # This indicates we're within the maintenace window/rebootImmediate=TRUE
