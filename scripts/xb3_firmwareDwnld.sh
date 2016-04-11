@@ -776,7 +776,11 @@ while [ $reboot_device_success -eq 0 ]; do
         # command and check if it returned correctly
 		if [ $reboot_device -eq 0 ];then
             reboot_device_success=1
+		     #For rdkb-4260
+		    echo "Creating file /nvram/reboot_due_to_sw_upgrade"
+		    touch /nvram/reboot_due_to_sw_upgrade
 		    echo "XCONF SCRIPT : REBOOTING DEVICE"
+            echo "RDKB_REBOOT : Rebooting device due to software upgrade"
                 
         else 
             # The reboot command failed, retry in the next maintenance window 
