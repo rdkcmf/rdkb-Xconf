@@ -51,7 +51,10 @@ checkFirmwareUpgCriteria()
     # Retrieve current firmware version
     currentVersion=`dmcli eRT getvalues Device.DeviceInfo.X_CISCO_COM_FirmwareName | grep PX5001 | cut -d ":" -f 3 | tr -d ' '`
     #Non official builds use default where spin numbering is expected.  Convert it to a 0 value in this case
-    currentVersion=`echo $currentVersion | sed 's/_default_/_0.0s0_/'`
+    echo "$currentVersion" | cut -d "_" -f2 | grep '[0-9][0-9]*\.[0-9][0-9]*[p,s][0-9][0-9]*' >/dev/null
+    if [ $? != 0 ]; then
+        currentVersion="PX5001_0.0s0_VBN_sey"
+    fi
     firmwareVersion=`echo "$firmwareVersion" | cut -d "_" -f2`
     echo "XCONF SCRIPT : CurrentVersion : $currentVersion"
     echo "XCONF SCRIPT : UpgradeVersion : $firmwareVersion"
