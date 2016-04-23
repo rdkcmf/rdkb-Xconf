@@ -7,6 +7,8 @@
 #define RETRY_HTTP_DOWNLOAD_LIMIT 3
 #define RETURN_OK 0
 #define LONG long
+#define CM_HTTPURL_LEN 200
+#define CM_FILENAME_LEN 200
 
 /*Typedefs Declared*/
 
@@ -17,6 +19,8 @@ int retry_limit = 0;
 INT Set_HTTP_Download_Url(char *pHttpUrl, char *pfilename)
 {	
 	int ret_stat = 0;
+	char pGetHttpUrl[CM_HTTPURL_LEN];
+	char pGetFilename[CM_FILENAME_LEN];
 
 	/*Set the HTTP download URL*/
 	ret_stat = cm_hal_Set_HTTP_Download_Url(pHttpUrl,pfilename);
@@ -24,8 +28,11 @@ INT Set_HTTP_Download_Url(char *pHttpUrl, char *pfilename)
 	if(ret_stat == RETURN_OK)
 	{
 
+	  // zero out pGetHttpUrl and pGetFilename before calling cm_hal_Get_HTTP_Download_Url()
+	  memset(pGetHttpUrl, 0, CM_HTTPURL_LEN);
+	  memset(pGetFilename, 0, CM_FILENAME_LEN);
         /*Get the status of the set above*/
-        ret_stat = cm_hal_Get_HTTP_Download_Url(pHttpUrl,pfilename);
+        ret_stat = cm_hal_Get_HTTP_Download_Url(pGetHttpUrl,pGetFilename);
 		
 		if(ret_stat == RETURN_OK)
 			printf("\nXCONF BIN : URL has succesfully been set to --- %s\n",pHttpUrl);
@@ -206,8 +213,8 @@ return  http_reboot_stat;
 int main(int argc,char *argv[])
 {
 
-    char pHttpUrl[200];
-    char pfilename[200];
+    char pHttpUrl[CM_HTTPURL_LEN];
+    char pfilename[CM_FILENAME_LEN];
     LONG pValue ;
 	int ret_code = 0;
     int http_status,reboot_status;
@@ -217,8 +224,8 @@ int main(int argc,char *argv[])
 	{
 		if( ((argv[2]) != NULL) && ((argv[3]) != NULL) )
 		{
-			strcpy(pHttpUrl,argv[2]);
-			strcpy(pfilename,argv[3]);
+		  strncpy(pHttpUrl,argv[2], CM_HTTPURL_LEN - 1);
+		  strncpy(pfilename,argv[3], CM_FILENAME_LEN - 1);
 			ret_code = Set_HTTP_Download_Url(pHttpUrl,pfilename);
 		}
 	}
