@@ -4,6 +4,10 @@
 
 #include "cm_hal.h"
 
+#if defined(_ENABLE_EPON_SUPPORT_)
+#include "dpoe_hal.h"
+#endif
+
 #define RETRY_HTTP_DOWNLOAD_LIMIT 3
 #define RETURN_OK 0
 #define LONG long
@@ -191,7 +195,11 @@ INT HTTP_Download ()
 INT Reboot_Ready(LONG *pValue)
 {
     int reboot_ready_status;
+#if defined(_ENABLE_EPON_SUPPORT_)
+    reboot_ready_status = dpoe_hal_Reboot_Ready(pValue);
+#else
     reboot_ready_status = cm_hal_Reboot_Ready(pValue);
+#endif
     return reboot_ready_status;    
 }
 
