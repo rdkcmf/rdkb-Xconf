@@ -192,16 +192,16 @@ checkFirmwareUpgCriteria()
             image_upg_avl=1;
 
         elif [ $upg_major_rev -lt $cur_major_rev ];then
-            image_upg_avl=0
+            image_upg_avl=1;
 
         elif [ $upg_major_rev -eq $cur_major_rev ];then
             echo "XCONF SCRIPT : Current and upgrade firmware major versions equal,"
 
             if [ $upg_minor_rev -gt $cur_minor_rev ];then
-                image_upg_avl=1
+                image_upg_avl=1;
 
             elif [ $upg_minor_rev -lt $cur_minor_rev ];then
-                image_upg_avl=0
+                image_upg_avl=1;
 
             elif [ $upg_minor_rev -eq $cur_minor_rev ];then
                 echo "XCONF SCRIPT : Current and upgrade minor versions equal"
@@ -210,7 +210,7 @@ checkFirmwareUpgCriteria()
                     image_upg_avl=1;
 
                 elif [ $upg_internal_rev -lt $cur_internal_rev ];then
-                    image_upg_avl=0
+                    image_upg_avl=1;
 
                 elif [ $upg_internal_rev -eq $cur_internal_rev ];then
                     echo "XCONF SCRIPT : Current and upgrade firmware internal versions equal,"
@@ -219,16 +219,19 @@ checkFirmwareUpgCriteria()
                         image_upg_avl=1;
 
                     elif [ $upg_patch_level -lt $cur_patch_level ];then
-                        image_upg_avl=0
+                        image_upg_avl=1;
 
                     elif [ $upg_patch_level -eq $cur_patch_level ];then
                         echo "XCONF SCRIPT : Current and upgrade firmware patch versions equal,"
 
                         if [ $upg_spin -gt $cur_spin ];then
-                            image_upg_avl=1
+                            image_upg_avl=1;
 
-                        elif [ $upg_spin -le $cur_spin ];then
-                            echo "XCONF SCRIPT : Current and upgrade  spin versions equal/less"
+                        elif [ $upg_spin -lt $cur_spin ];then
+                            image_upg_avl=1;
+
+                        elif [ $upg_spin -eq $cur_spin ];then
+                            echo "XCONF SCRIPT : Current and upgrade  spin versions equal"
                             image_upg_avl=0
                         fi
                     fi
