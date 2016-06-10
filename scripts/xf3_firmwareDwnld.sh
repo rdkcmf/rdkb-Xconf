@@ -653,20 +653,6 @@ do
 
     if [ $image_upg_avl -eq 1 ];then
 
-        #Wait for dnsmasq to start
-        DNSMASQ_PID=`pidof dnsmasq`
-
-        while [ "$DNSMASQ_PID" = "" ]
-        do
-            sleep 10
-            echo "XCONF SCRIPT : Waiting for dnsmasq process to start"
-            echo "XCONF SCRIPT : Waiting for dnsmasq process to start" >> $XCONF_LOG_FILE
-            DNSMASQ_PID=`pidof dnsmasq`
-        done
-
-        echo "XCONF SCRIPT : dnsmasq process  started!!"
-        echo "XCONF SCRIPT : dnsmasq process  started!!" >> $XCONF_LOG_FILE
-    
         # Whitelist the returned firmware location
         echo "XCONF SCRIPT : Whitelisting download location : $firmwareLocation"
         echo "XCONF SCRIPT : Whitelisting download location : $firmwareLocation" >> $XCONF_LOG_FILE
