@@ -834,7 +834,14 @@ while [ $reboot_device_success -eq 0 ]; do
         # command and check if it returned correctly
 		if [ $reboot_device -eq 0 ];then
             reboot_device_success=1
-		    echo "XCONF SCRIPT : REBOOTING DEVICE"
+            #For rdkb-4260
+            echo "Creating file /nvram/reboot_due_to_sw_upgrade"
+            touch /nvram/reboot_due_to_sw_upgrade
+            echo "XCONF SCRIPT : REBOOTING DEVICE"
+            echo "RDKB_REBOOT : Rebooting device due to software upgrade"
+            echo "setting LastRebootReason"
+            dmcli eRT setv Device.DeviceInfo.X_RDKCENTRAL-COM_LastRebootReason string Software_upgrade
+            echo "SET succeeded"
                 
         else 
             # The reboot command failed, retry in the next maintenance window 
