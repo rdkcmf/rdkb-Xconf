@@ -256,7 +256,7 @@ int main(int argc,char *argv[])
 	{
 
 		reboot_status = Reboot_Ready(&pValue);
-		printf("XCONF BIN : Reboot_Ready status %l \n",pValue);
+		printf("XCONF BIN : Reboot_Ready status %ld \n",pValue);
 			if(reboot_status == RETURN_OK && pValue == 1)
 				ret_code = 0;
 
