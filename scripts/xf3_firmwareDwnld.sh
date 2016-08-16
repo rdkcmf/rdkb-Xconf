@@ -831,12 +831,14 @@ while [ $reboot_device_success -eq 0 ]; do
         # and the reboot ready status is OK, issue the reboot
         # command and check if it returned correctly
 	if [ $reboot_device -eq 0 ];then
-            reboot_device_success=1
+        reboot_device_success=1
+		echo "setting LastRebootReason"
+        dmcli eRT setv Device.DeviceInfo.X_RDKCENTRAL-COM_LastRebootReason string Software_upgrade
+	    echo "SET succeeded"
 	    touch /tmp/xconf.reboot
 	    shutdown -r now
 	    echo "XCONF SCRIPT : REBOOTING DEVICE"
-                
-        else 
+	else 
             # The reboot command failed, retry in the next maintenance window 
             reboot_device_success=0
             #Goto start of Reboot Manager again  
