@@ -45,12 +45,31 @@ image_upg_avl=0
 #       no assumption is made about the length of the fields
 # spin_on : 1 spin_on_patch 2 spin_on_internal 3 spin_on_minor
 
+
+# Get currrent firmware in th eunit
+getCurrentFw()
+{
+ currentfw=""
+ # Check the location of version.txt file
+ if [ -f "/fss/gw/version.txt" ]
+ then
+    currentfw=`cat /fss/gw/version.txt | grep image | cut -f2 -d=`
+ elif [ -f "/version.txt" ]
+ then
+    if [ "$currentfw" = "" ]
+	then
+        currentfw=`cat /version.txt | grep image | cut -f2 -d=`
+	fi
+ fi
+ echo $currentfw
+}
+
 checkFirmwareUpgCriteria()
 {
     image_upg_avl=0;
 
     # Retrieve current firmware version
-    currentVersion=`dmcli eRT getvalues Device.DeviceInfo.X_CISCO_COM_FirmwareName | grep TG1682 | cut -d ":" -f 3 | tr -d ' '`
+    currentVersion=`getCurrentFw`
 
     echo "XCONF SCRIPT : CurrentVersion : $currentVersion"
     echo "XCONF SCRIPT : UpgradeVersion : $firmwareVersion"
@@ -291,17 +310,18 @@ getFirmwareUpgDetail()
         ipv6FirmwareLocation=""
         upgradeDelay=""
        
-        currentVersion=`dmcli eRT getvalues Device.DeviceInfo.X_CISCO_COM_FirmwareName | grep TG1682 | cut -d ":" -f 3 | tr -d ' ' `
+        currentVersion=`getCurrentFw`
+		
         MAC=`ifconfig  | grep $interface |  grep -v $interface:0 | tr -s ' ' | cut -d ' ' -f5`
         date=`date`
-        
+        modelName=`dmcli eRT getv Device.DeviceInfo.ModelName | grep value | cut -d ":" -f 3 | tr -d ' ' `
         echo "XCONF SCRIPT : CURRENT VERSION : $currentVersion"
         echo "XCONF SCRIPT : CURRENT MAC  : $MAC"
         echo "XCONF SCRIPT : CURRENT DATE : $date"
-
+	echo "XCONF SCRIPT : MODEL : $modelName"
 
         # Query the  XCONF Server
-        HTTP_RESPONSE_CODE=`$CURL_PATH/curl --interface $interface -k -w '%{http_code}\n' -d "eStbMac=$MAC&firmwareVersion=$currentVersion&env=$env&model=TG1682G&localtime=$date&timezone=EST05&capabilities="rebootDecoupled"&capabilities="RCDL"&capabilities="supportsFullHttpUrl"" -o "/tmp/response.txt" "$xconf_url" --connect-timeout 30 -m 30`
+        HTTP_RESPONSE_CODE=`$CURL_PATH/curl --interface $interface -k -w '%{http_code}\n' -d "eStbMac=$MAC&firmwareVersion=$currentVersion&env=$env&model=$modelName&localtime=$date&timezone=EST05&capabilities="rebootDecoupled"&capabilities="RCDL"&capabilities="supportsFullHttpUrl"" -o "/tmp/response.txt" "$xconf_url" --connect-timeout 30 -m 30`
 	    
         echo "XCONF SCRIPT : HTTP RESPONSE CODE is" $HTTP_RESPONSE_CODE
         # Print the response
