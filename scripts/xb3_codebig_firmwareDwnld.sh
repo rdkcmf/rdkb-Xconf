@@ -13,7 +13,7 @@ BIN_PATH=/fss/gw/usr/bin
 
 #GLOBAL DECLARATIONS
 image_upg_avl=0
-
+CDL_SERVER_OVERRIDE=0
 FILENAME="/tmp/response.txt"
 WAN_INTERFACE="erouter0"
 
@@ -372,25 +372,31 @@ getFirmwareUpgDetail()
         MAC=`ifconfig  | grep $interface |  grep -v $interface:0 | tr -s ' ' | cut -d ' ' -f5`
                 date=`date`
 
+        echo "XCONF SCRIPT : CURRENT VERSION : $currentVersion"
+        echo "XCONF SCRIPT : CURRENT MAC  : $MAC"
+        echo "XCONF SCRIPT : CURRENT DATE : $date"
+        if [ $CDL_SERVER_OVERRIDE -eq 0 ];then
             SECONDV=`dmcli eRT getv Device.X_CISCO_COM_CableModem.TimeOffset | grep value | cut -d ":" -f 3 | tr -d ' ' `
             serial=`dmcli eRT getv Device.DeviceInfo.SerialNumber | grep value | cut -d ":" -f 3 | tr -d ' ' `
             CB_CAPABILITIES='&capabilities=rebootDecoupled&capabilities="RCDL"&capabilities="supportsFullHttpUrl"'
             request_type=2
 
-        echo "XCONF SCRIPT : CURRENT VERSION : $currentVersion"
-        echo "XCONF SCRIPT : CURRENT MAC  : $MAC"
-        echo "XCONF SCRIPT : CURRENT DATE : $date"
                 echo "XCONF SCRIPT : OFFSET TIME : $SECONDV" >> $XCONF_LOG_FIL
                 echo "XCONF SCRIPT : SERIAL : $serial" >> $XCONF_LOG_FILE
 
         echo "XCONF SCRIPT : Adjusting date"
 
 	adjustDate                
+		fi
 
 		if [ "$firmwareName_configured" != "" ]; then
                     currentVersion=$firmwareName_configured
                 fi
 
+		if [ $CDL_SERVER_OVERRIDE -eq 1 ];then
+			# Query the  XCONF Server
+			HTTP_RESPONSE_CODE=`$CURL_PATH/curl --interface $interface -k -w '%{http_code}\n' -d "eStbMac=$MAC&firmwareVersion=$currentVersion&env=$env&model=$devicemodel&localtime=$date&timezone=EST05&capabilities="rebootDecoupled"&capabilities="RCDL"&capabilities="supportsFullHttpUrl"" -o "/tmp/response.txt" "$xconf_url" --connect-timeout 30 -m 30`
+		else
 
                 ###############Jason string creation##########
                 echo "XCONF SCRIPT : Jason string creation"
@@ -412,6 +418,7 @@ getFirmwareUpgDetail()
                 CURL_CMD="curl --cacert /nvram/cacert.pem --connect-timeout 30  --interface erouter0 -w '%{http_code}\n' -o \"$FILENAME\" \"$CB_SIGNED_REQUEST\" -m 30"
                 echo "CURL_CMD : $CURL_CMD" >> $XCONF_LOG_FILE
                 HTTP_RESPONSE_CODE=`eval $CURL_CMD`
+		fi	
 
         echo "XCONF SCRIPT : HTTP RESPONSE CODE is" $HTTP_RESPONSE_CODE
         # Print the response
@@ -467,6 +474,7 @@ getFirmwareUpgDetail()
                 xconf_retry_count=$((xconf_retry_count+1))
 
             else
+				if [ $CDL_SERVER_OVERRIDE -eq 0 ];then
 
                         imageHTTPURL="$firmwareLocation/$firmwareFilename"
                         domainName=`echo $imageHTTPURL | awk -F/ '{print $3}'`
@@ -499,15 +507,16 @@ getFirmwareUpgDetail()
                         echo $authorizationHeader > /tmp/authHeader
                         echo "authorizationHeader written to /tmp/authHeader"
 
-                # Check if a newer version was returned in the response
-            # If image_upg_avl = 0, retry reconnecting with XCONf in next window
-            # If image_upg_avl = 1, download new firmware
 
                    CURL_CMD="curl --cacert /nvram/cacert.pem --connect-timeout 30 --interface erouter0 -H '$authorizationHeader' -w '%{http_code}\n' -fgLo /var/$firmwareFilename '$serverUrl'"
                         echo CURL_CMD_CDL : $CURL_CMD
                         echo CURL_CMD_CDL : $CURL_CMD >>$XCONF_LOG_FILE
                     echo "Execute above curl command to start code download (if you want to try manually)"
+				fi	
 
+                # Check if a newer version was returned in the response
+            # If image_upg_avl = 0, retry reconnecting with XCONf in next window
+            # If image_upg_avl = 1, download new firmware
                         #This is a temporary function added to check FirmwareUpgCriteria
                         #This function will not check any other criteria other than matching current firmware and requested firmware
 
@@ -714,6 +723,11 @@ if [ "$type" == "DEV" ] || [ "$type" == "dev" ];then
 else
     url="https://xconf.xcal.tv/xconf/swu/stb/"
 fi
+if [ -f /nvram/swupdate.conf ] ; then
+	url=`grep -v '^[[:space:]]*#' /nvram/swupdate.conf`
+	echo "XCONF SCRIPT : URL taken from /nvram/swupdate.conf override. URL=$url"
+	CDL_SERVER_OVERRIDE=1
+fi	
 
 #s16 echo "$type=$url" > /tmp/Xconf
 echo "URL=$url" > /tmp/Xconf
@@ -796,11 +810,20 @@ do
         #/etc/whitelist.sh "$firmwareLocation"
 
         # Set the url and filename
+		if [ $CDL_SERVER_OVERRIDE -eq 1 ];then
+			echo "XCONF SCRIPT : URL --- $firmwareLocation and NAME --- $firmwareFilename"
+			echo "XCONF SCRIPT : URL --- $firmwareLocation and NAME --- $firmwareFilename" >> $XCONF_LOG_FILE
+			echo \"\" > /tmp/authHeader
+			$BIN_PATH/XconfHttpDl set_http_url $firmwareLocation/$firmwareFilename $firmwareFilename
+
+		else
+		
         echo "XCONF SCRIPT : URL --- $serverUrl and NAME --- $firmwareFilename"
         echo "XCONF SCRIPT : URL --- $serverUrl and NAME --- $firmwareFilename" >> $XCONF_LOG_FILE
 
                 $BIN_PATH/XconfHttpDl set_http_url $serverUrl $firmwareFilename
 
+		fi		
                 set_url_stat=$?
 
         # If the URL was correctly set, initiate the download
