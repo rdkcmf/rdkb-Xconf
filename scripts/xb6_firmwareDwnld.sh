@@ -48,7 +48,7 @@ checkFirmwareUpgCriteria()
     image_upg_avl=0;
 
     # Retrieve current firmware version
-	currentVersion=`dmcli eRT getvalues Device.DeviceInfo.X_CISCO_COM_FirmwareName | grep TG3482 | cut -d ":" -f 3 | tr -d ' '`
+	currentVersion=`dmcli eRT getvalues Device.DeviceInfo.X_CISCO_COM_FirmwareName | grep value | cut -d ":" -f 3 | tr -d ' '`
 
     echo "XCONF SCRIPT : CurrentVersion : $currentVersion"
     echo "XCONF SCRIPT : UpgradeVersion : $firmwareVersion"
@@ -289,6 +289,8 @@ getFirmwareUpgDetail()
 #TODO
 		currentVersion=`cat /version.txt | grep "imagename:" | cut -d ":" -f 2`
 #TODO
+        devicemodel=`dmcli eRT getv Device.DeviceInfo.ModelName  | grep "value:" | cut -d ":" -f 3 | tr -d ' ' `
+        echo "$devicemodel"
         MAC=`ifconfig $interface  | grep HWaddr | cut -d' ' -f7`
         date=`date`
         
@@ -298,7 +300,7 @@ getFirmwareUpgDetail()
 
 
         # Query the  XCONF Server
-        HTTP_RESPONSE_CODE=`$CURL_PATH/curl --interface $interface -k -w '%{http_code}\n' -d "eStbMac=$MAC&firmwareVersion=$currentVersion&env=$env&model=TG3482G&localtime=$date&timezone=EST05&capabilities="rebootDecoupled"&capabilities="RCDL"&capabilities="supportsFullHttpUrl"" -o "/tmp/response.txt" "$xconf_url" --connect-timeout 30 -m 30`
+        HTTP_RESPONSE_CODE=`$CURL_PATH/curl --interface $interface -k -w '%{http_code}\n' -d "eStbMac=$MAC&firmwareVersion=$currentVersion&env=$env&model=$devicemodel&localtime=$date&timezone=EST05&capabilities="rebootDecoupled"&capabilities="RCDL"&capabilities="supportsFullHttpUrl"" -o "/tmp/response.txt" "$xconf_url" --connect-timeout 30 -m 30`
 	    
         echo "XCONF SCRIPT : HTTP RESPONSE CODE is" $HTTP_RESPONSE_CODE
         # Print the response
