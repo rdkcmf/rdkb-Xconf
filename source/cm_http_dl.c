@@ -223,8 +223,8 @@ int main(int argc,char *argv[])
 
     char pHttpUrl[CM_HTTPURL_LEN];
     char pfilename[CM_FILENAME_LEN];
-    LONG pValue ;
-	int ret_code = 0;
+    LONG value = 0;
+    int ret_code = 0;
     int http_status,reboot_status;
     int reset_device;
 
@@ -255,13 +255,13 @@ int main(int argc,char *argv[])
 	else if (strcmp(argv[1],"http_reboot_status")==0)
 	{
 
-		reboot_status = Reboot_Ready(&pValue);
-		printf("XCONF BIN : Reboot_Ready status %ld \n",pValue);
-			if(reboot_status == RETURN_OK && pValue == 1)
-				ret_code = 0;
+		reboot_status = Reboot_Ready(&value);
+		printf("XCONF BIN : Reboot_Ready status %ld \n", value);
+		if(reboot_status == RETURN_OK && value == 1)
+			ret_code = 0;
 
-			else
-				ret_code= 1;
+		else
+			ret_code= 1;
 	}
 
 	else if(strcmp(argv[1],"http_reboot")==0)
