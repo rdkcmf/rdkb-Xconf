@@ -5,6 +5,9 @@ XCONF_LOG_FILE_NAME=xconf.txt.0
 XCONF_LOG_FILE_PATHNAME=${XCONF_LOG_PATH}/${XCONF_LOG_FILE_NAME}
 XCONF_LOG_FILE=${XCONF_LOG_FILE_PATHNAME}
 
+# Variable to check ci/prod xconf cdl
+CDL_SERVER_OVERRIDE=0
+
 CURL_PATH=/bin
 interface=erouter0
 BIN_PATH=/bin
@@ -238,6 +241,37 @@ checkFirmwareUpgCriteria()
 
 }
 
+
+#This is a temporary function added to check FirmwareUpgCriteria
+#This function will not check any other criteria other than matching current firmware and requested firmware
+
+checkFirmwareUpgCriteria_temp()
+{
+	image_upg_avl=0
+
+	currentVersion=`cat /version.txt | grep "imagename:" | cut -d ":" -f 2`
+	firmwareVersion=`head -n1 /tmp/response.txt | cut -d "," -f4 | cut -d ":" -f2 | cut -d '"' -f2`
+	currentVersion=`echo $currentVersion | tr '[A-Z]' '[a-z]'`
+	firmwareVersion=`echo $firmwareVersion | tr '[A-Z]' '[a-z]'`
+	if [ "$currentVersion" != "" ] && [ "$firmwareVersion" != "" ];then
+		if [ "$currentVersion" == "$firmwareVersion" ]; then
+			echo "XCONF SCRIPT : Current image ("$currentVersion") and Requested imgae ("$firmwareVersion") are same. No upgrade/downgrade required"
+			echo "XCONF SCRIPT : Current image ("$currentVersion") and Requested imgae ("$firmwareVersion") are same. No upgrade/downgrade required">> $XCONF_LOG_FILE
+			image_upg_avl=0
+		else
+			echo "XCONF SCRIPT : Current image ("$currentVersion") and Requested imgae ("$firmwareVersion") are different. Processing Upgrade/Downgrade"
+			echo "XCONF SCRIPT : Current image ("$currentVersion") and Requested imgae ("$firmwareVersion") are different. Processing Upgrade/Downgrade">> $XCONF_LOG_FILE
+			image_upg_avl=1
+		fi
+	else
+		echo "XCONF SCRIPT : Current image ("$currentVersion") Or Requested imgae ("$firmwareVersion") returned NULL. No Upgrade/Downgrade"
+		echo "XCONF SCRIPT : Current image ("$currentVersion") Or Requested imgae ("$firmwareVersion") returned NULL. No Upgrade/Downgrade">> $XCONF_LOG_FILE
+		image_upg_avl=0
+	fi
+}
+
+
+
 # Check if a new image is available on the XCONF server
 getFirmwareUpgDetail()
 {
@@ -300,7 +334,7 @@ getFirmwareUpgDetail()
 
 
         # Query the  XCONF Server
-        HTTP_RESPONSE_CODE=`$CURL_PATH/curl --interface $interface -k -w '%{http_code}\n' -d "eStbMac=$MAC&firmwareVersion=$currentVersion&env=$env&model=$devicemodel&localtime=$date&timezone=EST05&capabilities="rebootDecoupled"&capabilities="RCDL"&capabilities="supportsFullHttpUrl"" -o "/tmp/response.txt" "$xconf_url" --connect-timeout 30 -m 30`
+        HTTP_RESPONSE_CODE=`curl --interface $interface -k -w '%{http_code}\n' -d "eStbMac=$MAC&firmwareVersion=$currentVersion&env=$env&model=$devicemodel&localtime=$date&timezone=EST05&capabilities="rebootDecoupled"&capabilities="RCDL"&capabilities="supportsFullHttpUrl"" -o "/tmp/response.txt" "$xconf_url" --connect-timeout 30 -m 30`
 	    
         echo "XCONF SCRIPT : HTTP RESPONSE CODE is" $HTTP_RESPONSE_CODE
         # Print the response
@@ -359,7 +393,15 @@ getFirmwareUpgDetail()
            	# Check if a newer version was returned in the response
             # If image_upg_avl = 0, retry reconnecting with XCONf in next window
             # If image_upg_avl = 1, download new firmware
-                checkFirmwareUpgCriteria  
+
+			# if CDL_SERVER_OVERRIDE = 1, considering as ci-xconf communication. Will call checkFirmwareUpgCriteria_temp() and not checking PROD imagename conventions
+               
+			 	if [ $CDL_SERVER_OVERRIDE -eq 0 ];then  
+					checkFirmwareUpgCriteria  
+				else
+					checkFirmwareUpgCriteria_temp
+				fi
+
 			fi
 		
 
@@ -574,6 +616,7 @@ fi
 if [ -f /nvram/swupdate.conf ] ; then
 	url=`grep -v '^[[:space:]]*#' /nvram/swupdate.conf`
 	echo "XCONF SCRIPT : URL taken from /nvram/swupdate.conf override. URL=$url"
+	CDL_SERVER_OVERRIDE=1
 fi	
 
 #s16 echo "$type=$url" > /tmp/Xconf
@@ -660,7 +703,7 @@ do
         # Set the url and filename
         echo "XCONF SCRIPT : URL --- $firmwareLocation and NAME --- $firmwareFilename"
         echo "XCONF SCRIPT : URL --- $firmwareLocation and NAME --- $firmwareFilename" >> $XCONF_LOG_FILE
-        $BIN_PATH/XconfHttpDl set_http_url $firmwareLocation $firmwareFilename >> $XCONF_LOG_FILE
+        XconfHttpDl set_http_url $firmwareLocation $firmwareFilename >> $XCONF_LOG_FILE
         set_url_stat=$?
         
         # If the URL was correctly set, initiate the download
@@ -685,7 +728,7 @@ do
 
 	        # Start the image download
 			echo "[ $(date) ] XCONF SCRIPT  ### httpdownload started ###" >> $XCONF_LOG_FILE
-	        $BIN_PATH/XconfHttpDl http_download >> $XCONF_LOG_FILE
+	        XconfHttpDl http_download >> $XCONF_LOG_FILE
 	        http_dl_stat=$?
 			echo "[ $(date) ] XCONF SCRIPT  ### httpdownload completed ###" >> $XCONF_LOG_FILE
 	        echo "XCONF SCRIPT : HTTP DL STATUS $http_dl_stat"
@@ -754,7 +797,7 @@ while [ $reboot_device_success -eq 0 ]; do
         # Check the Reboot status
         # Continously check reboot status every 10 seconds  
         # till the end of the maintenace window until the reboot status is OK
-        $BIN_PATH/XconfHttpDl http_reboot_status >> $XCONF_LOG_FILE
+        XconfHttpDl http_reboot_status >> $XCONF_LOG_FILE
         http_reboot_ready_stat=$?
 
         while [ $http_reboot_ready_stat -eq 1 ]   
@@ -767,7 +810,7 @@ while [ $reboot_device_success -eq 0 ]; do
             if [ $cur_hr -le 4 ] && [ $cur_min -le 59 ] && [ $cur_sec -le 59 ];
             then
                 #We're still within the reboot window 
-                $BIN_PATH/XconfHttpDl http_reboot_status >> $XCONF_LOG_FILE
+                XconfHttpDl http_reboot_status >> $XCONF_LOG_FILE
                 http_reboot_ready_stat=$?
                     
             else
@@ -792,7 +835,7 @@ while [ $reboot_device_success -eq 0 ]; do
         #Reboot the device
 	    echo "XCONF SCRIPT : Reboot possible. Issuing reboot command"
 	    echo "RDKB_REBOOT : Reboot command issued from XCONF"
-		$BIN_PATH/XconfHttpDl http_reboot >> $XCONF_LOG_FILE 
+		XconfHttpDl http_reboot >> $XCONF_LOG_FILE 
 		reboot_device=$?
 		       
         # This indicates we're within the maintenace window/rebootImmediate=TRUE
