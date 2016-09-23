@@ -583,6 +583,10 @@ if [ "$type" == "DEV" ] || [ "$type" == "dev" ];then
 else
     url="https://xconf.xcal.tv/xconf/swu/stb/"
 fi
+if [ -f /nvram/swupdate.conf ] ; then
+	url=`grep -v '^[[:space:]]*#' /nvram/swupdate.conf`
+	echo "XCONF SCRIPT : URL taken from /nvram/swupdate.conf override. URL=$url"
+fi
 
 #s16 echo "$type=$url" > /tmp/Xconf
 echo "URL=$url" > /tmp/Xconf
