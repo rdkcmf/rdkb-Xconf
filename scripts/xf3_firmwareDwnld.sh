@@ -13,6 +13,14 @@ TMP_PATH=/tmp
 #GLOBAL DECLARATIONS
 image_upg_avl=0
 
+#Grab the model number
+modelNum=`dmcli eRT getv Device.DeviceInfo.ModelName | awk '/value:/ {print "P"$5;}'`;
+if [ "$modelNum" = "" ]
+then
+    echo "XCONF SCRIPT : modelNum not returnd from dmcli, revert to grabbing from /nvram/serialization.txt"
+    modelNum=`grep MODEL /nvram/serialization.txt | sed 's/.*=/P/'`
+fi
+echo "XCONF SCRIPT : Model : $modelNum"
 
 #
 # release numbering system rules
@@ -47,9 +55,9 @@ image_upg_avl=0
 checkFirmwareUpgCriteria()
 {
     image_upg_avl=0;
-
+    
     # Retrieve current firmware version
-    currentVersion=`dmcli eRT getvalues Device.DeviceInfo.X_CISCO_COM_FirmwareName | grep PX5001 | cut -d ":" -f 3 | tr -d ' '`
+    currentVersion=`dmcli eRT getvalues Device.DeviceInfo.X_CISCO_COM_FirmwareName | grep $modelNum | cut -d ":" -f 3 | tr -d ' '`
     if [ "$currentVersion" = "" ]
     then
         echo "XCONF SCRIPT : currentVersion not returnd from dmcli, revert to grabbing from /fss/gw/version.txt"
@@ -58,7 +66,7 @@ checkFirmwareUpgCriteria()
     #Non official builds use default where spin numbering is expected.  Convert it to a 0 value in this case
     echo "$currentVersion" | cut -d "_" -f2 | grep '[0-9][0-9]*\.[0-9][0-9]*[p,s][0-9][0-9]*' >/dev/null
     if [ $? != 0 ]; then
-        currentVersion="PX5001_0.0s0_VBN_sey"
+        currentVersion=$modelNum"_0.0s0_VBN_sey"
     fi
     firmwareVersion=`echo "$firmwareVersion" | cut -d "_" -f2`
     echo "XCONF SCRIPT : CurrentVersion : $currentVersion"
@@ -298,8 +306,12 @@ getFirmwareUpgDetail()
         ipv6FirmwareLocation=""
         upgradeDelay=""
        
-        currentVersion=`dmcli eRT getvalues Device.DeviceInfo.X_CISCO_COM_FirmwareName | grep PX5001 | cut -d ":" -f 3 | tr -d ' ' `
-        
+        currentVersion=`dmcli eRT getvalues Device.DeviceInfo.X_CISCO_COM_FirmwareName | grep $modelNum | cut -d ":" -f 3 | tr -d ' ' `
+        if [ "$currentVersion" = "" ]
+        then
+            echo "XCONF SCRIPT : currentVersion not returnd from dmcli, revert to grabbing from /fss/gw/version.txt"
+            currentVersion=`grep 'imagename' /fss/gw/version.txt | cut -f 2 -d':'`
+        fi
 	MAC=`ifconfig  | grep $interface |  grep -v $interface:0 | tr -s ' ' | cut -d ' ' -f5`
         serialNumber=`grep SERIAL_NUMBER /nvram/serialization.txt | cut -f 2 -d "="`
         date=`date`
@@ -310,7 +322,7 @@ getFirmwareUpgDetail()
         echo "XCONF SCRIPT : CURRENT DATE : $date"
 
         # Query the  XCONF Server
-        HTTP_RESPONSE_CODE=`$CURL_PATH/curl --interface $interface -s -k -w '%{http_code}\n' -d "eStbMac=$MAC&firmwareVersion=$currentVersion&serial=$serialNumber&env=$env&model=PX5001&localtime=$date&timezone=EST05&capabilities="rebootDecoupled"&capabilities="RCDL"&capabilities="supportsFullHttpUrl"" -o "/tmp/response.txt" "$xconf_url" --connect-timeout 30 -m 30`
+        HTTP_RESPONSE_CODE=`$CURL_PATH/curl --interface $interface -s -k -w '%{http_code}\n' -d "eStbMac=$MAC&firmwareVersion=$currentVersion&serial=$serialNumber&env=$env&model=$modelNum&localtime=$date&timezone=EST05&capabilities="rebootDecoupled"&capabilities="RCDL"&capabilities="supportsFullHttpUrl"" -o "/tmp/response.txt" "$xconf_url" --connect-timeout 30 -m 30`
 
         echo "XCONF SCRIPT : HTTP RESPONSE CODE is" $HTTP_RESPONSE_CODE
         # Print the response
