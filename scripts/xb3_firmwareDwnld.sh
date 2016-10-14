@@ -579,10 +579,15 @@ echo XCONF SCRIPT : MODEL IS $type
 
 if [ "$type" == "DEV" ] || [ "$type" == "dev" ];then
     #url="https://xconf.poa.xcal.tv/xconf/swu/stb/"
-    url="http://69.252.111.22/xconf/swu/stb/"
+    if [ -f /nvram/swupdate.conf ];
+         url=`grep -v '^[[:space:]]*#' /nvram/swupdate.conf``
+    else
+         url="http://69.252.111.22/xconf/swu/stb/"
+    fi
 else
     url="https://xconf.xcal.tv/xconf/swu/stb/"
 fi
+
 if [ -f /nvram/swupdate.conf ] ; then
 	url=`grep -v '^[[:space:]]*#' /nvram/swupdate.conf`
 	echo "XCONF SCRIPT : URL taken from /nvram/swupdate.conf override. URL=$url"
