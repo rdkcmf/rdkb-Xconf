@@ -579,8 +579,8 @@ echo XCONF SCRIPT : MODEL IS $type
 
 if [ "$type" == "DEV" ] || [ "$type" == "dev" ];then
     #url="https://xconf.poa.xcal.tv/xconf/swu/stb/"
-    if [ -f /nvram/swupdate.conf ];
-         url=`grep -v '^[[:space:]]*#' /nvram/swupdate.conf``
+    if [ -f /nvram/swupdate.conf ];then
+         url=`grep -v '^[[:space:]]*#' /nvram/swupdate.conf`
     else
          url="http://69.252.111.22/xconf/swu/stb/"
     fi
