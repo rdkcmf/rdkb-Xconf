@@ -5,9 +5,6 @@ XCONF_LOG_FILE_NAME=xconf.txt.0
 XCONF_LOG_FILE_PATHNAME=${XCONF_LOG_PATH}/${XCONF_LOG_FILE_NAME}
 XCONF_LOG_FILE=${XCONF_LOG_FILE_PATHNAME}
 
-# Variable to check ci/prod xconf cdl
-CDL_SERVER_OVERRIDE=0
-
 CURL_PATH=/bin
 interface=erouter0
 BIN_PATH=/bin
@@ -242,7 +239,6 @@ checkFirmwareUpgCriteria()
 }
 
 
-#This is a temporary function added to check FirmwareUpgCriteria
 #This function will not check any other criteria other than matching current firmware and requested firmware
 
 checkFirmwareUpgCriteria_temp()
@@ -394,13 +390,11 @@ getFirmwareUpgDetail()
             # If image_upg_avl = 0, retry reconnecting with XCONf in next window
             # If image_upg_avl = 1, download new firmware
 
-			# if CDL_SERVER_OVERRIDE = 1, considering as ci-xconf communication. Will call checkFirmwareUpgCriteria_temp() and not checking PROD imagename conventions
+			# call checkFirmwareUpgCriteria_temp() and not checking PROD imagename conventions
+			# RDKB-7901 is raied to get information on PROD imagename check is required or not. 
+			# Will continue to use checkFirmwareUpgCriteria_temp unless hear back any issue from RDKB team with this implementaion
                
-			 	if [ $CDL_SERVER_OVERRIDE -eq 0 ];then  
-					checkFirmwareUpgCriteria  
-				else
 					checkFirmwareUpgCriteria_temp
-				fi
 
 			fi
 		
@@ -616,7 +610,6 @@ fi
 if [ -f /nvram/swupdate.conf ] ; then
 	url=`grep -v '^[[:space:]]*#' /nvram/swupdate.conf`
 	echo "XCONF SCRIPT : URL taken from /nvram/swupdate.conf override. URL=$url"
-	CDL_SERVER_OVERRIDE=1
 fi	
 
 #s16 echo "$type=$url" > /tmp/Xconf
