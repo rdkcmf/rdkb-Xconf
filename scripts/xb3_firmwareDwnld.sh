@@ -3,6 +3,11 @@
 source /etc/utopia/service.d/log_capture_path.sh
 source /fss/gw/etc/utopia/service.d/log_env_var.sh
 
+if [ -f /etc/device.properties ]
+then
+    source /etc/device.properties
+fi
+
 XCONF_LOG_FILE_NAME=xconf.txt.0
 XCONF_LOG_FILE_PATHNAME=${LOG_PATH}/${XCONF_LOG_FILE_NAME}
 XCONF_LOG_FILE=${XCONF_LOG_FILE_PATHNAME}
@@ -13,7 +18,6 @@ BIN_PATH=/fss/gw/usr/bin
 
 #GLOBAL DECLARATIONS
 image_upg_avl=0
-
 
 #
 # release numbering system rules
@@ -739,8 +743,15 @@ while [ $reboot_device_success -eq 0 ]; do
     if [ "$rebootImmediately" == "false" ];then
 
         # Check if still within reboot window
-        #reb_hr=`date +"%H"`
-        reb_hr=`LTime H`
+
+
+
+	if [ "$UTC_ENABLE" == "true" ]
+	then
+        	reb_hr=`LTime H`
+	else
+        	reb_hr=`date +"%H"`
+	fi
 
         if [ $reb_hr -le 4 ] && [ $reb_hr -ge 1 ]; then
             echo "XCONF SCRIPT : Still within current maintenance window for reboot"
@@ -767,10 +778,15 @@ while [ $reboot_device_success -eq 0 ]; do
         while [ $http_reboot_ready_stat -eq 1 ]   
         do     
             sleep 10
-            #cur_hr=`date +"%H"`
-            cur_hr=`LTime H`
-            #cur_min=`date +"%M"`
-            cur_min=`LTime M`
+
+		if [ "$UTC_ENABLE" == "true" ]
+		then
+			cur_hr=`LTime H`
+			cur_min=`LTime M`
+		else
+			 cur_hr=`date +"%H"`
+			 cur_min=`date +"%M"`
+		fi
             cur_sec=`date +"%S"`
 
             if [ $cur_hr -le 4 ] && [ $cur_min -le 59 ] && [ $cur_sec -le 59 ];
