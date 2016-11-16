@@ -386,6 +386,7 @@ getFirmwareUpgDetail()
                 xconf_retry_count=$((xconf_retry_count+1))
 
             else
+                echo "$firmwareLocation" > /tmp/.xconfssrdownloadurl
            	# Check if a newer version was returned in the response
             # If image_upg_avl = 0, retry reconnecting with XCONf in next window
             # If image_upg_avl = 1, download new firmware
