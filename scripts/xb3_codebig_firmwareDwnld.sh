@@ -15,6 +15,7 @@ BIN_PATH=/fss/gw/usr/bin
 image_upg_avl=0
 CDL_SERVER_OVERRIDE=0
 FILENAME="/tmp/response.txt"
+HTTP_CODE=/tmp/fwdl_http_code.txt
 WAN_INTERFACE="erouter0"
 
 firmwareName_configured=""
@@ -263,7 +264,7 @@ checkFirmwareUpgCriteria_temp()
                 image_upg_avl=0
 
                 currentVersion=`cat /version.txt | grep "imagename:" | cut -d ":" -f 2`
-                firmwareVersion=`head -n1 /tmp/response.txt | cut -d "," -f4 | cut -d ":" -f2 | cut -d '"' -f2`
+                firmwareVersion=`head -n1 $FILENAME | cut -d "," -f4 | cut -d ":" -f2 | cut -d '"' -f2`
                 currentVersion=`echo $currentVersion | tr '[A-Z]' '[a-z]'`
                 firmwareVersion=`echo $firmwareVersion | tr '[A-Z]' '[a-z]'`
                 if [ "$currentVersion" != "" ] && [ "$firmwareVersion" != "" ];then
@@ -343,6 +344,11 @@ getFirmwareUpgDetail()
         xconf_url="https://xconf.xcal.tv/xconf/swu/stb/"
     fi
 
+    # if xconf_url uses http, then log it
+    if [ `echo "${xconf_url:0:6}" | tr '[:upper:]' '[:lower:]'` != "https:" ]; then
+        echo "firmware download using insecure protocol to $xconf_url" >> $XCONF_LOG_FILE
+    fi
+
     echo "XCONF SCRIPT : env is $env"
     echo "XCONF SCRIPT : xconf url  is $xconf_url"
 
@@ -357,8 +363,10 @@ getFirmwareUpgDetail()
         #echo "XCONF SCRIPT : Whitelisting Xconf Server url : $xconf_url" >> $XCONF_LOG_FILE
         #/etc/whitelist.sh "$xconf_url"
 
-            # Perform cleanup by deleting any previous responses
-            rm -f /tmp/response.txt
+        # Perform cleanup by deleting any previous responses
+        rm -f $FILENAME
+        rm -f $FWDL_HTTP_CODE
+
             firmwareDownloadProtocol=""
             firmwareFilename=""
             firmwareLocation=""
@@ -394,8 +402,63 @@ getFirmwareUpgDetail()
                 fi
 
 		if [ $CDL_SERVER_OVERRIDE -eq 1 ];then
-			# Query the  XCONF Server
-			HTTP_RESPONSE_CODE=`$CURL_PATH/curl --interface $interface -k -w '%{http_code}\n' -d "eStbMac=$MAC&firmwareVersion=$currentVersion&env=$env&model=$devicemodel&localtime=$date&timezone=EST05&capabilities="rebootDecoupled"&capabilities="RCDL"&capabilities="supportsFullHttpUrl"" -o "/tmp/response.txt" "$xconf_url" --connect-timeout 30 -m 30`
+			echo "XCONF SCRIPT : Post string creation"
+			POSTSTR="eStbMac=$MAC&firmwareVersion=$currentVersion&env=$env&model=$devicemodel&localtime=$date&timezone=EST05&capabilities=\"rebootDecoupled\"&capabilities=\"RCDL\"&capabilities=\"supportsFullHttpUrl\""
+			echo "XCONF SCRIPT : POSTSTR : $POSTSTR" >> $XCONF_LOG_FILE
+
+			# Query the  XCONF Server, first using TLS 1.2
+			tls="--tlsv1.2"
+			echo "Attempting TLS1.2 connection to $xconf_url " >> $XCONF_LOG_FILE
+			CURL_CMD="curl --connect-timeout 30 --interface $interface -w '%{http_code}\n' $tls -d \"$POSTSTR\" -o \"$FILENAME\" $xconf_url -m 30"
+			echo "`date` CURL_CMD: $CURL_CMD" >> $XCONF_LOG_FILE
+			result= eval "$CURL_CMD" > $HTTP_CODE
+			ret=$?
+
+			#Check for https tls1.2 failure
+			case $ret in
+			    35|51|53|54|58|59|60|64|66|77|80|82|83|90|91)
+				echo "Switching to TLS1.1 as TLS1.2 failed to connect to $xconf_url with curl error code $ret" >> $XCONF_LOG_FILE
+				# log server info for failed connection using nslookup
+				nslookup `echo $xconf_url | sed "s/^[^/\]*:[/\][/\]\([^/\]*\).*$/\1/"` >> $XCONF_LOG_FILE
+				tls="--tlsv1.1"
+				CURL_CMD="curl --connect-timeout 30 --interface $interface -w '%{http_code}\n' $tls -d \"$POSTSTR\" -o \"$FILENAME\" $xconf_url -m 30"
+				echo "`date` CURL_CMD: $CURL_CMD" >> $XCONF_LOG_FILE
+				result= eval "$CURL_CMD" > $HTTP_CODE
+				ret=$?
+				;;
+			esac
+
+			#Check for https tls1.1 failure
+			case $ret in
+			    35|51|53|54|58|59|60|64|66|77|80|82|83|90|91)
+				echo "Switching to insecure mode as TLS1.1 failed to connect to $xconf_url with curl error code $ret" >> $XCONF_LOG_FILE
+				# log server info for failed connection using nslookup
+				nslookup `echo $xconf_url | sed "s/^[^/\]*:[/\][/\]\([^/\]*\).*$/\1/"` >> $XCONF_LOG_FILE
+				CURL_CMD="curl --connect-timeout 30 --interface $interface --insecure -w '%{http_code}\n' $tls -d \"$POSTSTR\" -o \"$FILENAME\" $xconf_url -m 30"
+				echo "`date` CURL_CMD: $CURL_CMD" >> $XCONF_LOG_FILE
+				result= eval "$CURL_CMD" > $HTTP_CODE
+				ret=$?
+				;;
+			esac
+
+			#Check for https tls1.1 --insecure failure
+			case $ret in
+			    35|51|53|54|58|59|60|64|66|77|80|82|83|90|91)
+				echo "Switching to HTTP as HTTPS insecure failed to connect to $xconf_url with curl error code $ret" >> $XCONF_LOG_FILE
+				# log server info for failed connection using nslookup
+				nslookup `echo $xconf_url | sed "s/^[^/\]*:[/\][/\]\([^/\]*\).*$/\1/"` >> $XCONF_LOG_FILE
+				# make sure protocol is HTTP
+				xconf_url=`echo $xconf_url | sed "s/[Hh][Tt][Tt][Pp][Ss]:/http:/"`
+				CURL_CMD="curl --connect-timeout 30 --interface $interface -w '%{http_code}\n' $tls -d \"$POSTSTR\" -o \"$FILENAME\" $xconf_url -m 30"
+				echo "`date` CURL_CMD: $CURL_CMD" >> $XCONF_LOG_FILE
+				result= eval "$CURL_CMD" > $HTTP_CODE
+				ret=$?
+				;;
+			esac
+
+			HTTP_RESPONSE_CODE=$(awk -F\" '{print $1}' $HTTP_CODE)
+			echo "`date` ret = $ret http_code: $HTTP_RESPONSE_CODE" >> $XCONF_LOG_FILE
+
 		else
 
                 ###############Jason string creation##########
@@ -415,25 +478,82 @@ getFirmwareUpgDetail()
                 rm -f /nvram/adjdate.txt
 
                 echo "XCONF SCRIPT : Executing CURL for  https://xconf-prod.codebig2.net "
-                CURL_CMD="curl --cacert /nvram/cacert.pem --connect-timeout 30  --interface erouter0 -w '%{http_code}\n' -o \"$FILENAME\" \"$CB_SIGNED_REQUEST\" -m 30"
-                echo "CURL_CMD : $CURL_CMD" >> $XCONF_LOG_FILE
-                HTTP_RESPONSE_CODE=`eval $CURL_CMD`
+
+            # Query the  XCONF Server, first using TLS 1.2
+            tls="--tlsv1.2"
+            echo "Attempting TLS1.2 connection to $xconf_url " >> $XCONF_LOG_FILE
+            CURL_CMD="curl --connect-timeout 30 --interface $interface -w '%{http_code}\n' $tls -o \"$FILENAME\" \"$CB_SIGNED_REQUEST\" -m 30"
+            echo "`date` CURL_CMD: $CURL_CMD" >> $XCONF_LOG_FILE
+            result= eval "$CURL_CMD" > $HTTP_CODE
+            ret=$?
+
+            #Check for https tls1.2 failure
+            case $ret in
+               35|51|53|54|58|59|60|64|66|77|80|82|83|90|91)
+                 echo "Switching to TLS1.1 as TLS1.2 failed to connect to $xconf_url with curl error code $ret" >> $XCONF_LOG_FILE
+                 # log server info for failed connection using nslookup
+                 nslookup `echo $xconf_url | sed "s/^[^/\]*:[/\][/\]\([^/\]*\).*$/\1/"` >> $XCONF_LOG_FILE
+                 tls="--tlsv1.1"
+                 CURL_CMD="curl --connect-timeout 30 --interface $interface -w '%{http_code}\n' $tls -o \"$FILENAME\" \"$CB_SIGNED_REQUEST\" -m 30"
+                 echo "`date` CURL_CMD: $CURL_CMD" >> $XCONF_LOG_FILE
+                 result= eval "$CURL_CMD" > $HTTP_CODE
+                 ret=$?
+                 ;;
+            esac
+
+            #Check for https tls1.1 failure
+            case $ret in
+              35|51|53|54|58|59|60|64|66|77|80|82|83|90|91)
+                 echo "Switching to insecure mode as TLS1.1 failed to connect to $xconf_url with curl error code $ret" >> $XCONF_LOG_FILE
+                 # log server info for failed connection using nslookup
+                 nslookup `echo $xconf_url | sed "s/^[^/\]*:[/\][/\]\([^/\]*\).*$/\1/"` >> $XCONF_LOG_FILE
+                 CURL_CMD="curl --connect-timeout 30 --interface $interface --insecure -w '%{http_code}\n' $tls -o \"$FILENAME\" \"$CB_SIGNED_REQUEST\" -m 30"
+                 echo "`date` CURL_CMD: $CURL_CMD" >> $XCONF_LOG_FILE
+                 result= eval "$CURL_CMD" > $HTTP_CODE
+                 ret=$?
+                 ;;
+            esac
+
+            #Check for https tls1.1 --insecure failure
+            case $ret in
+              35|51|53|54|58|59|60|64|66|77|80|82|83|90|91)
+                 echo "Switching to HTTP as HTTPS insecure failed to connect to $xconf_url with curl error code $ret" >> $XCONF_LOG_FILE
+                 # log server info for failed connection using nslookup
+                 nslookup `echo $xconf_url | sed "s/^[^/\]*:[/\][/\]\([^/\]*\).*$/\1/"` >> $XCONF_LOG_FILE
+                 # make sure protocol is HTTP
+                 xconf_url=`echo $xconf_url | sed "s/[Hh][Tt][Tt][Pp][Ss]:/http:/"`
+                 CURL_CMD="curl --connect-timeout 30 --interface $interface -w '%{http_code}\n' -o \"$FILENAME\" \"$CB_SIGNED_REQUEST\" -m 30"
+                 echo "`date` CURL_CMD: $CURL_CMD" >> $XCONF_LOG_FILE
+                 result= eval "$CURL_CMD" > $HTTP_CODE
+                 ret=$?
+                 ;;
+            esac
+
+            HTTP_RESPONSE_CODE=$(awk -F\" '{print $1}' $HTTP_CODE)
+            echo "`date` ret = $ret http_code: $HTTP_RESPONSE_CODE" >> $XCONF_LOG_FILE
+
 		fi	
 
         echo "XCONF SCRIPT : HTTP RESPONSE CODE is" $HTTP_RESPONSE_CODE
-        # Print the response
-        cat /tmp/response.txt
-        cat "/tmp/response.txt" >> $XCONF_LOG_FILE
-
+        echo "XCONF SCRIPT : HTTP RESPONSE CODE is" $HTTP_RESPONSE_CODE >> $XCONF_LOG_FILE
             if [ $HTTP_RESPONSE_CODE -eq 200 ];then
+		    # Print the response
+		    cat $FILENAME
+		    echo
+		    cat "$FILENAME" >> $XCONF_LOG_FILE
+		    echo >> $XCONF_LOG_FILE
+
                     retry_flag=0
-                    firmwareDownloadProtocol=`head -n1 /tmp/response.txt | cut -d "," -f1 | cut -d ":" -f2 | cut -d '"' -f2`
+                    firmwareDownloadProtocol=`head -n1 $FILENAME | cut -d "," -f1 | cut -d ":" -f2 | cut -d '"' -f2`
+                echo "XCONF SCRIPT : firmwareDownloadProtocol [$firmwareDownloadProtocol]"
+                echo "XCONF SCRIPT : firmwareDownloadProtocol [$firmwareDownloadProtocol]" >> $XCONF_LOG_FILE
 
                     if [ "$firmwareDownloadProtocol" == "http" ];then
                 echo "XCONF SCRIPT : Download image from HTTP server"
-                firmwareLocation=`head -n1 /tmp/response.txt | cut -d "," -f3 | cut -d ":" -f2- | cut -d '"' -f2`
+                firmwareLocation=`head -n1 $FILENAME | cut -d "," -f3 | cut -d ":" -f2- | cut -d '"' -f2`
             else
-                echo "XCONF SCRIPT : Download from TFTP server not supported, check XCONF server configurations"
+                echo "XCONF SCRIPT : Download from $firmwareDownloadProtocol server not supported, check XCONF server configurations"
+                echo "XCONF SCRIPT : Download from $firmwareDownloadProtocol server not supported, check XCONF server configurations" >> $XCONF_LOG_FILE
                 echo "XCONF SCRIPT : Retrying query in 2 minutes"
 
                 # sleep for 2 minutes and retry
@@ -448,15 +568,15 @@ getFirmwareUpgDetail()
                 continue
             fi
 
-            firmwareFilename=`head -n1 /tmp/response.txt | cut -d "," -f2 | cut -d ":" -f2 | cut -d '"' -f2`
-                firmwareVersion=`head -n1 /tmp/response.txt | cut -d "," -f4 | cut -d ":" -f2 | cut -d '"' -f2`
-                ipv6FirmwareLocation=`head -n1 /tmp/response.txt | cut -d "," -f5 | cut -d ":" -f2-`
-                upgradeDelay=`head -n1 /tmp/response.txt | cut -d "," -f6 | cut -d ":" -f2`
+            firmwareFilename=`head -n1 $FILENAME | cut -d "," -f2 | cut -d ":" -f2 | cut -d '"' -f2`
+                firmwareVersion=`head -n1 $FILENAME | cut -d "," -f4 | cut -d ":" -f2 | cut -d '"' -f2`
+                ipv6FirmwareLocation=`head -n1 $FILENAME | cut -d "," -f5 | cut -d ":" -f2-`
+                upgradeDelay=`head -n1 $FILENAME | cut -d "," -f6 | cut -d ":" -f2`
 
             if [ "$env" == "dev" ] || [ "$env" == "DEV" ];then
-                    rebootImmediately=`head -n1 /tmp/response.txt | cut -d "," -f7 | cut -d ":" -f2 | cut -d '}' -f1`
+                    rebootImmediately=`head -n1 $FILENAME | cut -d "," -f7 | cut -d ":" -f2 | cut -d '}' -f1`
             else
-                rebootImmediately=`head -n1 /tmp/response.txt | cut -d "," -f5 | cut -d ":" -f2 | cut -d '}' -f1`
+                rebootImmediately=`head -n1 $FILENAME | cut -d "," -f5 | cut -d ":" -f2 | cut -d '}' -f1`
             fi
 
                  echo "XCONF SCRIPT : Protocol :"$firmwareDownloadProtocol
@@ -466,7 +586,7 @@ getFirmwareUpgDetail()
                  echo "XCONF SCRIPT : Reboot   :"$rebootImmediately
 
                         if [ "X"$firmwareLocation = "X" ];then
-                echo "XCONF SCRIPT : No URL received in /tmp/response.txt"
+                echo "XCONF SCRIPT : No URL received in $FILENAME"
                 retry_flag=1
                 image_upg_avl=0
 
@@ -507,8 +627,7 @@ getFirmwareUpgDetail()
                         echo $authorizationHeader > /tmp/authHeader
                         echo "authorizationHeader written to /tmp/authHeader"
 
-
-                   CURL_CMD="curl --cacert /nvram/cacert.pem --connect-timeout 30 --interface erouter0 -H '$authorizationHeader' -w '%{http_code}\n' -fgLo /var/$firmwareFilename '$serverUrl'"
+                   CURL_CMD="curl --connect-timeout 30 --interface $interface -H '$authorizationHeader' -w '%{http_code}\n' -fgLo /var/$firmwareFilename '$serverUrl'"
                         echo CURL_CMD_CDL : $CURL_CMD
                         echo CURL_CMD_CDL : $CURL_CMD >>$XCONF_LOG_FILE
                     echo "Execute above curl command to start code download (if you want to try manually)"
@@ -582,10 +701,10 @@ calcRandTime()
 
         printf "XCONF SCRIPT : Checking update with XCONF server at \t";
         # date -d "$min_to_sleep minutes" +'%H:%M:%S'
-        date -D '%s' -d "$(( `date +%s`+$sec_to_sleep ))"
+        date -d @"$(( `date +%s`+$sec_to_sleep ))"
 
         date_upgch_part="$(( `date +%s`+$sec_to_sleep ))"
-        date_upgch_final=`date -D '%s' -d "$date_upgch_part"`
+        date_upgch_final=`date -d @"$date_upgch_part"`
 
         echo "Checking update on $date_upgch_final" >> $XCONF_LOG_FILE
 
@@ -626,7 +745,7 @@ calcRandTime()
         echo "XCONF SCRIPT : Time to 1:00 AM : $start_hr hours, $start_min minutes and $start_sec seconds"
         min_wait=$((start_hr*60 + $start_min))
         # date -d "$time today + $min_wait minutes + $start_sec seconds" +'%H:%M:%S'
-        date -D '%s' -d "$(( `date +%s`+$(($min_wait*60 + $start_sec)) ))"
+        date -d @"$(( `date +%s`+$(($min_wait*60 + $start_sec)) ))"
 
         # TIME TO START OF HTTP_DL/REBOOT_DEV
 
@@ -639,16 +758,17 @@ calcRandTime()
 
         printf "XCONF SCRIPT : Action will be performed on ";
         # date -d "$sec_to_sleep seconds" +'%H:%M:%S'
-        date -D '%s' -d "$(( `date +%s`+$sec_to_sleep ))"
+        date -d @"$(( `date +%s`+$sec_to_sleep ))"
 
         date_part="$(( `date +%s`+$sec_to_sleep ))"
-        date_final=`date -D '%s' -d "$date_part"`
+        date_final=`date -d @"$date_part"`
 
         echo "Action on $date_final" >> $XCONF_LOG_FILE
 
     fi
 
     echo "XCONF SCRIPT : SLEEPING FOR $min_to_sleep minutes or $sec_to_sleep seconds"
+    echo "XCONF SCRIPT : SLEEPING FOR $min_to_sleep minutes or $sec_to_sleep seconds" >> $XCONF_LOG_FILE
 
     #echo "XCONF SCRIPT : SPIN 17 : sleeping for 30 sec, *******TEST BUILD***********"
     #sec_to_sleep=30
@@ -719,7 +839,7 @@ echo XCONF SCRIPT : MODEL IS $type
 
 if [ "$type" == "DEV" ] || [ "$type" == "dev" ];then
     #url="https://xconf.poa.xcal.tv/xconf/swu/stb/"
-    url="http://69.252.111.22/xconf/swu/stb/"
+    url="https://ci.xconfds.ccp.xcal.tv/xconf/swu/stb/"
 else
     url="https://xconf.xcal.tv/xconf/swu/stb/"
 fi
