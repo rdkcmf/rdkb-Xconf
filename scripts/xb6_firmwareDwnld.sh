@@ -48,212 +48,22 @@ image_upg_avl=0
 #       no assumption is made about the length of the fields
 # spin_on : 1 spin_on_patch 2 spin_on_internal 3 spin_on_minor
 
-checkFirmwareUpgCriteria()
-{
-    image_upg_avl=0;
-
-    # Retrieve current firmware version
-	currentVersion=`dmcli eRT getvalues Device.DeviceInfo.X_CISCO_COM_FirmwareName | grep value | cut -d ":" -f 3 | tr -d ' '`
-
-    echo "XCONF SCRIPT : CurrentVersion : $currentVersion"
-    echo "XCONF SCRIPT : UpgradeVersion : $firmwareVersion"
-
-    echo "XCONF SCRIPT : CurrentVersion : $currentVersion" >> $XCONF_LOG_FILE
-    echo "XCONF SCRIPT : UpgradeVersion : $firmwareVersion" >> $XCONF_LOG_FILE
-
-    cur_rel_num=`echo $currentVersion | cut -d "_" -f 2`
-    upg_rel_num=`echo $firmwareVersion | cut -d "_" -f 2`
-
-    cur_major_rev=0
-    cur_minor_rev=0
-    cur_internal_rev=0
-    cur_patch_level=0
-    cur_spin=1
-    cur_spin_on=0
-
-    upg_major_rev=0
-    upg_minor_rev=0
-    upg_internal_rev=0
-    upg_patch_level=0
-    upg_spin=1
-    upg_spin_on=0
-
-    #
-    # Parse and normalize current firmware version
-    #
-
-    # major
-    cur_major_rev=`echo $cur_rel_num | cut -d "." -f 1`
-
-    # minor
-    cur_first_dot_length=`expr match "${cur_rel_num}" '[0-9]*\.'`
-    cur_second_dot_or_p_or_s_length=`expr match "${cur_rel_num}" '[0-9]*\.[0-9]*[\.,p,s]'`
-    length=${cur_second_dot_or_p_or_s_length}
-    length=$((length-$cur_first_dot_length))
-    length=$((length-1))
-    cur_minor_rev=${cur_rel_num:$cur_first_dot_length:$length}
-
-    # internal
-    cur_second_dot_length=`expr match "${cur_rel_num}" '[0-9]*\.[0-9]*[\.]'`
-    #echo "XCONF SCRIPT : cur_second_dot_length=$cur_second_dot_length"
-    if [ $cur_second_dot_length -eq 0 ]; then
-        cur_internal_rev=0
-    else
-        cur_p_or_s_length=`expr match "${cur_rel_num}" '[0-9]*\.[0-9]*\.[0-9]*[p,s]'`
-        #echo "XCONF SCRIPT : cur_p_or_s_length=$cur_p_or_s_length"
-        length=${cur_p_or_s_length}
-        length=$((length-$cur_second_dot_length))
-        length=$((length-1))
-        cur_internal_rev=${cur_rel_num:$cur_second_dot_length:$length}
-    fi
-
-    # patch
-    cur_s_npos=`expr index "${cur_rel_num}" s`
-    cur_p_npos=`expr index "${cur_rel_num}" p`
-    if [ $cur_p_npos -eq 0 ]; then
-        cur_patch_level=0
-    else
-        length=${cur_s_npos}
-        length=$((length-$cur_p_npos))
-        length=$((length-1))
-        cur_patch_level=${cur_rel_num:$cur_p_npos:$length}
-    fi
-
-    # spin
-    length=${cur_s_npos}
-    cur_spin=${cur_rel_num:$length}
-
-    if [ $cur_patch_level -ne 0 ];then
-        cur_spin_on=1;
-    elif [ $cur_internal_rev -ne 0 ];then
-        cur_spin_on=2;
-    else
-        cur_spin_on=3;
-    fi
-    
-    #
-    # Parse and normalize upgrade firmware version
-    # 
-
-    # major
-    upg_major_rev=`echo $upg_rel_num | cut -d "." -f 1`
-
-    # minor
-    upg_first_dot_length=`expr match "${upg_rel_num}" '[0-9]*\.'`
-    upg_second_dot_or_p_or_s_length=`expr match "${upg_rel_num}" '[0-9]*\.[0-9]*[\.,p,s]'`
-    length=${upg_second_dot_or_p_or_s_length}
-    length=$((length-$upg_first_dot_length))
-    length=$((length-1))
-    upg_minor_rev=${upg_rel_num:$upg_first_dot_length:$length}
-
-    # internal
-    upg_second_dot_length=`expr match "${upg_rel_num}" '[0-9]*\.[0-9]*[\.]'`
-    #echo "XCONF SCRIPT : upg_second_dot_length=$upg_second_dot_length"
-    if [ $upg_second_dot_length -eq 0 ]; then
-        upg_internal_rev=0
-    else
-        upg_p_or_s_length=`expr match "${upg_rel_num}" '[0-9]*\.[0-9]*\.[0-9]*[p,s]'`
-        #echo "XCONF SCRIPT : upg_p_or_s_length=$upg_p_or_s_length"
-        length=${upg_p_or_s_length}
-        length=$((length-$upg_second_dot_length))
-        length=$((length-1))
-        upg_internal_rev=${upg_rel_num:$upg_second_dot_length:$length}
-    fi
-
-    # patch
-    upg_s_npos=`expr index "${upg_rel_num}" s`
-    upg_p_npos=`expr index "${upg_rel_num}" p`
-    if [ $upg_p_npos -eq 0 ]; then
-        upg_patch_level=0
-    else
-        length=${upg_s_npos}
-        length=$((length-$upg_p_npos))
-        length=$((length-1))
-        upg_patch_level=${upg_rel_num:$upg_p_npos:$length}
-    fi
-
-    # spin
-    length=${upg_s_npos}
-    upg_spin=${upg_rel_num:$length}
-
-    if [ $upg_patch_level -ne 0 ];then
-        upg_spin_on=1;
-    elif [ $upg_internal_rev -ne 0 ];then
-        upg_spin_on=2;
-    else
-        upg_spin_on=3;
-    fi
-
-        if [ $upg_major_rev -gt $cur_major_rev ];then
-            image_upg_avl=1;
-
-        elif [ $upg_major_rev -lt $cur_major_rev ];then
-            image_upg_avl=0
-
-        elif [ $upg_major_rev -eq $cur_major_rev ];then
-            echo "XCONF SCRIPT : Current and upgrade firmware major versions equal,"
-
-            if [ $upg_minor_rev -gt $cur_minor_rev ];then
-                image_upg_avl=1
-
-            elif [ $upg_minor_rev -lt $cur_minor_rev ];then
-                image_upg_avl=0
-
-            elif [ $upg_minor_rev -eq $cur_minor_rev ];then
-                echo "XCONF SCRIPT : Current and upgrade minor versions equal"
-
-                if [ $upg_internal_rev -gt $cur_internal_rev ];then
-                    image_upg_avl=1;
-
-                elif [ $upg_internal_rev -lt $cur_internal_rev ];then
-                    image_upg_avl=0
-
-                elif [ $upg_internal_rev -eq $cur_internal_rev ];then
-                    echo "XCONF SCRIPT : Current and upgrade firmware internal versions equal,"
-
-                    if [ $upg_patch_level -gt $cur_patch_level ];then
-                        image_upg_avl=1;
-
-                    elif [ $upg_patch_level -lt $cur_patch_level ];then
-                        image_upg_avl=0
-
-                    elif [ $upg_patch_level -eq $cur_patch_level ];then
-                        echo "XCONF SCRIPT : Current and upgrade firmware patch versions equal,"
-
-                        if [ $upg_spin -gt $cur_spin ];then
-                            image_upg_avl=1
-
-                        elif [ $upg_spin -le $cur_spin ];then
-                            echo "XCONF SCRIPT : Current and upgrade  spin versions equal/less"
-                            image_upg_avl=0
-                        fi
-                    fi
-                fi
-            fi
-        fi
-
-    echo "XCONF SCRIPT : current --> [$cur_major_rev , $cur_minor_rev , $cur_internal_rev , $cur_patch_level , $cur_spin , $cur_spin_on , $cur_p_npos , $cur_s_npos]" 
-    echo "XCONF SCRIPT : current --> [$cur_major_rev , $cur_minor_rev , $cur_internal_rev , $cur_patch_level , $cur_spin , $cur_spin_on , $cur_p_npos , $cur_s_npos]" >> $XCONF_LOG_FILE
-
-    echo "XCONF SCRIPT : upgrade --> [$upg_major_rev , $upg_minor_rev , $upg_internal_rev , $upg_patch_level , $upg_spin , $upg_spin_on , $upg_p_npos , $upg_s_npos]" 
-    echo "XCONF SCRIPT : upgrade --> [$upg_major_rev , $upg_minor_rev , $upg_internal_rev , $upg_patch_level , $upg_spin , $upg_spin_on , $upg_p_npos , $upg_s_npos]" >> $XCONF_LOG_FILE
-
-    echo "XCONF SCRIPT : [$image_upg_avl] $cur_rel_num --> $upg_rel_num"
-    echo "XCONF SCRIPT : [$image_upg_avl] $cur_rel_num --> $upg_rel_num" >> $XCONF_LOG_FILE
-
-}
-
 
 #This function will not check any other criteria other than matching current firmware and requested firmware
 
-checkFirmwareUpgCriteria_temp()
+checkFirmwareUpgCriteria()
 {
 	image_upg_avl=0
 
 	currentVersion=`cat /version.txt | grep "imagename:" | cut -d ":" -f 2`
-	firmwareVersion=`head -n1 /tmp/response.txt | cut -d "," -f4 | cut -d ":" -f2 | cut -d '"' -f2`
 	currentVersion=`echo $currentVersion | tr '[A-Z]' '[a-z]'`
-	firmwareVersion=`echo $firmwareVersion | tr '[A-Z]' '[a-z]'`
+	
+	echo "XCONF SCRIPT : CurrentVersion : $currentVersion"
+        echo "XCONF SCRIPT : UpgradeVersion : $firmwareVersion"
+
+        echo "XCONF SCRIPT : CurrentVersion : $currentVersion" >> $XCONF_LOG_FILE
+        echo "XCONF SCRIPT : UpgradeVersion : $firmwareVersion" >> $XCONF_LOG_FILE
+	
 	if [ "$currentVersion" != "" ] && [ "$firmwareVersion" != "" ];then
 		if [ "$currentVersion" == "$firmwareVersion" ]; then
 			echo "XCONF SCRIPT : Current image ("$currentVersion") and Requested imgae ("$firmwareVersion") are same. No upgrade/downgrade required"
@@ -311,18 +121,18 @@ getFirmwareUpgDetail()
         #echo "XCONF SCRIPT : Whitelisting Xconf Server url : $xconf_url" >> $XCONF_LOG_FILE
         #/etc/whitelist.sh "$xconf_url"
         
-	    # Perform cleanup by deleting any previous responses
-	    rm -f /tmp/response.txt
-	    firmwareDownloadProtocol=""
-	    firmwareFilename=""
-	    firmwareLocation=""
-	    firmwareVersion=""
-	    rebootImmediately=""
+	# Perform cleanup by deleting any previous responses
+	rm -f /tmp/response.txt /tmp/XconfOutput.txt
+	firmwareDownloadProtocol=""
+	firmwareFilename=""
+	firmwareLocation=""
+	firmwareVersion=""
+	rebootImmediately=""
         ipv6FirmwareLocation=""
         upgradeDelay=""
        
 #TODO
-		currentVersion=`cat /version.txt | grep "imagename:" | cut -d ":" -f 2`
+        currentVersion=`cat /version.txt | grep "imagename:" | cut -d ":" -f 2`
 #TODO
         devicemodel=`dmcli eRT getv Device.DeviceInfo.ModelName  | grep "value:" | cut -d ":" -f 3 | tr -d ' ' `
         echo "$devicemodel"
@@ -342,13 +152,17 @@ getFirmwareUpgDetail()
         cat /tmp/response.txt
         cat "/tmp/response.txt" >> $XCONF_LOG_FILE
 
-	    if [ $HTTP_RESPONSE_CODE -eq 200 ];then
-		    retry_flag=0
-		    firmwareDownloadProtocol=`head -n1 /tmp/response.txt | cut -d "," -f1 | cut -d ":" -f2 | cut -d '"' -f2`
+	if [ $HTTP_RESPONSE_CODE -eq 200 ];then
+            retry_flag=0
+			
+	    OUTPUT="/tmp/XconfOutput.txt" 
+            cat "/tmp/response.txt" | tr -d '\n' | sed 's/[{}]//g' | awk  '{n=split($0,a,","); for (i=1; i<=n; i++) print a[i]}' | sed 's/\"\:\"/\|/g' | sed -r 's/\"\:(true)($)/\|true/gI' | sed -r 's/\"\:(false)($)/\|false/gI' | sed -r 's/\"\:(null)($)/\|\1/gI' | sed -r 's/\"\:([0-9]+)($)/\|\1/g' | sed 's/[\,]/ /g' | sed 's/\"//g' > $OUTPUT
+			
+	    firmwareDownloadProtocol=`grep firmwareDownloadProtocol $OUTPUT  | cut -d \| -f2`
 
-		    if [ "$firmwareDownloadProtocol" == "http" ];then
+	    if [ "$firmwareDownloadProtocol" == "http" ];then
                 echo "XCONF SCRIPT : Download image from HTTP server"
-                firmwareLocation=`head -n1 /tmp/response.txt | cut -d "," -f3 | cut -d ":" -f2- | cut -d '"' -f2`
+                firmwareLocation=`grep firmwareLocation $OUTPUT | cut -d \| -f2 | tr -d ' '`
             else
                 echo "XCONF SCRIPT : Download from TFTP server not supported, check XCONF server configurations"
                 echo "XCONF SCRIPT : Retrying query in 2 minutes"
@@ -365,24 +179,19 @@ getFirmwareUpgDetail()
                 continue
             fi
 
-    	    firmwareFilename=`head -n1 /tmp/response.txt | cut -d "," -f2 | cut -d ":" -f2 | cut -d '"' -f2`
-    	   	firmwareVersion=`head -n1 /tmp/response.txt | cut -d "," -f4 | cut -d ":" -f2 | cut -d '"' -f2`
-	    	ipv6FirmwareLocation=`head -n1 /tmp/response.txt | cut -d "," -f5 | cut -d ":" -f2-`
-	    	upgradeDelay=`head -n1 /tmp/response.txt | cut -d "," -f6 | cut -d ":" -f2`
-            
-            if [ "$env" == "dev" ] || [ "$env" == "DEV" ];then
-    	   	    rebootImmediately=`head -n1 /tmp/response.txt | cut -d "," -f7 | cut -d ":" -f2 | cut -d '}' -f1`
-            else
-                rebootImmediately=`head -n1 /tmp/response.txt | cut -d "," -f5 | cut -d ":" -f2 | cut -d '}' -f1`
-            fi    
+    	    firmwareFilename=`grep firmwareFilename $OUTPUT | cut -d \| -f2`
+    	    firmwareVersion=`grep firmwareVersion $OUTPUT | cut -d \| -f2`
+	    ipv6FirmwareLocation=`grep ipv6FirmwareLocation  $OUTPUT | cut -d \| -f2 | tr -d ' '`
+	    upgradeDelay=`grep upgradeDelay $OUTPUT | cut -d \| -f2`
+            rebootImmediately=`grep rebootImmediately $OUTPUT | cut -d \| -f2`     
                                     
-    	   	 echo "XCONF SCRIPT : Protocol :"$firmwareDownloadProtocol
-    	   	 echo "XCONF SCRIPT : Filename :"$firmwareFilename
-    	   	 echo "XCONF SCRIPT : Location :"$firmwareLocation
-    	   	 echo "XCONF SCRIPT : Version  :"$firmwareVersion
-    	   	 echo "XCONF SCRIPT : Reboot   :"$rebootImmediately
+    	    echo "XCONF SCRIPT : Protocol :"$firmwareDownloadProtocol
+    	    echo "XCONF SCRIPT : Filename :"$firmwareFilename
+    	    echo "XCONF SCRIPT : Location :"$firmwareLocation
+    	    echo "XCONF SCRIPT : Version  :"$firmwareVersion
+    	    echo "XCONF SCRIPT : Reboot   :"$rebootImmediately
 	
-        	if [ "X"$firmwareLocation = "X" ];then
+            if [ "X"$firmwareLocation = "X" ];then
                 echo "XCONF SCRIPT : No URL received in /tmp/response.txt"
                 retry_flag=1
                 image_upg_avl=0
@@ -395,18 +204,14 @@ getFirmwareUpgDetail()
            	# Check if a newer version was returned in the response
             # If image_upg_avl = 0, retry reconnecting with XCONf in next window
             # If image_upg_avl = 1, download new firmware
+     
+		checkFirmwareUpgCriteria
 
-			# call checkFirmwareUpgCriteria_temp() and not checking PROD imagename conventions
-			# RDKB-7901 is raied to get information on PROD imagename check is required or not. 
-			# Will continue to use checkFirmwareUpgCriteria_temp unless hear back any issue from RDKB team with this implementaion
-               
-					checkFirmwareUpgCriteria_temp
-
-			fi
+	    fi
 		
 
         # If a response code of 404 was received, error
-	    elif [ $HTTP_RESPONSE_CODE -eq 404 ]; then 
+	elif [ $HTTP_RESPONSE_CODE -eq 404 ]; then 
         	retry_flag=0
            	image_upg_avl=0
 	
