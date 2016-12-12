@@ -490,7 +490,7 @@ calcRandTime()
 	if [ "$UTC_ENABLE" == "true" ]
 	then
         cur_hr=`LTime H`
-		cur_min=`LTime M`
+	cur_min=`LTime M`
         cur_sec=`date +"%S"`
 	else
         cur_hr=`date +"%H"`
@@ -499,9 +499,9 @@ calcRandTime()
 	fi
         # Time to maintenance window
         if [ $cur_hr -eq 0 ];then
-            start_hr=1
+            start_hr=0
         else
-            start_hr=`expr 24 - ${cur_hr} + 1`
+            start_hr=`expr 23 - ${cur_hr} + 1`
         fi
 
         start_min=`expr 59 - ${cur_min}`
