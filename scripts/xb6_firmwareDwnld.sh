@@ -56,7 +56,11 @@ checkFirmwareUpgCriteria()
 	image_upg_avl=0
 
 	currentVersion=`cat /version.txt | grep "imagename:" | cut -d ":" -f 2`
+
+        #Comcast signed firmware images are represented in lower case and vendor signed images are represented in upper case. 
+        #In order to avoid confusion in string comparison, converting both currentVersion and firmwareVersion to lower case.
 	currentVersion=`echo $currentVersion | tr '[A-Z]' '[a-z]'`
+        firmwareVersion=`echo $firmwareVersion | tr '[A-Z]' '[a-z]'`
 	
 	echo "XCONF SCRIPT : CurrentVersion : $currentVersion"
         echo "XCONF SCRIPT : UpgradeVersion : $firmwareVersion"
