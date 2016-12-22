@@ -76,6 +76,12 @@ checkFirmwareUpgCriteria()
     # Retrieve current firmware version
     currentVersion=`getCurrentFw`
 
+    #Comcast signed firmware images are represented in lower case and vendor signed images are represented in upper case.
+    #In order to avoid confusion in string comparison, converting both currentVersion and firmwareVersion to lower case.
+    currentVersion=`echo $currentVersion | tr '[A-Z]' '[a-z]'`
+    firmwareVersion=`echo $firmwareVersion | tr '[A-Z]' '[a-z]'`
+
+
     echo "XCONF SCRIPT : CurrentVersion : $currentVersion"
     echo "XCONF SCRIPT : UpgradeVersion : $firmwareVersion"
 
