@@ -460,20 +460,16 @@ fi
 
 echo "XCONF SCRIPT : MODEL IS $type" >> $XCONF_LOG_FILE
 
-if [ "$type" == "DEV" ] || [ "$type" == "dev" ];then
-    #url="https://xconf.poa.xcal.tv/xconf/swu/stb/"
-    if [ -f /nvram/swupdate.conf ];then
-         url=`grep -v '^[[:space:]]*#' /nvram/swupdate.conf`
-    else
-         url="http://69.252.111.22/xconf/swu/stb/"
-    fi
-else
-    url="https://xconf.xcal.tv/xconf/swu/stb/"
-fi
-
-if [ -f /nvram/swupdate.conf ] ; then
-	url=`grep -v '^[[:space:]]*#' /nvram/swupdate.conf`
-	echo "XCONF SCRIPT : URL taken from /nvram/swupdate.conf override. URL=$url"
+#Default xconf url
+url="https://xconf.xcal.tv/xconf/swu/stb/"
+ 
+# Override mechanism should work only for non-production build.
+if [ "$type" != "PROD" ] && [ "$type" != "prod" ]; then
+  if [ -f /nvram/swupdate.conf ]; then
+      url=`grep -v '^[[:space:]]*#' /nvram/swupdate.conf`
+      echo "XCONF SCRIPT : URL taken from /nvram/swupdate.conf override. URL=$url"
+      echo "XCONF SCRIPT : URL taken from /nvram/swupdate.conf override. URL=$url"  >> $XCONF_LOG_FILE
+  fi
 fi
 
 #s16 echo "$type=$url" > /tmp/Xconf
