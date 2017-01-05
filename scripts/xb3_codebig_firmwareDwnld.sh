@@ -837,17 +837,18 @@ getBuildType
 
 echo XCONF SCRIPT : MODEL IS $type
 
-if [ "$type" == "DEV" ] || [ "$type" == "dev" ];then
-    #url="https://xconf.poa.xcal.tv/xconf/swu/stb/"
-    url="https://ci.xconfds.ccp.xcal.tv/xconf/swu/stb/"
-else
-    url="https://xconf.xcal.tv/xconf/swu/stb/"
+#Default xconf url
+url="https://xconf.xcal.tv/xconf/swu/stb/"
+
+# Override mechanism should work only for non-production build.
+if [ "$type" != "PROD" ] && [ "$type" != "prod" ]; then
+  if [ -f /nvram/swupdate.conf ]; then
+      url=`grep -v '^[[:space:]]*#' /nvram/swupdate.conf`
+      echo "XCONF SCRIPT : URL taken from /nvram/swupdate.conf override. URL=$url"
+      echo "XCONF SCRIPT : URL taken from /nvram/swupdate.conf override. URL=$url"  >> $XCONF_LOG_FILE
+      CDL_SERVER_OVERRIDE=1
+  fi
 fi
-if [ -f /nvram/swupdate.conf ] ; then
-	url=`grep -v '^[[:space:]]*#' /nvram/swupdate.conf`
-	echo "XCONF SCRIPT : URL taken from /nvram/swupdate.conf override. URL=$url"
-	CDL_SERVER_OVERRIDE=1
-fi	
 
 #s16 echo "$type=$url" > /tmp/Xconf
 echo "URL=$url" > /tmp/Xconf
