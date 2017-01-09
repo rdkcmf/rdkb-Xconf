@@ -380,7 +380,7 @@ getFirmwareUpgDetail()
         ipv6FirmwareLocation=""
         upgradeDelay=""
 
-        currentVersion=`dmcli eRT getvalues Device.DeviceInfo.X_CISCO_COM_FirmwareName | grep DPC3941 | cut -d ":" -f 3 | tr -d ' ' `
+                currentVersion=`cat /version.txt | grep "imagename:" | cut -d ":" -f 2`
                 devicemodel=`dmcli eRT getv Device.DeviceInfo.ModelName | grep DPC3941 | cut -d ":" -f 3 | tr -d ' ' `
         MAC=`ifconfig  | grep $interface |  grep -v $interface:0 | tr -s ' ' | cut -d ' ' -f5`
                 date=`date`
