@@ -20,6 +20,7 @@ BIN_PATH=/fss/gw/usr/bin
 image_upg_avl=0
 CDL_SERVER_OVERRIDE=0
 FILENAME="/tmp/response.txt"
+OUTPUT="/tmp/XconfOutput.txt"
 HTTP_CODE=/tmp/fwdl_http_code.txt
 WAN_INTERFACE="erouter0"
 
@@ -269,22 +270,22 @@ checkFirmwareUpgCriteria_temp()
                 image_upg_avl=0
 
                 currentVersion=`cat /version.txt | grep "imagename:" | cut -d ":" -f 2`
-                firmwareVersion=`head -n1 $FILENAME | cut -d "," -f4 | cut -d ":" -f2 | cut -d '"' -f2`
+                firmwareVersion=`grep firmwareVersion $OUTPUT | cut -d \| -f2`
                 currentVersion=`echo $currentVersion | tr '[A-Z]' '[a-z]'`
                 firmwareVersion=`echo $firmwareVersion | tr '[A-Z]' '[a-z]'`
                 if [ "$currentVersion" != "" ] && [ "$firmwareVersion" != "" ];then
                         if [ "$currentVersion" == "$firmwareVersion" ]; then
-                                echo "XCONF SCRIPT : Current image ("$currentVersion") and Requested imgae ("$firmwareVersion") are same. No upgrade/downgrade required"
-                                echo "XCONF SCRIPT : Current image ("$currentVersion") and Requested imgae ("$firmwareVersion") are same. No upgrade/downgrade required">> $XCONF_LOG_FILE
+                                echo "XCONF SCRIPT : Current image ("$currentVersion") and Requested image ("$firmwareVersion") are same. No upgrade/downgrade required"
+                                echo "XCONF SCRIPT : Current image ("$currentVersion") and Requested image ("$firmwareVersion") are same. No upgrade/downgrade required">> $XCONF_LOG_FILE
                                 image_upg_avl=0
                         else
-                                echo "XCONF SCRIPT : Current image ("$currentVersion") and Requested imgae ("$firmwareVersion") are different. Processing Upgrade/Downgrade"
-                                echo "XCONF SCRIPT : Current image ("$currentVersion") and Requested imgae ("$firmwareVersion") are different. Processing Upgrade/Downgrade">> $XCONF_LOG_FILE
+                                echo "XCONF SCRIPT : Current image ("$currentVersion") and Requested image ("$firmwareVersion") are different. Processing Upgrade/Downgrade"
+                                echo "XCONF SCRIPT : Current image ("$currentVersion") and Requested image ("$firmwareVersion") are different. Processing Upgrade/Downgrade">> $XCONF_LOG_FILE
                                 image_upg_avl=1
                         fi
                 else
-                        echo "XCONF SCRIPT : Current image ("$currentVersion") Or Requested imgae ("$firmwareVersion") returned NULL. No Upgrade/Downgrade"
-                        echo "XCONF SCRIPT : Current image ("$currentVersion") Or Requested imgae ("$firmwareVersion") returned NULL. No Upgrade/Downgrade">> $XCONF_LOG_FILE
+                        echo "XCONF SCRIPT : Current image ("$currentVersion") Or Requested image ("$firmwareVersion") returned NULL. No Upgrade/Downgrade"
+                        echo "XCONF SCRIPT : Current image ("$currentVersion") Or Requested image ("$firmwareVersion") returned NULL. No Upgrade/Downgrade">> $XCONF_LOG_FILE
                         image_upg_avl=0
                                                                                                                                                                        fi
 }
@@ -371,6 +372,7 @@ getFirmwareUpgDetail()
         # Perform cleanup by deleting any previous responses
         rm -f $FILENAME
         rm -f $FWDL_HTTP_CODE
+        rm -f $OUTPUT
 
             firmwareDownloadProtocol=""
             firmwareFilename=""
@@ -548,14 +550,19 @@ getFirmwareUpgDetail()
 		    cat "$FILENAME" >> $XCONF_LOG_FILE
 		    echo >> $XCONF_LOG_FILE
 
+                    cat "/tmp/response.txt" | tr -d '\n' | sed 's/[{}]//g' | awk  '{n=split($0,a,","); for (i=1; i<=n; i++) print a[i]}' | sed 's/\"\:\"/\|/g' | sed -r 's/\"\:(true)($)/\|true/gI' | sed -r 's/\"\:(false)($)/\|false/gI' | sed -r 's/\"\:(null)($)/\|\1/gI' | sed -r 's/\"\:([0-9]+)($)/\|\1/g' | sed 's/[\,]/ /g' | sed 's/\"//g' > $OUTPUT
+
                     retry_flag=0
-                    firmwareDownloadProtocol=`head -n1 $FILENAME | cut -d "," -f1 | cut -d ":" -f2 | cut -d '"' -f2`
+
+		firmwareDownloadProtocol=`grep firmwareDownloadProtocol $OUTPUT  | cut -d \| -f2`
+
                 echo "XCONF SCRIPT : firmwareDownloadProtocol [$firmwareDownloadProtocol]"
                 echo "XCONF SCRIPT : firmwareDownloadProtocol [$firmwareDownloadProtocol]" >> $XCONF_LOG_FILE
 
                     if [ "$firmwareDownloadProtocol" == "http" ];then
                 echo "XCONF SCRIPT : Download image from HTTP server"
-                firmwareLocation=`head -n1 $FILENAME | cut -d "," -f3 | cut -d ":" -f2- | cut -d '"' -f2`
+
+		firmwareLocation=`grep firmwareLocation $OUTPUT | cut -d \| -f2 | tr -d ' '`
             else
                 echo "XCONF SCRIPT : Download from $firmwareDownloadProtocol server not supported, check XCONF server configurations"
                 echo "XCONF SCRIPT : Download from $firmwareDownloadProtocol server not supported, check XCONF server configurations" >> $XCONF_LOG_FILE
@@ -573,16 +580,12 @@ getFirmwareUpgDetail()
                 continue
             fi
 
-            firmwareFilename=`head -n1 $FILENAME | cut -d "," -f2 | cut -d ":" -f2 | cut -d '"' -f2`
-                firmwareVersion=`head -n1 $FILENAME | cut -d "," -f4 | cut -d ":" -f2 | cut -d '"' -f2`
-                ipv6FirmwareLocation=`head -n1 $FILENAME | cut -d "," -f5 | cut -d ":" -f2-`
-                upgradeDelay=`head -n1 $FILENAME | cut -d "," -f6 | cut -d ":" -f2`
+            firmwareFilename=`grep firmwareFilename $OUTPUT | cut -d \| -f2`
+            firmwareVersion=`grep firmwareVersion $OUTPUT | cut -d \| -f2`
+            ipv6FirmwareLocation=`grep ipv6FirmwareLocation  $OUTPUT | cut -d \| -f2 | tr -d ' '`
+            upgradeDelay=`grep upgradeDelay $OUTPUT | cut -d \| -f2`
 
-            if [ "$env" == "dev" ] || [ "$env" == "DEV" ];then
-                    rebootImmediately=`head -n1 $FILENAME | cut -d "," -f7 | cut -d ":" -f2 | cut -d '}' -f1`
-            else
-                rebootImmediately=`head -n1 $FILENAME | cut -d "," -f5 | cut -d ":" -f2 | cut -d '}' -f1`
-            fi
+		rebootImmediately=`grep rebootImmediately $OUTPUT | cut -d \| -f2`
 
                  echo "XCONF SCRIPT : Protocol :"$firmwareDownloadProtocol
                  echo "XCONF SCRIPT : Filename :"$firmwareFilename
