@@ -55,7 +55,7 @@ updateCron()
 
     # Calculate random time for cron pattern
     # The max random time can be 23:59:59
-    echo "XCONF SCRIPT: Check Update time being calculated within 24 hrs." >> $XCONF_LOG_FILE
+    echo_t "XCONF SCRIPT: Check Update time being calculated within 24 hrs." >> $XCONF_LOG_FILE
     rand_hr=`awk -v min=0 -v max=23 -v seed="$(date +%N)" 'BEGIN{srand(seed);print int(min+rand()*(max-min+1))}'`
     rand_min=`awk -v min=0 -v max=59 -v seed="$(date +%N)" 'BEGIN{srand(seed);print int(min+rand()*(max-min+1))}'`
 
@@ -66,7 +66,7 @@ updateCron()
     crontab $CRON_FILE_BK -c $CRONTAB_DIR
     rm -rf $CRON_FILE_BK
 
-    echo "XCONF SCRIPT: Time Generated : $rand_hr hr $rand_min min"
+    echo_t "XCONF SCRIPT: Time Generated : $rand_hr hr $rand_min min"
 
 }
 
@@ -104,27 +104,27 @@ if [ -f $DCMRESPONSE ]; then
         
            if [ "$cronPattern" != "" ]
            then
-	      echo "XCONF SCRIPT: Firmware scheduler cron schedule time is $cronPattern"
+	      echo_t "XCONF SCRIPT: Firmware scheduler cron schedule time is $cronPattern"
               crontab -l -c $CRONTAB_DIR > $CRON_FILE_BK
               sed -i '/xb3_firmwareDwnld.sh/d' $CRON_FILE_BK
-              echo "$cronPattern  $DOWNLOAD_SCRIPT 2" >> $CRON_FILE_BK
+              echo_t "$cronPattern  $DOWNLOAD_SCRIPT 2" >> $CRON_FILE_BK
               crontab $CRON_FILE_BK -c $CRONTAB_DIR
               rm -rf $CRON_FILE_BK
-              echo "XCONF SCRIPT: Cron scheduling done, now call download script during bootup"
+              echo_t "XCONF SCRIPT: Cron scheduling done, now call download script during bootup"
               $DOWNLOAD_SCRIPT 1 &
            else
 	      #Cron pattern not found for Xconf firmware download.
-              echo "Cron pattern not found for firmware downlaod, call firmware download script"
+              echo_t "Cron pattern not found for firmware downlaod, call firmware download script"
               updateCron
               $DOWNLOAD_SCRIPT 1 &           
            fi
        else
-            echo "XCONF SCRIPT: File->/tmp/DCMSettings.conf not available, call firmware download script"            
+            echo_t "XCONF SCRIPT: File->/tmp/DCMSettings.conf not available, call firmware download script"            
             updateCron
             $DOWNLOAD_SCRIPT 1 &     
        fi
 else
-       echo "XCONF SCRIPT: DCMresponse.txt file not present, call firmware download script"
+       echo_t "XCONF SCRIPT: DCMresponse.txt file not present, call firmware download script"
        updateCron
        $DOWNLOAD_SCRIPT 1 &
 fi
