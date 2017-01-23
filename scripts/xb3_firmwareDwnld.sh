@@ -583,6 +583,8 @@ fi
 download_image_success=0
 reboot_device_success=0
 retry_download=0
+http_flash_led_disable=0
+is_already_flash_led_disable=0
 
 while [ $download_image_success -eq 0 ]; 
 do
@@ -682,6 +684,13 @@ while [ $reboot_device_success -eq 0 ]; do
             echo_t "XCONF SCRIPT : Not within current maintenance window for reboot.Rebooting in  the next " >> $XCONF_LOG_FILE
             reboot_now=0
         fi
+
+        if [ $reboot_now -eq 0 ] && [ $is_already_flash_led_disable -eq 0 ];
+		then
+			echo "XCONF SCRIPT	: ### httpdownload flash LED disabled ###" >> $XCONF_LOG_FILE
+			$BIN_PATH/XconfHttpDl http_flash_led $http_flash_led_disable
+            is_already_flash_led_disable=1
+        fi    
 
         # If we are not supposed to reboot now, calculate random time
         # to reboot in next maintenance window 

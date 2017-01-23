@@ -218,6 +218,28 @@ else
 return  http_reboot_stat;       
 }
 
+INT HTTP_LED_Flash ( int LEDFlashState )
+{
+	int http_led_flash_stat = -1; 
+
+#ifdef HTTP_LED_FLASH_FEATURE
+	http_led_flash_stat= cm_hal_HTTP_LED_Flash( LEDFlashState );
+
+	if(http_led_flash_stat == RETURN_OK)
+	{
+	    printf("\nXCONF BIN : setting LED flashing completed! %d\n", LEDFlashState);
+	}
+	else
+	{
+	    printf("\nXCONF BIN : setting LED flashing completed. ERROR!\n");
+	}
+#else
+		printf("\nXCONF BIN : Setting LED flashing not supported. ERROR!\n");
+#endif /* HTTP_LED_FLASH_FEATURE */
+
+	return  http_led_flash_stat;       
+}
+
 int main(int argc,char *argv[])
 {
 
@@ -273,6 +295,22 @@ int main(int argc,char *argv[])
 
 			else
 				ret_code= 1;
+	}
+	else if(strcmp(argv[1],"http_flash_led")==0)
+	{
+		if( argv[2] != NULL )
+		{
+			char LEDFlashState[ 24 ] = { 0 };
+
+			strncpy( LEDFlashState, argv[2], sizeof( LEDFlashState ) - 1 );
+			
+			reset_device = HTTP_LED_Flash( atoi( LEDFlashState ) );
+			
+				if(reset_device == RETURN_OK)
+					ret_code = 0;
+				else
+					ret_code= 1;
+		}
 	}
 
     return ret_code;
