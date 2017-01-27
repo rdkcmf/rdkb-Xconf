@@ -284,10 +284,13 @@ calcRandTime()
 
         printf "`date +"%y%m%d-%T.%6N"` XCONF SCRIPT : Checking update with XCONF server at \t";
         # date -d "$min_to_sleep minutes" +'%H:%M:%S'
-        date -D '%s' -d "$(( `date +%s`+$sec_to_sleep ))"
+        # date -D '%s' -d "$(( `date +%s`+$sec_to_sleep ))"
+        time=$(( `date +%s`+$sec_to_sleep ))
+        date -d @${time} +"%T"
 
         date_upgch_part="$(( `date +%s`+$sec_to_sleep ))"
-        date_upgch_final=`date -D '%s' -d "$date_upgch_part"`
+        # date_upgch_final=`date -D '%s' -d "$date_upgch_part"`
+        date_upgch_final=`date -d @${date_upgch_part} +"%T"`
 
         echo_t "Checking update on $date_upgch_final" >> $XCONF_LOG_FILE
 
