@@ -494,10 +494,21 @@ if [ "$type" = "DEV" ] || [ "$type" = "dev" ];then
 else
     url="https://xconf.xcal.tv/xconf/swu/stb/"
 fi
-if [ -f /nvram/swupdate.conf ] ; then
-	url=`grep -v '^[[:space:]]*#' /nvram/swupdate.conf`
-	echo "XCONF SCRIPT : URL taken from /nvram/swupdate.conf override. URL=$url"
-fi	
+# Verify 3x that we dont have bootrom_otp=1 before allowing the override
+bootrom_otp=0
+for otp_try in `seq 1 3`
+do
+    grep bootrom_otp=1 /proc/cmdline >/dev/null
+    if [ $? -eq 0 ]; then
+        bootrom_otp=1
+    fi
+done
+if [ "$bootrom_otp" -eq 0 ]; then
+    if [ -f /nvram/swupdate.conf ] ; then
+        url=`grep -v '^[[:space:]]*#' /nvram/swupdate.conf`
+        echo "XCONF SCRIPT : URL taken from /nvram/swupdate.conf override. URL=$url"
+    fi	
+fi
 
 #s16 echo "$type=$url" > /etc/Xconf
 echo "URL=$url" > /tmp/Xconf
