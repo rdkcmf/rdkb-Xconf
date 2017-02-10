@@ -15,6 +15,8 @@ XCONF_LOG_FILE=${XCONF_LOG_FILE_PATHNAME}
 CURL_PATH=/fss/gw/usr/bin
 interface=erouter0
 BIN_PATH=/fss/gw/usr/bin
+REBOOT_WAIT="/tmp/.waitingreboot"
+DOWNLOAD_INPROGRESS="/tmp/.downloadingfw"
 
 #GLOBAL DECLARATIONS
 image_upg_avl=0
@@ -278,6 +280,7 @@ checkFirmwareUpgCriteria_temp()
                                 echo_t "XCONF SCRIPT : Current image ("$currentVersion") and Requested imgae ("$firmwareVersion") are same. No upgrade/downgrade required"
                                 echo_t "XCONF SCRIPT : Current image ("$currentVersion") and Requested imgae ("$firmwareVersion") are same. No upgrade/downgrade required">> $XCONF_LOG_FILE
                                 image_upg_avl=0
+								exit
                         else
                                 echo_t "XCONF SCRIPT : Current image ("$currentVersion") and Requested imgae ("$firmwareVersion") are different. Processing Upgrade/Downgrade"
                                 echo_t "XCONF SCRIPT : Current image ("$currentVersion") and Requested imgae ("$firmwareVersion") are different. Processing Upgrade/Downgrade">> $XCONF_LOG_FILE
@@ -287,6 +290,7 @@ checkFirmwareUpgCriteria_temp()
                         echo_t "XCONF SCRIPT : Current image ("$currentVersion") Or Requested imgae ("$firmwareVersion") returned NULL. No Upgrade/Downgrade"
                         echo_t "XCONF SCRIPT : Current image ("$currentVersion") Or Requested imgae ("$firmwareVersion") returned NULL. No Upgrade/Downgrade">> $XCONF_LOG_FILE
                         image_upg_avl=0
+						exit
                                                                                                                                                                        fi
 }
 
@@ -543,6 +547,7 @@ getFirmwareUpgDetail()
 
         echo_t "XCONF SCRIPT : HTTP RESPONSE CODE is" $HTTP_RESPONSE_CODE
         echo_t "XCONF SCRIPT : HTTP RESPONSE CODE is" $HTTP_RESPONSE_CODE >> $XCONF_LOG_FILE
+
             if [ $HTTP_RESPONSE_CODE -eq 200 ];then
 		    # Print the response
 		    cat $FILENAME
@@ -560,13 +565,13 @@ getFirmwareUpgDetail()
                 echo_t "XCONF SCRIPT : firmwareDownloadProtocol [$firmwareDownloadProtocol]" >> $XCONF_LOG_FILE
 
                     if [ "$firmwareDownloadProtocol" == "http" ];then
-                echo_t "XCONF SCRIPT : Download image from HTTP server"
+                echo_t "XCONF SCRIPT : Download image from HTTP server" >> $XCONF_LOG_FILE
 
 		firmwareLocation=`grep firmwareLocation $OUTPUT | cut -d \| -f2 | tr -d ' '`
             else
                 echo_t "XCONF SCRIPT : Download from $firmwareDownloadProtocol server not supported, check XCONF server configurations"
                 echo_t "XCONF SCRIPT : Download from $firmwareDownloadProtocol server not supported, check XCONF server configurations" >> $XCONF_LOG_FILE
-                echo_t "XCONF SCRIPT : Retrying query in 2 minutes"
+                echo_t "XCONF SCRIPT : Retrying query in 2 minutes" >> $XCONF_LOG_FILE
 
                 # sleep for 2 minutes and retry
                 sleep 120;
@@ -594,7 +599,7 @@ getFirmwareUpgDetail()
                  echo_t "XCONF SCRIPT : Reboot   :"$rebootImmediately
 
                         if [ "X"$firmwareLocation = "X" ];then
-                echo_t "XCONF SCRIPT : No URL received in $FILENAME"
+                echo_t "XCONF SCRIPT : No URL received in $FILENAME" >> $XCONF_LOG_FILE
                 retry_flag=1
                 image_upg_avl=0
 
@@ -651,16 +656,17 @@ getFirmwareUpgDetail()
                         fi
 
 
-        # If a response code of 404 was received, error
+        # If a response code of 404 was received, exit
             elif [ $HTTP_RESPONSE_CODE -eq 404 ]; then
                 retry_flag=0
                 image_upg_avl=0
-
+                echo "XCONF SCRIPT : Response code received is 404" >> $XCONF_LOG_FILE
+                exit
         # If a response code of 0 was received, the server is unreachable
         # Try reconnecting
         elif [ $HTTP_RESPONSE_CODE -eq 0 ]; then
 
-            echo_t "XCONF SCRIPT : Response code 0, sleeping for 2 minutes and retrying"
+            echo_t "XCONF SCRIPT : Response code 0, sleeping for 2 minutes and retrying" >> $XCONF_LOG_FILE
             # sleep for 2 minutes and retry
             sleep 120;
 
@@ -674,8 +680,9 @@ getFirmwareUpgDetail()
 
     done
 
-    if [ $xconf_retry_count -eq 4 ];then
+    if [ $xconf_retry_count -eq 4 ] && [ $image_upg_avl -eq 0 ];then
         echo_t "XCONF SCRIPT : Retry limit to connect with XCONF server reached"
+        exit
     fi
 }
 
@@ -779,7 +786,7 @@ calcRandTime()
         date_final=`date -d @"$date_part"`
 
         echo_t "Action on $date_final" >> $XCONF_LOG_FILE
-
+        touch $REBOOT_WAIT
     fi
 
     echo_t "XCONF SCRIPT : SLEEPING FOR $min_to_sleep minutes or $sec_to_sleep seconds"
@@ -850,7 +857,35 @@ removeLegacyResources()
 removeLegacyResources
 getBuildType
 
-echo_t "XCONF SCRIPT : MODEL IS $type"
+# Check if the firmware download process is initiated by scheduler or during boot up.
+triggeredFrom=""
+if [ $1 -eq 1 ]
+then
+   echo "XCONF SCRIPT : Trigger is from boot" >> $XCONF_LOG_FILE
+   triggeredFrom="boot"
+elif [ $1 -eq 2 ]
+then
+   echo "XCONF SCRIPT : Trigger is from cron" >> $XCONF_LOG_FILE
+   triggeredFrom="cron"
+else
+   echo "XCONF SCRIPT : Trigger is Unknown. Set it to boot" >> $XCONF_LOG_FILE
+   triggeredFrom="boot"
+fi
+
+# If unit is waiting for reboot after image download,we need not have to download image again.
+if [ -f $REBOOT_WAIT ]
+then
+    echo "XCONF SCRIPT : Waiting reboot after download, so exit" >> $XCONF_LOG_FILE
+    exit
+fi
+
+if [ -f $DOWNLOAD_INPROGRESS ]
+then
+    echo "XCONF SCRIPT : Download is in progress, exit" >> $XCONF_LOG_FILE
+    exit
+fi
+
+echo "XCONF SCRIPT : MODEL IS $type" >> $XCONF_LOG_FILE
 
 #Default xconf url
 url="https://xconf.xcal.tv/xconf/swu/stb/"
@@ -908,23 +943,15 @@ download_image_success=0
 reboot_device_success=0
 http_flash_led_disable=0
 is_already_flash_led_disable=0
+retry_download=0
 
 while [ $download_image_success -eq 0 ];
 do
-    # If an image wasn't available, check it's
-    # availability at a random time,every 24 hrs
-    while  [ $image_upg_avl -eq 0 ];
-    do
-        echo_t "XCONF SCRIPT : Rechecking image availability within 24 hrs"
-        echo_t "XCONF SCRIPT : Rechecking image availability within 24 hrs" >> $XCONF_LOG_FILE
 
-        # Sleep for a random time less than
-        # a 24 hour duration
-        calcRandTime 1 0
-
-        # Check for the availability of an update
-        getFirmwareUpgDetail
-    done
+    if [ ! -f $DOWNLOAD_INPROGRESS ]
+    then
+        touch $DOWNLOAD_INPROGRESS
+    fi
 
     if [ $image_upg_avl -eq 1 ];then
 
@@ -941,11 +968,7 @@ do
                 echo_t "XCONF SCRIPT : dnsmasq process  started!!"
                 echo_t "XCONF SCRIPT : dnsmasq process  started!!" >> $XCONF_LOG_FILE
 
-                # Whitelist the returned firmware location
-        #echo "XCONF SCRIPT : Whitelisting download location : $firmwareLocation"
-        #echo "XCONF SCRIPT : Whitelisting download location : $firmwareLocation" >> $XCONF_LOG_FILE
         echo "$firmwareLocation" > /tmp/xconfdownloadurl
-        #/etc/whitelist.sh "$firmwareLocation"
 
         # Set the url and filename
 		if [ $CDL_SERVER_OVERRIDE -eq 1 ];then
@@ -956,7 +979,6 @@ do
 
 		else
 		
-        echo_t "XCONF SCRIPT : URL --- $serverUrl and NAME --- $firmwareFilename"
         echo_t "XCONF SCRIPT : URL --- $serverUrl and NAME --- $firmwareFilename" >> $XCONF_LOG_FILE
 
                 $BIN_PATH/XconfHttpDl set_http_url $serverUrl $firmwareFilename
@@ -973,16 +995,11 @@ do
 
             if [ "$rebootImmediately" == "false" ];then
 
-                                echo_t "XCONF SCRIPT : Reboot Immediately : FALSE. Downloading image now"
                                 echo_t "XCONF SCRIPT : Reboot Immediately : FALSE. Downloading image now" >> $XCONF_LOG_FILE
             else
-                echo_t  "XCONF SCRIPT : Reboot Immediately : TRUE : Downloading image now"
                 echo_t  "XCONF SCRIPT : Reboot Immediately : TRUE : Downloading image now" >> $XCONF_LOG_FILE
             fi
 
-                        #echo "XCONF SCRIPT : Sleep to prevent gw refresh error"
-                        #echo "XCONF SCRIPT : Sleep to prevent gw refresh error" >> $XCONF_LOG_FILE
-            #sleep 60
 
                 # Start the image download
                         echo "[ $(date) ] XCONF SCRIPT  ### httpdownload started ###" >> $XCONF_LOG_FILE
@@ -999,21 +1016,24 @@ do
                 echo_t "XCONF SCRIPT : HTTP download Successful" >> $XCONF_LOG_FILE
                 # Indicate succesful download
                 download_image_success=1
+                rm -rf $DOWNLOAD_INPROGRESS
             else
                 # Indicate an unsuccesful download
                 echo_t "XCONF SCRIPT : HTTP download NOT Successful" >> $XCONF_LOG_FILE
-                download_image_success=0
-                # Set the flag to 0 to force a requery
-                image_upg_avl=0
+                rm -rf $DOWNLOAD_INPROGRESS
+                # No need of looping here as we will trigger a cron job at random time
+                exit
             fi
 
         else
-            echo_t "XCONF SCRIPT : ERROR : URL & Filename not set correctly.Requerying "
-            echo_t "XCONF SCRIPT : ERROR : URL & Filename not set correctly.Requerying " >> $XCONF_LOG_FILE
-            # Indicate an unsuccesful download
-            download_image_success=0
-            # Set the flag to 0 to force a requery
-            image_upg_avl=0
+             retry_download=`expr $retry_download + 1`
+             download_image_success=0
+             if [ $retry_download -eq 3 ]
+             then
+                 echo "XCONF SCRIPT : ERROR : URL & Filename not set correctly after 3 retries.Exiting" >> $XCONF_LOG_FILE
+                 rm -rf $DOWNLOAD_INPROGRESS
+             exit
+             fi
         fi
     fi
 done
@@ -1128,9 +1148,9 @@ while [ $reboot_device_success -eq 0 ]; do
                     touch /nvram/reboot_due_to_sw_upgrade
                     echo "XCONF SCRIPT : REBOOTING DEVICE"
             echo_t "RDKB_REBOOT : Rebooting device due to software upgrade"
-            echo_t "setting LastRebootReason"
+            echo_t "XCONF SCRIPT : setting LastRebootReason"
             dmcli eRT setv Device.DeviceInfo.X_RDKCENTRAL-COM_LastRebootReason string Software_upgrade
-            echo_t "SET succeeded"
+            echo_t "XCONF SCRIPT : SET succeeded"
 
 
         else
