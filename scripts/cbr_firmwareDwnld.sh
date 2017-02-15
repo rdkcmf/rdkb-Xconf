@@ -16,6 +16,7 @@ BIN_PATH=/bin
 CURL_REQUEST=""
 #GLOBAL DECLARATIONS
 image_upg_avl=0
+reb_window=0
 
 echo_t()
 {
@@ -266,6 +267,27 @@ calcRandTime()
     # Calculate random second
     rand_sec=`awk -v min=0 -v max=59 -v seed="$(date +%N)" 'BEGIN{srand(seed);print int(min+rand()*(max-min+1))}'`
 
+    # Extract maintenance window start and end time
+    start_time=`dmcli eRT getv Device.DeviceInfo.X_RDKCENTRAL-COM_MaintenanceWindow.FirmwareUpgradeStartTime | grep "value:" | cut -d ":" -f 3 | tr -d ' '`
+    end_time=`dmcli eRT getv Device.DeviceInfo.X_RDKCENTRAL-COM_MaintenanceWindow.FirmwareUpgradeEndTime | grep "value:" | cut -d ":" -f 3 | tr -d ' '`
+
+    if [ "$start_time" -eq "$end_time" ]
+    then
+        echo_t "XCONF SCRIPT : Start time can not be equal to end time"
+        echo_t "XCONF SCRIPT : Resetting values to default"
+        echo_t "XCONF SCRIPT : Start time can not be equal to end time" >> $XCONF_LOG_FILE
+        echo_t "XCONF SCRIPT : Resetting values to default" >> $XCONF_LOG_FILE
+        dmcli eRT setv Device.DeviceInfo.X_RDKCENTRAL-COM_MaintenanceWindow.FirmwareUpgradeStartTime string "0"
+        dmcli eRT setv Device.DeviceInfo.X_RDKCENTRAL-COM_MaintenanceWindow.FirmwareUpgradeEndTime string "10800"
+        start_time=0
+        end_time=10800
+    fi
+
+    echo_t "XCONF SCRIPT : Firmware upgrade start time : $start_time"
+    echo_t "XCONF SCRIPT : Firmware upgrade end time : $end_time"
+    echo_t "XCONF SCRIPT : Firmware upgrade start time : $start_time" >> $XCONF_LOG_FILE
+    echo_t "XCONF SCRIPT : Firmware upgrade end time : $end_time" >> $XCONF_LOG_FILE
+
     #
     # Generate time to check for update
     #
@@ -282,7 +304,7 @@ calcRandTime()
         min_to_sleep=$(($rand_hr*60 + $rand_min))
         sec_to_sleep=$(($min_to_sleep*60 + $rand_sec))
 
-        printf "`date +"%y%m%d-%T.%6N"` XCONF SCRIPT : Checking update with XCONF server at \t";
+        printf "`date +"%y%m%d-%T.%6N"` XCONF SCRIPT : Checking update with XCONF server at ";
         # date -d "$min_to_sleep minutes" +'%H:%M:%S'
         # date -D '%s' -d "$(( `date +%s`+$sec_to_sleep ))"
         time=$(( `date +%s`+$sec_to_sleep ))
@@ -307,66 +329,72 @@ calcRandTime()
             echo_t "XCONF SCRIPT : Device reboot time being calculated in maintenance window" >> $XCONF_LOG_FILE
         fi 
                  
-        # Calculate random hour
-        # The max time random time can be 4:59:59
-        rand_hr=`awk -v min=0 -v max=3 -v seed="$(date +%N)" 'BEGIN{srand(seed);print int(min+rand()*(max-min+1))}'`
-
-        echo_t "XCONF SCRIPT : Time Generated : $rand_hr hr $rand_min min $rand_sec sec"
-
-       if [ "$UTC_ENABLE" == "true" ]
-	then
-           cur_hr=`LTime H`
-	   cur_min=`LTime M`
-           cur_sec=`date +"%S"`
-	else
-        cur_hr=`date +"%H"`
-        cur_min=`date +"%M"`
-        cur_sec=`date +"%S"`
-	fi
-
-        # Time to maintenance window
-        if [ $cur_hr -eq 0 ];then
-            start_hr=0
-        else
-            start_hr=`expr 23 - ${cur_hr} + 1`
+        if [ "$start_time" -gt "$end_time" ]
+        then
+            start_time=$(($start_time-86400))
         fi
 
-        start_min=`expr 59 - ${cur_min}`
-        start_sec=`expr 59 - ${cur_sec}`
+        #Calculate random value
+        random_time=`awk -v min=$start_time -v max=$end_time 'BEGIN{srand(); print int(min+rand()*(max-min+1))}'`
 
-        # TIME TO START OF MAINTENANCE WINDOW
-        echo_t "XCONF SCRIPT : Time to 1:00 AM : $start_hr hours, $start_min minutes and $start_sec seconds"
-        min_wait=$((start_hr*60 + $start_min))
-        # date -d "$time today + $min_wait minutes + $start_sec seconds" +'%H:%M:%S'
-        date -D '%s' -d "$(( `date +%s`+$(($min_wait*60 + $start_sec)) ))"
+        if [ $random_time -le 0 ]
+        then
+            random_time=$((random_time+86400))
+        fi
+        random_time_in_sec=$random_time
 
-        # TIME TO START OF HTTP_DL/REBOOT_DEV
+        # Calculate random second
+        rand_sec=$((random_time%60))
 
-        total_hr=$(($start_hr + $rand_hr))
-        total_min=$(($start_min + $rand_min))
-        total_sec=$(($start_sec + $rand_sec))
+        # Calculate random min
+        random_time=$((random_time/60))
+        rand_min=$((random_time%60))
 
-        min_to_sleep=$(($total_hr*60 + $total_min)) 
-        sec_to_sleep=$(($min_to_sleep*60 + $total_sec))
+        # Calculate random hour
+        random_time=$((random_time/60))
+        rand_hr=$((random_time%60))
 
-        printf "XCONF SCRIPT : Action will be performed on ";
-        # date -d "$sec_to_sleep seconds" +'%H:%M:%S'
-        date -D '%s' -d "$(( `date +%s`+$sec_to_sleep ))"
+        echo_t "XCONF SCRIPT : Time Generated : $rand_hr hr $rand_min min $rand_sec sec"
+        echo_t "XCONF SCRIPT : Time Generated : $rand_hr hr $rand_min min $rand_sec sec" >> $XCONF_LOG_FILE
 
-        date_part="$(( `date +%s`+$sec_to_sleep ))"
-        date_final=`date -D '%s' -d "$date_part"`
+        # Get current time
+        if [ "$UTC_ENABLE" == "true" ]
+        then
+            cur_hr="10#"`LTime H`
+            cur_min="10#"`LTime M`
+            cur_sec="10#"`date +"%S"`
+        else
+            cur_hr="10#"`date +"%H"`
+            cur_min="10#"`date +"%M"`
+            cur_sec="10#"`date +"%S"`
+        fi
 
+        curr_hr_in_sec=$((cur_hr*60*60))
+        curr_min_in_sec=$((cur_min*60))
+        curr_time_in_sec=$((curr_hr_in_sec+curr_min_in_sec+cur_sec))
+
+        if [ $curr_time_in_sec -le $random_time_in_sec ]
+        then
+            sec_to_sleep=$((random_time_in_sec-curr_time_in_sec))
+        else
+            sec_to_12=$((86400-curr_time_in_sec))
+            sec_to_sleep=$((sec_to_12+random_time_in_sec))
+        fi
+
+        time=$(( `date +%s`+$sec_to_sleep ))
+        date_final=`date -d @${time} +"%T"`
+
+        echo_t "Action on $date_final"
         echo_t "Action on $date_final" >> $XCONF_LOG_FILE
 
     fi
 
-    echo_t "XCONF SCRIPT : SLEEPING FOR $min_to_sleep minutes or $sec_to_sleep seconds"
-    
-    #echo_t "XCONF SCRIPT : SPIN 17 : sleeping for 30 sec, *******TEST BUILD***********"
-    #sec_to_sleep=30
+    echo_t "XCONF SCRIPT : SLEEPING FOR $sec_to_sleep seconds"
+    echo_t "XCONF SCRIPT : SLEEPING FOR $sec_to_sleep seconds" >> $XCONF_LOG_FILE
 
     sleep $sec_to_sleep
     echo_t "XCONF script : got up after $sec_to_sleep seconds"
+    echo_t "XCONF script : got up after $sec_to_sleep seconds" >> $XCONF_LOG_FILE
 }
 
 # Get the MAC address of the WAN interface
@@ -421,6 +449,57 @@ removeLegacyResources()
 
 	echo_t "XCONF SCRIPT : Done Cleanup"
 	echo_t "XCONF SCRIPT : Done Cleanup" >> $XCONF_LOG_FILE
+}
+
+# Check if it is still in maintenance window
+checkMaintenanceWindow()
+{
+    start_time=`dmcli eRT getv Device.DeviceInfo.X_RDKCENTRAL-COM_MaintenanceWindow.FirmwareUpgradeStartTime | grep "value:" | cut -d ":" -f 3 | tr -d ' '`
+    end_time=`dmcli eRT getv Device.DeviceInfo.X_RDKCENTRAL-COM_MaintenanceWindow.FirmwareUpgradeEndTime | grep "value:" | cut -d ":" -f 3 | tr -d ' '`
+
+    if [ "$start_time" -eq "$end_time" ]
+    then
+        echo_t "XCONF SCRIPT : Start time can not be equal to end time"
+        echo_t "XCONF SCRIPT : Resetting values to default"
+        echo_t "XCONF SCRIPT : Start time can not be equal to end time" >> $XCONF_LOG_FILE
+        echo_t "XCONF SCRIPT : Resetting values to default" >> $XCONF_LOG_FILE
+        dmcli eRT setv Device.DeviceInfo.X_RDKCENTRAL-COM_MaintenanceWindow.FirmwareUpgradeStartTime string "0"
+        dmcli eRT setv Device.DeviceInfo.X_RDKCENTRAL-COM_MaintenanceWindow.FirmwareUpgradeEndTime string "10800"
+        start_time=0
+        end_time=10800
+    fi
+
+    echo_t "XCONF SCRIPT : Firmware upgrade start time : $start_time"
+    echo_t "XCONF SCRIPT : Firmware upgrade start time : $start_time" >> $XCONF_LOG_FILE
+    echo_t "XCONF SCRIPT : Firmware upgrade end time : $end_time"
+    echo_t "XCONF SCRIPT : Firmware upgrade end time : $end_time" >> $XCONF_LOG_FILE
+
+    if [ "$UTC_ENABLE" == "true" ]
+    then
+        reb_hr="10#"`LTime H`
+        reb_min="10#"`LTime M`
+        reb_sec="10#"`date +"%S"`
+    else
+        reb_hr="10#"`date +"%H"`
+        reb_min="10#"`date +"%M"`
+        reb_sec="10#"`date +"%S"`
+    fi
+
+    reb_window=0
+    reb_hr_in_sec=$((reb_hr*60*60))
+    reb_min_in_sec=$((reb_min*60))
+    reb_time_in_sec=$((reb_hr_in_sec+reb_min_in_sec+reb_sec))
+    echo_t "XCONF SCRIPT : Current time in seconds : $reb_time_in_sec"
+    echo_t "XCONF SCRIPT : Current time in seconds : $reb_time_in_sec" >> $XCONF_LOG_FILE
+
+    if [ $start_time -lt $end_time ] && [ $reb_time_in_sec -ge $start_time ] && [ $reb_time_in_sec -lt $end_time ]
+    then
+        reb_window=1
+    elif [[ ($start_time -gt $end_time) && ( $reb_time_in_sec -lt $end_time || $reb_time_in_sec -ge $start_time ) ]];then
+        reb_window=1
+    else
+        reb_window=0
+    fi
 }
 
 #####################################################Main Application#####################################################
@@ -615,21 +694,15 @@ while [ $reboot_device_success -eq 0 ]; do
     if [ "$rebootImmediately" == "false" ];then
 
         # Check if still within reboot window
+        checkMaintenanceWindow
 
-	if [ "$UTC_ENABLE" == "true" ]
-	then
-		reb_hr=`LTime H`
-	else
-        	reb_hr=`date +"%H"`
-	fi
-
-        if [ $reb_hr -le 4 ] && [ $reb_hr -ge 1 ]; then
+        if [ $reb_window -eq 1 ]; then
             echo_t "XCONF SCRIPT : Still within current maintenance window for reboot"
             echo_t "XCONF SCRIPT : Still within current maintenance window for reboot" >> $XCONF_LOG_FILE
-            reboot_now=1    
+            reboot_now=1
         else
-            echo_t "XCONF SCRIPT : Not within current maintenance window for reboot.Rebooting in  the next "
-            echo_t "XCONF SCRIPT : Not within current maintenance window for reboot.Rebooting in  the next " >> $XCONF_LOG_FILE
+            echo_t "XCONF SCRIPT : Not within current maintenance window for reboot.Rebooting in the next window"
+            echo_t "XCONF SCRIPT : Not within current maintenance window for reboot.Rebooting in the next window" >> $XCONF_LOG_FILE
             reboot_now=0
         fi
 
@@ -648,17 +721,9 @@ while [ $reboot_device_success -eq 0 ]; do
         while [ $http_reboot_ready_stat -eq 1 ]   
         do     
             sleep 10
-	    if [ "$UTC_ENABLE" == "true" ]
-		then
-			cur_hr=`LTime H`
-			cur_min=`LTime M`
-		else
-            		cur_hr=`date +"%H"`
-            		cur_min=`date +"%M"`
-	   fi
-            cur_sec=`date +"%S"`
+            checkMaintenanceWindow
 
-            if [ $cur_hr -le 4 ] && [ $cur_min -le 59 ] && [ $cur_sec -le 59 ];
+            if [ $reb_window -eq 1 ]
             then
                 #We're still within the reboot window 
                 XconfHttpDl http_reboot_status >> $XCONF_LOG_FILE
