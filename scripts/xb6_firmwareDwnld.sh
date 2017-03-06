@@ -271,7 +271,7 @@ getFirmwareUpgDetail()
                 xconf_retry_count=$((xconf_retry_count+1))
 
             else
-                echo_t "$firmwareLocation" > /tmp/.xconfssrdownloadurl
+                echo "$firmwareLocation" > /tmp/.xconfssrdownloadurl
            	# Check if a newer version was returned in the response
             # If image_upg_avl = 0, retry reconnecting with XCONf in next window
             # If image_upg_avl = 1, download new firmware
@@ -511,7 +511,7 @@ if [ -f /nvram/swupdate.conf ]; then
 fi
 
 #s16 echo_t "$type=$url" > /tmp/Xconf
-echo_t "URL=$url" > /tmp/Xconf
+echo "URL=$url" > /tmp/Xconf
 echo_t "XCONF SCRIPT : Values written to /tmp/Xconf are URL=$url"
 echo_t "XCONF SCRIPT : Values written to /tmp/Xconf are URL=$url" >> $XCONF_LOG_FILE
 
