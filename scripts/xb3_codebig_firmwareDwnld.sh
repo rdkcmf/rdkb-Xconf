@@ -272,7 +272,7 @@ checkFirmwareUpgCriteria_temp()
                 image_upg_avl=0
 
                 currentVersion=`cat /version.txt | grep "imagename:" | cut -d ":" -f 2`
-                firmwareVersion=`grep firmwareVersion $OUTPUT | cut -d \| -f2`
+                firmwareVersion=`grep firmwareVersion $OUTPUT | cut -d \| -f2 | sed 's/-signed.*//'`
                 currentVersion=`echo $currentVersion | tr '[A-Z]' '[a-z]'`
                 firmwareVersion=`echo $firmwareVersion | tr '[A-Z]' '[a-z]'`
                 if [ "$currentVersion" != "" ] && [ "$firmwareVersion" != "" ];then
@@ -586,7 +586,7 @@ getFirmwareUpgDetail()
             fi
 
             firmwareFilename=`grep firmwareFilename $OUTPUT | cut -d \| -f2`
-            firmwareVersion=`grep firmwareVersion $OUTPUT | cut -d \| -f2`
+            firmwareVersion=`grep firmwareVersion $OUTPUT | cut -d \| -f2 | sed 's/-signed.*//'`
             ipv6FirmwareLocation=`grep ipv6FirmwareLocation  $OUTPUT | cut -d \| -f2 | tr -d ' '`
             upgradeDelay=`grep upgradeDelay $OUTPUT | cut -d \| -f2`
 
