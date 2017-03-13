@@ -266,7 +266,7 @@ getFirmwareUpgDetail()
             fi
 
             firmwareFilename=`grep firmwareFilename $OUTPUT | cut -d \| -f2`
-    	    firmwareVersion=`grep firmwareVersion $OUTPUT | cut -d \| -f2`
+    	    firmwareVersion=`grep firmwareVersion $OUTPUT | cut -d \| -f2 | sed 's/_signed.*//'`
 	    ipv6FirmwareLocation=`grep ipv6FirmwareLocation  $OUTPUT | cut -d \| -f2 | tr -d ' '`
 	    upgradeDelay=`grep upgradeDelay $OUTPUT | cut -d \| -f2`
             rebootImmediately=`grep rebootImmediately $OUTPUT | cut -d \| -f2`    
