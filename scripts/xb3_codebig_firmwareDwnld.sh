@@ -664,9 +664,8 @@ getFirmwareUpgDetail()
                 exit
         # If a response code of 0 was received, the server is unreachable
         # Try reconnecting
-        elif [ $HTTP_RESPONSE_CODE -eq 0 ]; then
-
-            echo_t "XCONF SCRIPT : Response code 0, sleeping for 2 minutes and retrying" >> $XCONF_LOG_FILE
+        else
+            echo_t "XCONF SCRIPT : Response code is $HTTP_RESPONSE_CODE, sleeping for 2 minutes and retrying" >> $XCONF_LOG_FILE
             # sleep for 2 minutes and retry
             sleep 120;
 
@@ -674,9 +673,9 @@ getFirmwareUpgDetail()
             image_upg_avl=0
 
                 #Increment the retry count
-                xconf_retry_count=$((xconf_retry_count+1))
+             xconf_retry_count=$((xconf_retry_count+1))
 
-        fi
+       fi
 
     done
 
