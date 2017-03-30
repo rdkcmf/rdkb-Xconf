@@ -296,15 +296,15 @@ getFirmwareUpgDetail()
 		
 
         # If a response code of 404 was received, exit
-        elif [ $HTTP_RESPONSE_CODE -eq 404 ]; then 
-            retry_flag=0
-            image_upg_avl=0
-            echo_t "XCONF SCRIPT : Response code received is 404" >> $XCONF_LOG_FILE
-            exit	
-            # If a response code of 0 was received, the server is unreachable
-            # Try reconnecting 
-        elif [ $HTTP_RESPONSE_CODE -eq 0 ]; then            
-            echo_t "XCONF SCRIPT : Response code 0, sleeping for 2 minutes and retrying" >> $XCONF_LOG_FILE
+            elif [ $HTTP_RESPONSE_CODE -eq 404 ]; then
+                retry_flag=0
+                image_upg_avl=0
+                echo_t "XCONF SCRIPT : Response code received is 404" >> $XCONF_LOG_FILE
+                exit
+        # If a response code of 0 was received, the server is unreachable
+        # Try reconnecting
+        else
+            echo_t "XCONF SCRIPT : Response code is $HTTP_RESPONSE_CODE, sleeping for 2 minutes and retrying" >> $XCONF_LOG_FILE
             # sleep for 2 minutes and retry
             sleep 120;
 
