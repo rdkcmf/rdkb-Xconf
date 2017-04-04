@@ -1,5 +1,10 @@
 #!/bin/sh
 
+if [ -f /etc/device.properties ]
+then
+    source /etc/device.properties
+fi
+
 XCONF_LOG_PATH=/rdklogs/logs
 XCONF_LOG_FILE_NAME=xconf.txt.0
 XCONF_LOG_FILE_PATHNAME=${XCONF_LOG_PATH}/${XCONF_LOG_FILE_NAME}
@@ -374,9 +379,16 @@ calcRandTime()
 
         echo "XCONF SCRIPT : Time Generated : $rand_hr hr $rand_min min $rand_sec sec"
 
-        cur_hr=`date +"%H"`
-        cur_min=`date +"%M"`
-        cur_sec=`date +"%S"`
+        if [ "$UTC_ENABLE" == "true" ]
+        then
+           cur_hr=`LTime H`
+           cur_min=`LTime M`
+           cur_sec=`date +"%S"`
+        else
+           cur_hr=`date +"%H"`
+           cur_min=`date +"%M"`
+           cur_sec=`date +"%S"`
+        fi
 
         # Time to maintenance window
         if [ $cur_hr -eq 0 ];then
@@ -680,7 +692,15 @@ while [ $reboot_device_success -eq 0 ]; do
     if [ "$rebootImmediately" = "false" ];then
 
         # Check if still within reboot window
-        reb_hr=`date +"%H"`
+
+
+
+        if [ "$UTC_ENABLE" == "true" ]
+        then
+            reb_hr=`LTime H`
+        else
+            reb_hr=`date +"%H"`
+        fi
 
         if [ $reb_hr -le 4 ] && [ $reb_hr -ge 1 ]; then
             echo "XCONF SCRIPT : Still within current maintenance window for reboot"
@@ -707,8 +727,15 @@ while [ $reboot_device_success -eq 0 ]; do
         while [ $http_reboot_ready_stat -eq 1 ]   
         do     
             sleep 10
-            cur_hr=`date +"%H"`
-            cur_min=`date +"%M"`
+
+            if [ "$UTC_ENABLE" == "true" ]
+            then
+                cur_hr=`LTime H`
+                cur_min=`LTime M`
+            else
+                cur_hr=`date +"%H"`
+                cur_min=`date +"%M"`
+            fi
             cur_sec=`date +"%S"`
 
             if [ $cur_hr -le 4 ] && [ $cur_min -le 59 ] && [ $cur_sec -le 59 ];
