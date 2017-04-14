@@ -256,7 +256,7 @@ getFirmwareUpgDetail()
 
 		  continue
 		fi
-
+                echo "$firmwareLocation" > /tmp/.xconfssrdownloadurl
 		firmwareFilename=`grep firmwareFilename $OUTPUT | cut -d \| -f2`
     	        firmwareVersion=`grep firmwareVersion $OUTPUT | cut -d \| -f2 | sed 's/-signed.*//'`
 	        ipv6FirmwareLocation=`grep ipv6FirmwareLocation  $OUTPUT | cut -d \| -f2 | tr -d ' '`
