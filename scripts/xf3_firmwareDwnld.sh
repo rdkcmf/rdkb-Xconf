@@ -315,9 +315,9 @@ getFirmwareUpgDetail()
     
 	# If a response code of 0 was received, the server is unreachable
 	# Try reconnecting 
-	elif [ $HTTP_RESPONSE_CODE -eq 0 ]; then
+	else
 	    
-	    echo "XCONF SCRIPT : Response code 0, sleeping for 2 minutes and retrying" >> $XCONF_LOG_FILE
+	    echo "XCONF SCRIPT : Response code 0 or unknown, sleeping for 2 minutes and retrying" >> $XCONF_LOG_FILE
 	    # sleep for 2 minutes and retry
 	    sleep 120;
 
