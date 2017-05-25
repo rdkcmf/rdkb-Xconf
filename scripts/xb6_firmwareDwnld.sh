@@ -42,6 +42,25 @@ echo_t()
 	    echo "`date +"%y%m%d-%T.%6N"` $1"
 }
 
+# Function to get partner_id
+# Below implementation is subjected to change when XB6 has a unified build for all syndication partners.
+getPartnerId()
+{
+    if [ -f "/etc/device.properties" ]
+    then
+        partner_id=`cat /etc/device.properties | grep PARTNER_ID | cut -f2 -d=`
+        if [ "$partner_id" == "" ];then
+            #Assigning default partner_id as Comcast.
+            #If any device want to report differently, then PARTNER_ID flag has to be updated in /etc/device.properties accordingly
+            echo "comcast"
+        else
+            echo "$partner_id"
+        fi
+    else
+       echo "null"
+    fi
+}
+
 # release numbering system rules
 #
 
@@ -170,6 +189,7 @@ getFirmwareUpgDetail()
         devicemodel=`dmcli eRT getv Device.DeviceInfo.ModelName  | grep "value:" | cut -d ":" -f 3 | tr -d ' ' `
         MAC=`ifconfig $interface  | grep HWaddr | cut -d' ' -f7`
         date=`date`
+        partnerId=$(getPartnerId)
         
         echo_t "XCONF SCRIPT : CURRENT VERSION : $currentVersion"
         echo_t "XCONF SCRIPT : CURRENT MAC  : $MAC"
@@ -179,7 +199,7 @@ getFirmwareUpgDetail()
         # Query the  XCONF Server, first using TLS 1.2
         tls="--tlsv1.2"
         echo "Attempting TLS1.2 connection to $xconf_url " >> $XCONF_LOG_FILE
-        CURL_CMD="curl --interface $interface -w '%{http_code}\n' $tls -d \"eStbMac=$MAC&firmwareVersion=$currentVersion&env=$env&model=$devicemodel&localtime=$date&timezone=EST05&capabilities=rebootDecoupled&capabilities=RCDL&capabilities=supportsFullHttpUrl\" -o \"$FWDL_JSON\" \"$xconf_url\" --connect-timeout 30 -m 30"
+        CURL_CMD="curl --interface $interface -w '%{http_code}\n' $tls -d \"eStbMac=$MAC&firmwareVersion=$currentVersion&env=$env&model=$devicemodel&partnerId=$partnerId&localtime=$date&timezone=EST05&capabilities=rebootDecoupled&capabilities=RCDL&capabilities=supportsFullHttpUrl\" -o \"$FWDL_JSON\" \"$xconf_url\" --connect-timeout 30 -m 30"
         echo_t "CURL_CMD: $CURL_CMD" >> $XCONF_LOG_FILE
         result= eval "$CURL_CMD" > $HTTP_CODE
         ret=$?
@@ -191,7 +211,7 @@ getFirmwareUpgDetail()
              # log server info for failed connection using nslookup
              nslookup `echo $xconf_url | sed "s/^[^/\]*:[/\][/\]\([^/\]*\).*$/\1/"` >> $XCONF_LOG_FILE
              tls="--tlsv1.1"
-             CURL_CMD="curl --interface $interface -w '%{http_code}\n' $tls -d \"eStbMac=$MAC&firmwareVersion=$currentVersion&env=$env&model=$devicemodel&localtime=$date&timezone=EST05&capabilities=rebootDecoupled&capabilities=RCDL&capabilities=supportsFullHttpUrl\" -o \"$FWDL_JSON\" \"$xconf_url\" --connect-timeout 30 -m 30"
+             CURL_CMD="curl --interface $interface -w '%{http_code}\n' $tls -d \"eStbMac=$MAC&firmwareVersion=$currentVersion&env=$env&model=$devicemodel&partnerId=$partnerId&localtime=$date&timezone=EST05&capabilities=rebootDecoupled&capabilities=RCDL&capabilities=supportsFullHttpUrl\" -o \"$FWDL_JSON\" \"$xconf_url\" --connect-timeout 30 -m 30"
              echo_t "CURL_CMD: $CURL_CMD" >> $XCONF_LOG_FILE
              result= eval "$CURL_CMD" > $HTTP_CODE
              ret=$?
@@ -204,7 +224,7 @@ getFirmwareUpgDetail()
              echo "Switching to HTTPS insecure mode as TLS1.1 failed to connect to $xconf_url with curl error code $ret" >> $XCONF_LOG_FILE
              # log server info for failed connection using nslookup
              nslookup `echo $xconf_url | sed "s/^[^/\]*:[/\][/\]\([^/\]*\).*$/\1/"` >> $XCONF_LOG_FILE
-             CURL_CMD="curl --interface $interface --insecure -w '%{http_code}\n' $tls -d \"eStbMac=$MAC&firmwareVersion=$currentVersion&env=$env&model=$devicemodel&localtime=$date&timezone=EST05&capabilities=rebootDecoupled&capabilities=RCDL&capabilities=supportsFullHttpUrl\" -o \"$FWDL_JSON\" \"$xconf_url\" --connect-timeout 30 -m 30"
+             CURL_CMD="curl --interface $interface --insecure -w '%{http_code}\n' $tls -d \"eStbMac=$MAC&firmwareVersion=$currentVersion&env=$env&model=$devicemodel&partnerId=$partnerId&localtime=$date&timezone=EST05&capabilities=rebootDecoupled&capabilities=RCDL&capabilities=supportsFullHttpUrl\" -o \"$FWDL_JSON\" \"$xconf_url\" --connect-timeout 30 -m 30"
              echo_t "CURL_CMD: $CURL_CMD" >> $XCONF_LOG_FILE
              result= eval "$CURL_CMD" > $HTTP_CODE
              ret=$?
@@ -219,7 +239,7 @@ getFirmwareUpgDetail()
              nslookup `echo $xconf_url | sed "s/^[^/\]*:[/\][/\]\([^/\]*\).*$/\1/"` >> $XCONF_LOG_FILE
              # make sure protocol is HTTP
              xconf_url=`echo $xconf_url | sed "s/[Hh][Tt][Tt][Pp][Ss]:/http:/"`
-             CURL_CMD="curl --interface $interface -w '%{http_code}\n' -d \"eStbMac=$MAC&firmwareVersion=$currentVersion&env=$env&model=$devicemodel&localtime=$date&timezone=EST05&capabilities=rebootDecoupled&capabilities=RCDL&capabilities=supportsFullHttpUrl\" -o \"$FWDL_JSON\" \"$xconf_url\" --connect-timeout 30 -m 30"
+             CURL_CMD="curl --interface $interface -w '%{http_code}\n' -d \"eStbMac=$MAC&firmwareVersion=$currentVersion&env=$env&model=$devicemodel&partnerId=$partnerId&localtime=$date&timezone=EST05&capabilities=rebootDecoupled&capabilities=RCDL&capabilities=supportsFullHttpUrl\" -o \"$FWDL_JSON\" \"$xconf_url\" --connect-timeout 30 -m 30"
              echo_t "CURL_CMD: $CURL_CMD" >> $XCONF_LOG_FILE
              result= eval "$CURL_CMD" > $HTTP_CODE
              ret=$?
