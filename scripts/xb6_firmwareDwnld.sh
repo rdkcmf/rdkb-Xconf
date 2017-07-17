@@ -204,6 +204,7 @@ getFirmwareUpgDetail()
         echo_t "Attempting TLS1.2 connection to $xconf_url " >> $TLS_LOG_FILE
         CURL_CMD="curl --interface $interface -w '%{http_code}\n' $tls -d \"eStbMac=$MAC&firmwareVersion=$currentVersion&env=$env&model=$devicemodel&partnerId=$partnerId&localtime=$date&timezone=EST05&capabilities=rebootDecoupled&capabilities=RCDL&capabilities=supportsFullHttpUrl\" -o \"$FWDL_JSON\" \"$xconf_url\" --connect-timeout 30 -m 30"
         echo_t "CURL_CMD: $CURL_CMD" >> $XCONF_LOG_FILE
+        echo_t "CURL_CMD: $CURL_CMD"
         result= eval "$CURL_CMD" > $HTTP_CODE
         ret=$?
 
@@ -219,6 +220,7 @@ getFirmwareUpgDetail()
              tls="--tlsv1.1"
              CURL_CMD="curl --interface $interface -w '%{http_code}\n' $tls -d \"eStbMac=$MAC&firmwareVersion=$currentVersion&env=$env&model=$devicemodel&partnerId=$partnerId&localtime=$date&timezone=EST05&capabilities=rebootDecoupled&capabilities=RCDL&capabilities=supportsFullHttpUrl\" -o \"$FWDL_JSON\" \"$xconf_url\" --connect-timeout 30 -m 30"
              echo_t "CURL_CMD: $CURL_CMD" >> $XCONF_LOG_FILE
+             echo_t "CURL_CMD: $CURL_CMD"
              result= eval "$CURL_CMD" > $HTTP_CODE
              ret=$?
              ;;
@@ -231,6 +233,7 @@ getFirmwareUpgDetail()
              echo_t "Switching to HTTPS insecure mode as TLS1.1 failed to connect to $xconf_url with curl error code $ret" >> $TLS_LOG_FILE
              CURL_CMD="curl --interface $interface --insecure -w '%{http_code}\n' $tls -d \"eStbMac=$MAC&firmwareVersion=$currentVersion&env=$env&model=$devicemodel&partnerId=$partnerId&localtime=$date&timezone=EST05&capabilities=rebootDecoupled&capabilities=RCDL&capabilities=supportsFullHttpUrl\" -o \"$FWDL_JSON\" \"$xconf_url\" --connect-timeout 30 -m 30"
              echo_t "CURL_CMD: $CURL_CMD" >> $XCONF_LOG_FILE
+             echo_t "CURL_CMD: $CURL_CMD"
              result= eval "$CURL_CMD" > $HTTP_CODE
              ret=$?
              ;;
@@ -245,6 +248,7 @@ getFirmwareUpgDetail()
              xconf_url=`echo $xconf_url | sed "s/[Hh][Tt][Tt][Pp][Ss]:/http:/"`
              CURL_CMD="curl --interface $interface -w '%{http_code}\n' -d \"eStbMac=$MAC&firmwareVersion=$currentVersion&env=$env&model=$devicemodel&partnerId=$partnerId&localtime=$date&timezone=EST05&capabilities=rebootDecoupled&capabilities=RCDL&capabilities=supportsFullHttpUrl\" -o \"$FWDL_JSON\" \"$xconf_url\" --connect-timeout 30 -m 30"
              echo_t "CURL_CMD: $CURL_CMD" >> $XCONF_LOG_FILE
+             echo_t "CURL_CMD: $CURL_CMD"
              result= eval "$CURL_CMD" > $HTTP_CODE
              ret=$?
              ;;
