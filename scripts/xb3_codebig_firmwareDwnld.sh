@@ -28,8 +28,6 @@ fi
 XCONF_LOG_FILE_NAME=xconf.txt.0
 XCONF_LOG_FILE_PATHNAME=${LOG_PATH}/${XCONF_LOG_FILE_NAME}
 XCONF_LOG_FILE=${XCONF_LOG_FILE_PATHNAME}
-TLS_LOG_FILE_NAME=TlsVerify.txt
-TLS_LOG_FILE=${LOG_PATH}/${TLS_LOG_FILE_NAME}
 
 CURL_PATH=/fss/gw/usr/bin
 interface=erouter0
@@ -394,7 +392,7 @@ getFirmwareUpgDetail()
 
         # Perform cleanup by deleting any previous responses
         rm -f $FILENAME
-        rm -f $FWDL_HTTP_CODE
+        rm -f $HTTP_CODE
         rm -f $OUTPUT
 
             firmwareDownloadProtocol=""
@@ -436,57 +434,12 @@ getFirmwareUpgDetail()
 			POSTSTR="eStbMac=$MAC&firmwareVersion=$currentVersion&env=$env&model=$devicemodel&localtime=$date&timezone=EST05&capabilities=\"rebootDecoupled\"&capabilities=\"RCDL\"&capabilities=\"supportsFullHttpUrl\""
 			echo_t "XCONF SCRIPT : POSTSTR : $POSTSTR" >> $XCONF_LOG_FILE
 
-			# Query the  XCONF Server, first using TLS 1.2
-			tls="--tlsv1.2"
+			# Query the  XCONF Server, using TLS 1.2
 			echo_t "Attempting TLS1.2 connection to $xconf_url " >> $XCONF_LOG_FILE
-			echo_t "Attempting TLS1.2 connection to $xconf_url " >> $TLS_LOG_FILE
-			CURL_CMD="curl --connect-timeout 30 --interface $interface -w '%{http_code}\n' $tls -d \"$POSTSTR\" -o \"$FILENAME\" $xconf_url -m 30"
+			CURL_CMD="curl --connect-timeout 30 --interface $interface -w '%{http_code}\n' --tlsv1.2 -d \"$POSTSTR\" -o \"$FILENAME\" $xconf_url -m 30"
 			echo_t "CURL_CMD: $CURL_CMD" >> $XCONF_LOG_FILE
 			result= eval "$CURL_CMD" > $HTTP_CODE
 			ret=$?
-
-			#Check for https tls1.2 failure
-			case $ret in
-			    35|51|53|54|58|59|60|64|66|77|80|82|83|90|91)
-				echo_t "Switching to TLS1.1 as TLS1.2 failed to connect to $xconf_url with curl error code $ret" >> $XCONF_LOG_FILE
-				echo_t "Switching to TLS1.1 as TLS1.2 failed to connect to $xconf_url with curl error code $ret" >> $TLS_LOG_FILE
-				# log server info for failed connection using nslookup
-				NSLOOKUP=$(nslookup $(echo $xconf_url | sed "s/^[^/\]*:[/\][/\]\([^/\]*\).*$/\1/"))
-				echo $NSLOOKUP >> $XCONF_LOG_FILE
-				echo $NSLOOKUP >> $TLS_LOG_FILE
-				tls="--tlsv1.1"
-				CURL_CMD="curl --connect-timeout 30 --interface $interface -w '%{http_code}\n' $tls -d \"$POSTSTR\" -o \"$FILENAME\" $xconf_url -m 30"
-				echo_t "CURL_CMD: $CURL_CMD" >> $XCONF_LOG_FILE
-				result= eval "$CURL_CMD" > $HTTP_CODE
-				ret=$?
-				;;
-			esac
-
-			#Check for https tls1.1 failure
-			case $ret in
-			    35|51|53|54|58|59|60|64|66|77|80|82|83|90|91)
-				echo_t "Switching to insecure mode as TLS1.1 failed to connect to $xconf_url with curl error code $ret" >> $XCONF_LOG_FILE
-				echo_t "Switching to insecure mode as TLS1.1 failed to connect to $xconf_url with curl error code $ret" >> $TLS_LOG_FILE
-				CURL_CMD="curl --connect-timeout 30 --interface $interface --insecure -w '%{http_code}\n' $tls -d \"$POSTSTR\" -o \"$FILENAME\" $xconf_url -m 30"
-				echo_t "CURL_CMD: $CURL_CMD" >> $XCONF_LOG_FILE
-				result= eval "$CURL_CMD" > $HTTP_CODE
-				ret=$?
-				;;
-			esac
-
-			#Check for https tls1.1 --insecure failure
-			case $ret in
-			    35|51|53|54|58|59|60|64|66|77|80|82|83|90|91)
-				echo_t "Switching to HTTP as HTTPS insecure failed to connect to $xconf_url with curl error code $ret" >> $XCONF_LOG_FILE
-				echo_t "Switching to HTTP as HTTPS insecure failed to connect to $xconf_url with curl error code $ret" >> $TLS_LOG_FILE
-				# make sure protocol is HTTP
-				xconf_url=`echo $xconf_url | sed "s/[Hh][Tt][Tt][Pp][Ss]:/http:/"`
-				CURL_CMD="curl --connect-timeout 30 --interface $interface -w '%{http_code}\n' $tls -d \"$POSTSTR\" -o \"$FILENAME\" $xconf_url -m 30"
-				echo_t "CURL_CMD: $CURL_CMD" >> $XCONF_LOG_FILE
-				result= eval "$CURL_CMD" > $HTTP_CODE
-				ret=$?
-				;;
-			esac
 
 			HTTP_RESPONSE_CODE=$(awk -F\" '{print $1}' $HTTP_CODE)
 			echo_t "ret = $ret http_code: $HTTP_RESPONSE_CODE" >> $XCONF_LOG_FILE
@@ -511,57 +464,12 @@ getFirmwareUpgDetail()
 
                 echo_t "XCONF SCRIPT : Executing CURL for  https://xconf-prod.codebig2.net "
 
-            # Query the  XCONF Server, first using TLS 1.2
-            tls="--tlsv1.2"
+            # Query the  XCONF Server, using TLS 1.2
             echo_t "Attempting TLS1.2 connection to $xconf_url " >> $XCONF_LOG_FILE
-            echo_t "Attempting TLS1.2 connection to $xconf_url " >> $TLS_LOG_FILE
-            CURL_CMD="curl --connect-timeout 30 --interface $interface -w '%{http_code}\n' $tls -o \"$FILENAME\" \"$CB_SIGNED_REQUEST\" -m 30"
+            CURL_CMD="curl --connect-timeout 30 --interface $interface -w '%{http_code}\n' --tlsv1.2 -o \"$FILENAME\" \"$CB_SIGNED_REQUEST\" -m 30"
             echo_t "CURL_CMD: $CURL_CMD" >> $XCONF_LOG_FILE
             result= eval "$CURL_CMD" > $HTTP_CODE
             ret=$?
-
-            #Check for https tls1.2 failure
-            case $ret in
-               35|51|53|54|58|59|60|64|66|77|80|82|83|90|91)
-                 echo_t "Switching to TLS1.1 as TLS1.2 failed to connect to $xconf_url with curl error code $ret" >> $XCONF_LOG_FILE
-                 echo_t "Switching to TLS1.1 as TLS1.2 failed to connect to $xconf_url with curl error code $ret" >> $TLS_LOG_FILE
-                 # log server info for failed connection using nslookup
-                 NSLOOKUP=$(nslookup $(echo $xconf_url | sed "s/^[^/\]*:[/\][/\]\([^/\]*\).*$/\1/"))
-                 echo $NSLOOKUP >> $XCONF_LOG_FILE
-                 echo $NSLOOKUP >> $TLS_LOG_FILE
-                 tls="--tlsv1.1"
-                 CURL_CMD="curl --connect-timeout 30 --interface $interface -w '%{http_code}\n' $tls -o \"$FILENAME\" \"$CB_SIGNED_REQUEST\" -m 30"
-                 echo_t "CURL_CMD: $CURL_CMD" >> $XCONF_LOG_FILE
-                 result= eval "$CURL_CMD" > $HTTP_CODE
-                 ret=$?
-                 ;;
-            esac
-
-            #Check for https tls1.1 failure
-            case $ret in
-              35|51|53|54|58|59|60|64|66|77|80|82|83|90|91)
-                 echo_t "Switching to insecure mode as TLS1.1 failed to connect to $xconf_url with curl error code $ret" >> $XCONF_LOG_FILE
-                 echo_t "Switching to insecure mode as TLS1.1 failed to connect to $xconf_url with curl error code $ret" >> $TLS_LOG_FILE
-                 CURL_CMD="curl --connect-timeout 30 --interface $interface --insecure -w '%{http_code}\n' $tls -o \"$FILENAME\" \"$CB_SIGNED_REQUEST\" -m 30"
-                 echo_t "CURL_CMD: $CURL_CMD" >> $XCONF_LOG_FILE
-                 result= eval "$CURL_CMD" > $HTTP_CODE
-                 ret=$?
-                 ;;
-            esac
-
-            #Check for https tls1.1 --insecure failure
-            case $ret in
-              35|51|53|54|58|59|60|64|66|77|80|82|83|90|91)
-                 echo_t "Switching to HTTP as HTTPS insecure failed to connect to $xconf_url with curl error code $ret" >> $XCONF_LOG_FILE
-                 echo_t "Switching to HTTP as HTTPS insecure failed to connect to $xconf_url with curl error code $ret" >> $TLS_LOG_FILE
-                 # make sure protocol is HTTP
-                 xconf_url=`echo $xconf_url | sed "s/[Hh][Tt][Tt][Pp][Ss]:/http:/"`
-                 CURL_CMD="curl --connect-timeout 30 --interface $interface -w '%{http_code}\n' -o \"$FILENAME\" \"$CB_SIGNED_REQUEST\" -m 30"
-                 echo_t "CURL_CMD: $CURL_CMD" >> $XCONF_LOG_FILE
-                 result= eval "$CURL_CMD" > $HTTP_CODE
-                 ret=$?
-                 ;;
-            esac
 
             HTTP_RESPONSE_CODE=$(awk -F\" '{print $1}' $HTTP_CODE)
             echo_t "ret = $ret http_code: $HTTP_RESPONSE_CODE" >> $XCONF_LOG_FILE
@@ -578,7 +486,7 @@ getFirmwareUpgDetail()
 		    cat "$FILENAME" >> $XCONF_LOG_FILE
 		    echo >> $XCONF_LOG_FILE
 
-                    cat "/tmp/response.txt" | tr -d '\n' | sed 's/[{}]//g' | awk  '{n=split($0,a,","); for (i=1; i<=n; i++) print a[i]}' | sed 's/\"\:\"/\|/g' | sed -r 's/\"\:(true)($)/\|true/gI' | sed -r 's/\"\:(false)($)/\|false/gI' | sed -r 's/\"\:(null)($)/\|\1/gI' | sed -r 's/\"\:([0-9]+)($)/\|\1/g' | sed 's/[\,]/ /g' | sed 's/\"//g' > $OUTPUT
+                    cat "$FILENAME" | tr -d '\n' | sed 's/[{}]//g' | awk  '{n=split($0,a,","); for (i=1; i<=n; i++) print a[i]}' | sed 's/\"\:\"/\|/g' | sed -r 's/\"\:(true)($)/\|true/gI' | sed -r 's/\"\:(false)($)/\|false/gI' | sed -r 's/\"\:(null)($)/\|\1/gI' | sed -r 's/\"\:([0-9]+)($)/\|\1/g' | sed 's/[\,]/ /g' | sed 's/\"//g' > $OUTPUT
 
                     retry_flag=0
 

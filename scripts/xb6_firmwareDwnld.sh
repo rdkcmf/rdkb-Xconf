@@ -26,8 +26,6 @@ XCONF_LOG_PATH=/rdklogs/logs
 XCONF_LOG_FILE_NAME=xconf.txt.0
 XCONF_LOG_FILE_PATHNAME=${XCONF_LOG_PATH}/${XCONF_LOG_FILE_NAME}
 XCONF_LOG_FILE=${XCONF_LOG_FILE_PATHNAME}
-TLS_LOG_FILE_NAME=TlsVerify.txt
-TLS_LOG_FILE=${LOG_PATH}/${TLS_LOG_FILE_NAME}
 
 CURL_PATH=/bin
 interface=erouter0
@@ -157,7 +155,7 @@ getFirmwareUpgDetail()
 
     # if xconf_url uses http, then log it
     if [ `echo "${xconf_url:0:6}" | tr '[:upper:]' '[:lower:]'` != "https:" ]; then
-        echo "firmware download config using HTTP to $xconf_url" >> $XCONF_LOG_FILE
+        echo_t "firmware download config using HTTP to $xconf_url" >> $XCONF_LOG_FILE
     fi
 
     echo_t "XCONF SCRIPT : env is $env"
@@ -176,7 +174,7 @@ getFirmwareUpgDetail()
         
 	# Perform cleanup by deleting any previous responses
 	rm -f $FWDL_JSON /tmp/XconfOutput.txt
-	rm -f $FWDL_HTTP_CODE
+	rm -f $HTTP_CODE
 	firmwareDownloadProtocol=""
 	firmwareFilename=""
 	firmwareLocation=""
@@ -198,61 +196,12 @@ getFirmwareUpgDetail()
         echo_t "XCONF SCRIPT : CURRENT DATE : $date"
 	echo_t "XCONF SCRIPT : DEVICE MODEL : $devicemodel"
 
-        # Query the  XCONF Server, first using TLS 1.2
-        tls="--tlsv1.2"
+        # Query the  XCONF Server, using TLS 1.2
         echo_t "Attempting TLS1.2 connection to $xconf_url " >> $XCONF_LOG_FILE
-        echo_t "Attempting TLS1.2 connection to $xconf_url " >> $TLS_LOG_FILE
-        CURL_CMD="curl --interface $interface -w '%{http_code}\n' $tls -d \"eStbMac=$MAC&firmwareVersion=$currentVersion&env=$env&model=$devicemodel&partnerId=$partnerId&localtime=$date&timezone=EST05&capabilities=rebootDecoupled&capabilities=RCDL&capabilities=supportsFullHttpUrl\" -o \"$FWDL_JSON\" \"$xconf_url\" --connect-timeout 30 -m 30"
+        CURL_CMD="curl --interface $interface -w '%{http_code}\n' --tlsv1.2 -d \"eStbMac=$MAC&firmwareVersion=$currentVersion&env=$env&model=$devicemodel&localtime=$date&timezone=EST05&capabilities=rebootDecoupled&capabilities=RCDL&capabilities=supportsFullHttpUrl\" -o \"$FWDL_JSON\" \"$xconf_url\" --connect-timeout 30 -m 30"
         echo_t "CURL_CMD: $CURL_CMD" >> $XCONF_LOG_FILE
-        echo_t "CURL_CMD: $CURL_CMD"
         result= eval "$CURL_CMD" > $HTTP_CODE
         ret=$?
-
-        #Check for https tls1.2 failure
-        case $ret in
-          35|51|53|54|58|59|60|64|66|77|80|82|83|90|91)
-             echo_t "Switching to TLS1.1 as TLS1.2 failed to connect to $xconf_url with curl error code $ret" >> $XCONF_LOG_FILE
-             echo_t "Switching to TLS1.1 as TLS1.2 failed to connect to $xconf_url with curl error code $ret" >> $TLS_LOG_FILE
-             # log server info for failed connection using nslookup
-             NSLOOKUP=$(nslookup $(echo $xconf_url | sed "s/^[^/\]*:[/\][/\]\([^/\]*\).*$/\1/"))
-             echo $NSLOOKUP >> $XCONF_LOG_FILE
-             echo $NSLOOKUP >> $TLS_LOG_FILE
-             tls="--tlsv1.1"
-             CURL_CMD="curl --interface $interface -w '%{http_code}\n' $tls -d \"eStbMac=$MAC&firmwareVersion=$currentVersion&env=$env&model=$devicemodel&partnerId=$partnerId&localtime=$date&timezone=EST05&capabilities=rebootDecoupled&capabilities=RCDL&capabilities=supportsFullHttpUrl\" -o \"$FWDL_JSON\" \"$xconf_url\" --connect-timeout 30 -m 30"
-             echo_t "CURL_CMD: $CURL_CMD" >> $XCONF_LOG_FILE
-             echo_t "CURL_CMD: $CURL_CMD"
-             result= eval "$CURL_CMD" > $HTTP_CODE
-             ret=$?
-             ;;
-        esac
-
-        #Check for https tls1.1 failure
-        case $ret in
-          35|51|53|54|58|59|60|64|66|77|80|82|83|90|91)
-             echo_t "Switching to HTTPS insecure mode as TLS1.1 failed to connect to $xconf_url with curl error code $ret" >> $XCONF_LOG_FILE
-             echo_t "Switching to HTTPS insecure mode as TLS1.1 failed to connect to $xconf_url with curl error code $ret" >> $TLS_LOG_FILE
-             CURL_CMD="curl --interface $interface --insecure -w '%{http_code}\n' $tls -d \"eStbMac=$MAC&firmwareVersion=$currentVersion&env=$env&model=$devicemodel&partnerId=$partnerId&localtime=$date&timezone=EST05&capabilities=rebootDecoupled&capabilities=RCDL&capabilities=supportsFullHttpUrl\" -o \"$FWDL_JSON\" \"$xconf_url\" --connect-timeout 30 -m 30"
-             echo_t "CURL_CMD: $CURL_CMD" >> $XCONF_LOG_FILE
-             echo_t "CURL_CMD: $CURL_CMD"
-             result= eval "$CURL_CMD" > $HTTP_CODE
-             ret=$?
-             ;;
-        esac
-
-        #Check for https tls1.1 --insecure failure
-        case $ret in
-          35|51|53|54|58|59|60|64|66|77|80|82|83|90|91)
-             echo_t "Switching to HTTP as HTTPS insecure failed to connect to $xconf_url with curl error code $ret" >> $XCONF_LOG_FILE
-             echo_t "Switching to HTTP as HTTPS insecure failed to connect to $xconf_url with curl error code $ret" >> $TLS_LOG_FILE
-             # make sure protocol is HTTP
-             xconf_url=`echo $xconf_url | sed "s/[Hh][Tt][Tt][Pp][Ss]:/http:/"`
-             CURL_CMD="curl --interface $interface -w '%{http_code}\n' -d \"eStbMac=$MAC&firmwareVersion=$currentVersion&env=$env&model=$devicemodel&partnerId=$partnerId&localtime=$date&timezone=EST05&capabilities=rebootDecoupled&capabilities=RCDL&capabilities=supportsFullHttpUrl\" -o \"$FWDL_JSON\" \"$xconf_url\" --connect-timeout 30 -m 30"
-             echo_t "CURL_CMD: $CURL_CMD" >> $XCONF_LOG_FILE
-             echo_t "CURL_CMD: $CURL_CMD"
-             result= eval "$CURL_CMD" > $HTTP_CODE
-             ret=$?
-             ;;
-        esac
 
         HTTP_RESPONSE_CODE=$(awk -F\" '{print $1}' $HTTP_CODE)
         echo_t "ret = $ret http_code: $HTTP_RESPONSE_CODE" >> $XCONF_LOG_FILE

@@ -28,8 +28,6 @@ fi
 XCONF_LOG_FILE_NAME=xconf.txt.0
 XCONF_LOG_FILE_PATHNAME=${LOG_PATH}/${XCONF_LOG_FILE_NAME}
 XCONF_LOG_FILE=${XCONF_LOG_FILE_PATHNAME}
-TLS_LOG_FILE_NAME=TlsVerify.txt
-TLS_LOG_FILE=${LOG_PATH}/${TLS_LOG_FILE_NAME}
 
 CURL_PATH=/fss/gw/usr/bin
 interface=erouter0
@@ -113,18 +111,18 @@ checkFirmwareUpgCriteria()
 
     if [ "$currentVersion" != "" ] && [ "$firmwareVersion" != "" ];then
 		if [ "$currentVersion" == "$firmwareVersion" ]; then
-			echo_t "XCONF SCRIPT : Current image ("$currentVersion") and Requested imgae ("$firmwareVersion") are same. No upgrade/downgrade required"
-			echo_t "XCONF SCRIPT : Current image ("$currentVersion") and Requested imgae ("$firmwareVersion") are same. No upgrade/downgrade required">> $XCONF_LOG_FILE
+			echo_t "XCONF SCRIPT : Current image ("$currentVersion") and Requested image ("$firmwareVersion") are same. No upgrade/downgrade required"
+			echo_t "XCONF SCRIPT : Current image ("$currentVersion") and Requested image ("$firmwareVersion") are same. No upgrade/downgrade required">> $XCONF_LOG_FILE
 			image_upg_avl=0
 			exit
 		else
-			echo_t "XCONF SCRIPT : Current image ("$currentVersion") and Requested imgae ("$firmwareVersion") are different. Processing Upgrade/Downgrade"
-			echo_t "XCONF SCRIPT : Current image ("$currentVersion") and Requested imgae ("$firmwareVersion") are different. Processing Upgrade/Downgrade">> $XCONF_LOG_FILE
+			echo_t "XCONF SCRIPT : Current image ("$currentVersion") and Requested image ("$firmwareVersion") are different. Processing Upgrade/Downgrade"
+			echo_t "XCONF SCRIPT : Current image ("$currentVersion") and Requested image ("$firmwareVersion") are different. Processing Upgrade/Downgrade">> $XCONF_LOG_FILE
 			image_upg_avl=1
 		fi
 	else
-		echo_t "XCONF SCRIPT : Current image ("$currentVersion") Or Requested imgae ("$firmwareVersion") returned NULL. No Upgrade/Downgrade"
-		echo_t "XCONF SCRIPT : Current image ("$currentVersion") Or Requested imgae ("$firmwareVersion") returned NULL. No Upgrade/Downgrade">> $XCONF_LOG_FILE
+		echo_t "XCONF SCRIPT : Current image ("$currentVersion") Or Requested image ("$firmwareVersion") returned NULL. No Upgrade/Downgrade"
+		echo_t "XCONF SCRIPT : Current image ("$currentVersion") Or Requested image ("$firmwareVersion") returned NULL. No Upgrade/Downgrade">> $XCONF_LOG_FILE
 		image_upg_avl=0
 		exit
 	fi
@@ -175,7 +173,7 @@ getFirmwareUpgDetail()
         
         # Perform cleanup by deleting any previous responses
         rm -f $FWDL_JSON /tmp/XconfOutput.txt
-        rm -f $FWDL_HTTP_CODE
+        rm -f $HTTP_CODE
         firmwareDownloadProtocol=""
         firmwareFilename=""
         firmwareLocation=""
@@ -194,57 +192,12 @@ getFirmwareUpgDetail()
         echo_t "XCONF SCRIPT : CURRENT DATE : $date"  
 	echo_t "XCONF SCRIPT : MODEL : $modelName"
 
-        # Query the  XCONF Server, first using TLS 1.2
-        tls="--tlsv1.2"
+        # Query the  XCONF Server, using TLS 1.2
         echo_t "Attempting TLS1.2 connection to $xconf_url " >> $XCONF_LOG_FILE
-        echo_t "Attempting TLS1.2 connection to $xconf_url " >> $TLS_LOG_FILE
-        CURL_CMD="$CURL_PATH/curl --interface $interface -w '%{http_code}\n' $tls -d \"eStbMac=$MAC&firmwareVersion=$currentVersion&env=$env&model=$modelName&localtime=$date&timezone=EST05&capabilities=rebootDecoupled&capabilities=RCDL&capabilities=supportsFullHttpUrl\" -o \"$FWDL_JSON\" \"$xconf_url\" --connect-timeout 30 -m 30"
+        CURL_CMD="$CURL_PATH/curl --interface $interface -w '%{http_code}\n' --tlsv1.2 -d \"eStbMac=$MAC&firmwareVersion=$currentVersion&env=$env&model=$modelName&localtime=$date&timezone=EST05&capabilities=rebootDecoupled&capabilities=RCDL&capabilities=supportsFullHttpUrl\" -o \"$FWDL_JSON\" \"$xconf_url\" --connect-timeout 30 -m 30"
         echo_t "CURL_CMD: $CURL_CMD" >> $XCONF_LOG_FILE
         result= eval "$CURL_CMD" > $HTTP_CODE
         ret=$?
-
-        #Check for https tls1.2 failure
-        case $ret in
-          35|51|53|54|58|59|60|64|66|77|80|82|83|90|91)
-             echo_t "Switching to TLS1.1 as TLS1.2 failed to connect to $xconf_url with curl error code $ret" >> $XCONF_LOG_FILE
-             echo_t "Switching to TLS1.1 as TLS1.2 failed to connect to $xconf_url with curl error code $ret" >> $TLS_LOG_FILE
-             # log server info for failed connection using nslookup
-             NSLOOKUP=$(nslookup $(echo $xconf_url | sed "s/^[^/\]*:[/\][/\]\([^/\]*\).*$/\1/"))
-             echo $NSLOOKUP >> $XCONF_LOG_FILE
-             echo $NSLOOKUP >> $TLS_LOG_FILE
-             tls="--tlsv1.1"
-             CURL_CMD="$CURL_PATH/curl --interface $interface -w '%{http_code}\n' $tls -d \"eStbMac=$MAC&firmwareVersion=$currentVersion&env=$env&model=$modelName&localtime=$date&timezone=EST05&capabilities=rebootDecoupled&capabilities=RCDL&capabilities=supportsFullHttpUrl\" -o \"$FWDL_JSON\" \"$xconf_url\" --connect-timeout 30 -m 30"
-             echo_t "CURL_CMD: $CURL_CMD" >> $XCONF_LOG_FILE
-             result= eval "$CURL_CMD" > $HTTP_CODE
-             ret=$?
-             ;;
-        esac
-
-        #Check for https tls1.1 failure
-        case $ret in
-          35|51|53|54|58|59|60|64|66|77|80|82|83|90|91)
-             echo_t "Switching to HTTPS insecure mode as TLS1.1 failed to connect to $xconf_url with curl error code $ret" >> $XCONF_LOG_FILE
-             echo_t "Switching to HTTPS insecure mode as TLS1.1 failed to connect to $xconf_url with curl error code $ret" >> $TLS_LOG_FILE
-             CURL_CMD="$CURL_PATH/curl --interface $interface --insecure -w '%{http_code}\n' $tls -d \"eStbMac=$MAC&firmwareVersion=$currentVersion&env=$env&model=$modelName&localtime=$date&timezone=EST05&capabilities=rebootDecoupled&capabilities=RCDL&capabilities=supportsFullHttpUrl\" -o \"$FWDL_JSON\" \"$xconf_url\" --connect-timeout 30 -m 30"
-             echo_t "CURL_CMD: $CURL_CMD" >> $XCONF_LOG_FILE
-             result= eval "$CURL_CMD" > $HTTP_CODE
-             ret=$?
-             ;;
-        esac
-
-        #Check for https tls1.1 --insecure failure
-        case $ret in
-          35|51|53|54|58|59|60|64|66|77|80|82|83|90|91)
-             echo_t "Switching to HTTP as HTTPS insecure failed to connect to $xconf_url with curl error code $ret" >> $XCONF_LOG_FILE
-             echo_t "Switching to HTTP as HTTPS insecure failed to connect to $xconf_url with curl error code $ret" >> $TLS_LOG_FILE
-             # make sure protocol is HTTP
-             xconf_url=`echo $xconf_url | sed "s/[Hh][Tt][Tt][Pp][Ss]:/http:/"`
-             CURL_CMD="$CURL_PATH/curl --interface $interface -w '%{http_code}\n' -d \"eStbMac=$MAC&firmwareVersion=$currentVersion&env=$env&model=$modelName&localtime=$date&timezone=EST05&capabilities=rebootDecoupled&capabilities=RCDL&capabilities=supportsFullHttpUrl\" -o \"$FWDL_JSON\" \"$xconf_url\" --connect-timeout 30 -m 30"
-             echo_t "CURL_CMD: $CURL_CMD" >> $XCONF_LOG_FILE
-             result= eval "$CURL_CMD" > $HTTP_CODE
-             ret=$?
-             ;;
-        esac
 
         HTTP_RESPONSE_CODE=$(awk -F\" '{print $1}' $HTTP_CODE)
         echo_t "ret = $ret http_code: $HTTP_RESPONSE_CODE" >> $XCONF_LOG_FILE
