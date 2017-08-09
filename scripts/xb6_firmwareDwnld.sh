@@ -198,8 +198,9 @@ getFirmwareUpgDetail()
 
         # Query the  XCONF Server, using TLS 1.2
         echo_t "Attempting TLS1.2 connection to $xconf_url " >> $XCONF_LOG_FILE
-        CURL_CMD="curl --interface $interface -w '%{http_code}\n' --tlsv1.2 -d \"eStbMac=$MAC&firmwareVersion=$currentVersion&env=$env&model=$devicemodel&localtime=$date&timezone=EST05&capabilities=rebootDecoupled&capabilities=RCDL&capabilities=supportsFullHttpUrl\" -o \"$FWDL_JSON\" \"$xconf_url\" --connect-timeout 30 -m 30"
+        CURL_CMD="curl --interface $interface -w '%{http_code}\n' --tlsv1.2 -d \"eStbMac=$MAC&firmwareVersion=$currentVersion&env=$env&model=$devicemodel&partnerId=$partnerId&localtime=$date&timezone=EST05&capabilities=rebootDecoupled&capabilities=RCDL&capabilities=supportsFullHttpUrl\" -o \"$FWDL_JSON\" \"$xconf_url\" --connect-timeout 30 -m 30"
         echo_t "CURL_CMD: $CURL_CMD" >> $XCONF_LOG_FILE
+        echo_t "CURL_CMD: $CURL_CMD"
         result= eval "$CURL_CMD" > $HTTP_CODE
         ret=$?
 
