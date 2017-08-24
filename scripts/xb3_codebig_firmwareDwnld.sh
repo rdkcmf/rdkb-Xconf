@@ -476,8 +476,8 @@ getFirmwareUpgDetail()
 
 		fi	
 
-        echo_t "XCONF SCRIPT : HTTP RESPONSE CODE is" $HTTP_RESPONSE_CODE
-        echo_t "XCONF SCRIPT : HTTP RESPONSE CODE is" $HTTP_RESPONSE_CODE >> $XCONF_LOG_FILE
+        echo_t "XCONF SCRIPT : HTTP RESPONSE CODE is $HTTP_RESPONSE_CODE"
+        echo_t "XCONF SCRIPT : HTTP RESPONSE CODE is $HTTP_RESPONSE_CODE" >> $XCONF_LOG_FILE
 
             if [ $HTTP_RESPONSE_CODE -eq 200 ];then
 		    # Print the response
