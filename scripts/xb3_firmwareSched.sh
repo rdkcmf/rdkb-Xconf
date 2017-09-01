@@ -124,7 +124,7 @@ if [ -f $DCMRESPONSE ]; then
 	      echo_t "XCONF SCRIPT: Firmware scheduler cron schedule time is $cronPattern"
               crontab -l -c $CRONTAB_DIR > $CRON_FILE_BK
               sed -i '/xb3_firmwareDwnld.sh/d' $CRON_FILE_BK
-              echo_t "$cronPattern  $DOWNLOAD_SCRIPT 2" >> $CRON_FILE_BK
+              echo "$cronPattern  $DOWNLOAD_SCRIPT 2" >> $CRON_FILE_BK
               crontab $CRON_FILE_BK -c $CRONTAB_DIR
               rm -rf $CRON_FILE_BK
               echo_t "XCONF SCRIPT: Cron scheduling done, now call download script during bootup"
