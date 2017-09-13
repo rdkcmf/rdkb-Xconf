@@ -37,7 +37,12 @@ DOWNLOAD_INPROGRESS="/tmp/.downloadingfw"
 
 HTTP_CODE=/tmp/fwdl_http_code.txt
 FWDL_JSON=/tmp/response.txt
-
+codebig_enabled=$CODEBIG_ENABLE
+if [ -f /tmp/RFC/.codebigenabled ]; then
+    codebig_enabled=yes
+    echo "Codebig support is enabled through RFC" >> $XCONF_LOG_FILE
+fi
+        
 #GLOBAL DECLARATIONS
 image_upg_avl=0
 reb_window=0
@@ -194,13 +199,28 @@ getFirmwareUpgDetail()
 
         # Query the  XCONF Server, using TLS 1.2
         echo_t "Attempting TLS1.2 connection to $xconf_url " >> $XCONF_LOG_FILE
-        CURL_CMD="$CURL_PATH/curl --interface $interface -w '%{http_code}\n' --tlsv1.2 -d \"eStbMac=$MAC&firmwareVersion=$currentVersion&env=$env&model=$modelName&localtime=$date&timezone=EST05&capabilities=rebootDecoupled&capabilities=RCDL&capabilities=supportsFullHttpUrl\" -o \"$FWDL_JSON\" \"$xconf_url\" --connect-timeout 30 -m 30"
-        echo_t "CURL_CMD: $CURL_CMD" >> $XCONF_LOG_FILE
-        result= eval "$CURL_CMD" > $HTTP_CODE
-        ret=$?
+        JSONSTR='eStbMac='${MAC}'&firmwareVersion='${currentVersion}'&env='${env}'&model='${modelName}'&localtime='${date}'&timezone=EST05&capabilities=rebootDecoupled&capabilities=RCDL&capabilities=supportsFullHttpUrl'
 
-        HTTP_RESPONSE_CODE=$(awk -F\" '{print $1}' $HTTP_CODE)
-        echo_t "ret = $ret http_code: $HTTP_RESPONSE_CODE" >> $XCONF_LOG_FILE
+        if [ "$codebig_enabled" != "yes" ]; then
+            echo_t "Trying Direct Communication" >> $XCONF_LOG_FILE
+            CURL_CMD="$CURL_PATH/curl --interface $interface -w '%{http_code}\n' --tlsv1.2 -d \"$JSONSTR\" -o \"$FWDL_JSON\" \"$xconf_url\" --connect-timeout 30 -m 30"
+            echo_t "CURL_CMD: $CURL_CMD" >> $XCONF_LOG_FILE
+            result= eval $CURL_CMD > $HTTP_CODE
+            ret=$?
+            HTTP_RESPONSE_CODE=$(awk -F\" '{print $1}' $HTTP_CODE)
+            echo_t "Direct Communication - ret  $ret http_code: $HTTP_RESPONSE_CODE" >> $XCONF_LOG_FILE
+        else
+            echo_t "Trying Codebig communication" >> $XCONF_LOG_FILE
+            SIGN_CMD="configparamgen 2 \"$JSONSTR\""
+            eval $SIGN_CMD > /tmp/.signedRequest
+            CB_SIGNED_REQUEST=`cat /tmp/.signedRequest`
+            rm -f /tmp/.signedRequest
+            CURL_CMD="$CURL_PATH/curl --interface $interface -w '%{http_code}\n' --tlsv1.2 -o \"$FWDL_JSON\" \"$CB_SIGNED_REQUEST\" --connect-timeout 30 -m 30"
+            result= eval $CURL_CMD > $HTTP_CODE
+            ret=$?
+            HTTP_RESPONSE_CODE=$(awk -F\" '{print $1}' $HTTP_CODE)
+            echo_t "Codebig Communication - ret = $ret http_code: $HTTP_RESPONSE_CODE" >> $XCONF_LOG_FILE
+        fi
 
         echo_t "XCONF SCRIPT : HTTP RESPONSE CODE is $HTTP_RESPONSE_CODE"
         echo_t "XCONF SCRIPT : HTTP RESPONSE CODE is $HTTP_RESPONSE_CODE" >> $XCONF_LOG_FILE
