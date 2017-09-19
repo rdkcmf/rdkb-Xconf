@@ -534,19 +534,18 @@ getBuildType
 
 echo_t "XCONF SCRIPT : IMAGE TYPE SET AS $type"
 
-if [ "$type" == "DEV" ] || [ "$type" == "dev" ];then
-    #url="https://xconf.poa.xcal.tv/xconf/swu/stb/"
-    url="https://ci.xconfds.ccp.xcal.tv/xconf/swu/stb/"
-else
+# Default url setting
     url="https://xconf.xcal.tv/xconf/swu/stb/"
-fi
 
 # Override mechanism should work only for non-production build.
 if [ -f /nvram/swupdate.conf ]; then
   if [ "$type" != "PROD" ] && [ "$type" != "prod" ]; then
-      url=`grep -v '^[[:space:]]*#' /nvram/swupdate.conf`
-      echo_t "XCONF SCRIPT : Non PROD build. URL taken from /nvram/swupdate.conf override. URL=$url"  >> $XCONF_LOG_FILE
-      echo_t "XCONF SCRIPT : Non PROD build. URL taken from /nvram/swupdate.conf override. URL=$url"
+      url_override=`grep -v '^[[:space:]]*#' /nvram/swupdate.conf`
+      if [ "$url_override" != "" ]; then
+          url=$url_override
+          echo_t "XCONF SCRIPT : Non PROD build. URL taken from /nvram/swupdate.conf override. URL=$url"  >> $XCONF_LOG_FILE
+          echo_t "XCONF SCRIPT : Non PROD build. URL taken from /nvram/swupdate.conf override. URL=$url"
+      fi
   else
      echo_t "XCONF SCRIPT : PROD build found. Ignoring /nvram/swupdate.conf override. URL=$url" >> $XCONF_LOG_FILE
      echo_t "XCONF SCRIPT : PROD build found. Ignoring /nvram/swupdate.conf override. URL=$url"
