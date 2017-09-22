@@ -215,13 +215,13 @@ getFirmwareUpgDetail()
         if [ "$codebig_enabled" != "yes" ]; then
             echo_t "Trying Direct Communication" >> $XCONF_LOG_FILE
             CURL_CMD="curl --interface $interface -w '%{http_code}\n' --tlsv1.2 -d \"$JSONSTR\" -o \"$FWDL_JSON\" \"$xconf_url\" --connect-timeout 30 -m 30"
-            echo_t "CURL_CMD: $CURL_CMD" >> $XCONF_LOG_FILE
+            echo_t "CURL_CMD:$CURL_CMD" >> $XCONF_LOG_FILE
             result= eval $CURL_CMD > $HTTP_CODE
             ret=$?
             HTTP_RESPONSE_CODE=$(awk -F\" '{print $1}' $HTTP_CODE)
-            echo_t "Direct Communication - ret  $ret http_code: $HTTP_RESPONSE_CODE" >> $XCONF_LOG_FILE
+            echo_t "Direct Communication - ret:$ret, http_code:$HTTP_RESPONSE_CODE" >> $XCONF_LOG_FILE
         else
-            echo_t "Trying Codebig communication" >> $XCONF_LOG_FILE
+            echo_t "Trying Codebig Communication" >> $XCONF_LOG_FILE
             SIGN_CMD="configparamgen 2 \"$JSONSTR\""
             eval $SIGN_CMD > /tmp/.signedRequest
             CB_SIGNED_REQUEST=`cat /tmp/.signedRequest`
@@ -230,7 +230,7 @@ getFirmwareUpgDetail()
             result= eval $CURL_CMD > $HTTP_CODE
             ret=$?
             HTTP_RESPONSE_CODE=$(awk -F\" '{print $1}' $HTTP_CODE)
-            echo_t "Codebig Communication - ret = $ret http_code: $HTTP_RESPONSE_CODE" >> $XCONF_LOG_FILE
+            echo_t "Codebig Communication - ret:$ret, http_code:$HTTP_RESPONSE_CODE" >> $XCONF_LOG_FILE
         fi
 
         echo_t "XCONF SCRIPT : HTTP RESPONSE CODE is $HTTP_RESPONSE_CODE"
