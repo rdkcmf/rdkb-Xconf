@@ -27,6 +27,9 @@ XCONF_LOG_FILE_NAME=xconf.txt.0
 XCONF_LOG_FILE_PATHNAME=${XCONF_LOG_PATH}/${XCONF_LOG_FILE_NAME}
 XCONF_LOG_FILE=${XCONF_LOG_FILE_PATHNAME}
 
+REBOOT_WAIT="/tmp/.waitingreboot"
+DOWNLOAD_INPROGRESS="/tmp/.downloadingfw"
+
 CURL_PATH=/bin
 interface=erouter0
 BIN_PATH=/bin
@@ -43,6 +46,8 @@ fi
 #GLOBAL DECLARATIONS
 image_upg_avl=0
 reb_window=0
+
+isPeriodicFWCheckEnabled=`syscfg get PeriodicFWCheck_Enable`
 
 echo_t()
 {
@@ -122,6 +127,10 @@ checkFirmwareUpgCriteria()
 			echo_t "XCONF SCRIPT : Current image ("$currentVersion") and Requested image ("$firmwareVersion") are same. No upgrade/downgrade required"
 			echo_t "XCONF SCRIPT : Current image ("$currentVersion") and Requested image ("$firmwareVersion") are same. No upgrade/downgrade required">> $XCONF_LOG_FILE
 			image_upg_avl=0
+			
+                        if [ "$isPeriodicFWCheckEnabled" == "true" ]; then
+			   exit
+			fi
 		else
 			echo_t "XCONF SCRIPT : Current image ("$currentVersion") and Requested image ("$firmwareVersion") are different. Processing Upgrade/Downgrade"
 			echo_t "XCONF SCRIPT : Current image ("$currentVersion") and Requested image ("$firmwareVersion") are different. Processing Upgrade/Downgrade">> $XCONF_LOG_FILE
@@ -131,6 +140,10 @@ checkFirmwareUpgCriteria()
 		echo_t "XCONF SCRIPT : Current image ("$currentVersion") Or Requested image ("$firmwareVersion") returned NULL. No Upgrade/Downgrade"
 		echo_t "XCONF SCRIPT : Current image ("$currentVersion") Or Requested image ("$firmwareVersion") returned NULL. No Upgrade/Downgrade">> $XCONF_LOG_FILE
 		image_upg_avl=0
+
+		if [ "$isPeriodicFWCheckEnabled" == "true" ]; then
+		   exit
+		fi
 	fi
 }
 
@@ -306,27 +319,36 @@ getFirmwareUpgDetail()
 	elif [ $HTTP_RESPONSE_CODE -eq 404 ]; then 
         	retry_flag=0
            	image_upg_avl=0
-        echo_t "XCONF SCRIPT : Response code received is 404" >> $XCONF_LOG_FILE
+        echo_t "XCONF SCRIPT : Response code received is 404" >> $XCONF_LOG_FILE 
+		
+                if [ "$isPeriodicFWCheckEnabled" == "true" ]; then
+		   exit
+		fi
         # If a response code of 0 was received, the server is unreachable
-        # Try reconnecting 
-        elif [ $HTTP_RESPONSE_CODE -eq 0 ]; then
-            
-            echo_t "XCONF SCRIPT : Response code 0, sleeping for 2 minutes and retrying" >>$XCONF_LOG_FILE
+        # Try reconnecting
+        else
+            echo_t "XCONF SCRIPT : Response code is $HTTP_RESPONSE_CODE, sleeping for 2 minutes and retrying" >> $XCONF_LOG_FILE
             # sleep for 2 minutes and retry
             sleep 120;
 
             retry_flag=1
             image_upg_avl=0
 
-           	#Increment the retry count
-           	xconf_retry_count=$((xconf_retry_count+1))
+            #Increment the retry count
+            xconf_retry_count=$((xconf_retry_count+1))
 
         fi
 
     done
 
-    if [ $xconf_retry_count -eq 4 ];then
-        echo_t "XCONF SCRIPT : Retry limit to connect with XCONF server reached" 
+    # If retry for 3 times done and image is not available, then exit
+    # Cron scheduled job will be triggered later
+    if [ $xconf_retry_count -eq 4 ] && [ $image_upg_avl -eq 0 ]
+    then
+        echo_t "XCONF SCRIPT : Retry limit to connect with XCONF server reached, so exit" 
+        if [ "$isPeriodicFWCheckEnabled" == "true" ]; then
+	   exit
+	fi
     fi
 }
 
@@ -455,6 +477,7 @@ calcRandTime()
 
         echo_t "Action on $date_final"
         echo_t "Action on $date_final" >> $XCONF_LOG_FILE
+        touch $REBOOT_WAIT
 
     fi
 
@@ -579,6 +602,19 @@ getBuildType
 
 echo_t "XCONF SCRIPT : IMAGE TYPE SET AS $type"
 
+# If unit is waiting for reboot after image download,we need not have to download image again.
+if [ -f $REBOOT_WAIT ]
+then
+    echo_t "XCONF SCRIPT : Waiting reboot after download, so exit" >> $XCONF_LOG_FILE
+    exit
+fi
+
+if [ -f $DOWNLOAD_INPROGRESS ]
+then
+    echo_t "XCONF SCRIPT : Download is in progress, exit" >> $XCONF_LOG_FILE
+    exit
+fi
+
 #Default xconf url
 url="https://xconf.xcal.tv/xconf/swu/stb/"
 
@@ -638,23 +674,33 @@ download_image_success=0
 reboot_device_success=0
 http_flash_led_disable=0
 is_already_flash_led_disable=0
+retry_download=0
 
 while [ $download_image_success -eq 0 ]; 
 do
-    # If an image wasn't available, check it's 
-    # availability at a random time,every 24 hrs
-    while  [ $image_upg_avl -eq 0 ];
-    do
-        echo_t "XCONF SCRIPT : Rechecking image availability within 24 hrs" 
-        echo_t "XCONF SCRIPT : Rechecking image availability within 24 hrs" >> $XCONF_LOG_FILE
-
-        # Sleep for a random time less than 
-        # a 24 hour duration 
-        calcRandTime 1 0
     
-        # Check for the availability of an update   
-        getFirmwareUpgDetail
-    done
+    if [ "$isPeriodicFWCheckEnabled" != "true" ]
+    then
+       # If an image wasn't available, check it's 
+       # availability at a random time,every 24 hrs
+       while  [ $image_upg_avl -eq 0 ];
+       do
+         echo_t "XCONF SCRIPT : Rechecking image availability within 24 hrs" 
+         echo_t "XCONF SCRIPT : Rechecking image availability within 24 hrs" >> $XCONF_LOG_FILE
+
+         # Sleep for a random time less than 
+         # a 24 hour duration 
+         calcRandTime 1 0
+    
+         # Check for the availability of an update   
+         getFirmwareUpgDetail
+       done
+    fi
+
+    if [ ! -f $DOWNLOAD_INPROGRESS ]
+    then
+        touch $DOWNLOAD_INPROGRESS
+    fi
 
     if [ $image_upg_avl -eq 1 ];then
 
@@ -720,21 +766,36 @@ do
                 echo_t "XCONF SCRIPT : HTTP download Successful" >> $XCONF_LOG_FILE
                 # Indicate succesful download
                 download_image_success=1
+                rm -rf $DOWNLOAD_INPROGRESS
             else
                 # Indicate an unsuccesful download
                 echo_t "XCONF SCRIPT : HTTP download NOT Successful" >> $XCONF_LOG_FILE
+                rm -rf $DOWNLOAD_INPROGRESS
                 download_image_success=0
                 # Set the flag to 0 to force a requery
                 image_upg_avl=0
+                if [ "$isPeriodicFWCheckEnabled" == "true" ]; then
+			# No need of looping here as we will trigger a cron job at random time
+			exit
+		fi
             fi
 
         else
             echo_t "XCONF SCRIPT : ERROR : URL & Filename not set correctly.Requerying "
             echo_t "XCONF SCRIPT : ERROR : URL & Filename not set correctly.Requerying " >> $XCONF_LOG_FILE
-            # Indicate an unsuccesful download
-            download_image_success=0
-            # Set the flag to 0 to force a requery
-            image_upg_avl=0
+	     download_image_success=0
+             # Set the flag to 0 to force a requery
+             image_upg_avl=0
+             rm -rf $DOWNLOAD_INPROGRESS
+ 	      if [ "$isPeriodicFWCheckEnabled" == "true" ]; then
+          	   retry_download=`expr $retry_download + 1`
+		       
+        	   if [ $retry_download -eq 3 ]
+          	   then
+             	       echo_t "XCONF SCRIPT : ERROR : URL & Filename not set correctly after 3 retries.Exiting" >> $XCONF_LOG_FILE
+        	       exit  
+          	   fi
+              fi
         fi
     fi
 done

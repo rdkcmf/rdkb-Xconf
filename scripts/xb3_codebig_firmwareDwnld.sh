@@ -46,6 +46,8 @@ WAN_INTERFACE="erouter0"
 
 firmwareName_configured=""
 
+isPeriodicFWCheckEnabled=`syscfg get PeriodicFWCheck_Enable`
+
 if [ $# -ne 1 ]; then
         #echo "USAGE: $0 <TFTP Server IP> <UploadProtocol> <UploadHttpLink> <uploadOnReboot>"
     echo_t "USAGE: $0 <firmwareName>"
@@ -593,7 +595,9 @@ getFirmwareUpgDetail()
                 retry_flag=0
                 image_upg_avl=0
                 echo "XCONF SCRIPT : Response code received is 404" >> $XCONF_LOG_FILE
-                exit
+                if [ "$isPeriodicFWCheckEnabled" == "true" ]; then
+		   exit
+		fi
         # If a response code of 0 was received, the server is unreachable
         # Try reconnecting
         else
@@ -613,7 +617,9 @@ getFirmwareUpgDetail()
 
     if [ $xconf_retry_count -eq 4 ] && [ $image_upg_avl -eq 0 ];then
         echo_t "XCONF SCRIPT : Retry limit to connect with XCONF server reached"
-        exit
+        if [ "$isPeriodicFWCheckEnabled" == "true" ]; then
+	   exit
+	fi
     fi
 }
 
@@ -949,6 +955,24 @@ retry_download=0
 while [ $download_image_success -eq 0 ];
 do
 
+    if [ "$isPeriodicFWCheckEnabled" != "true" ]
+    then
+       # If an image wasn't available, check it's 
+       # availability at a random time,every 24 hrs
+       while  [ $image_upg_avl -eq 0 ];
+       do
+         echo_t "XCONF SCRIPT : Rechecking image availability within 24 hrs" 
+         echo_t "XCONF SCRIPT : Rechecking image availability within 24 hrs" >> $XCONF_LOG_FILE
+
+         # Sleep for a random time less than 
+         # a 24 hour duration 
+         calcRandTime 1 0
+    
+         # Check for the availability of an update   
+         getFirmwareUpgDetail
+       done
+    fi
+
     if [ ! -f $DOWNLOAD_INPROGRESS ]
     then
         touch $DOWNLOAD_INPROGRESS
@@ -1022,20 +1046,30 @@ do
                 # Indicate an unsuccesful download
                 echo_t "XCONF SCRIPT : HTTP download NOT Successful" >> $XCONF_LOG_FILE
                 rm -rf $DOWNLOAD_INPROGRESS
-                # No need of looping here as we will trigger a cron job at random time
-                exit
+                download_image_success=0
+                # Set the flag to 0 to force a requery
+                image_upg_avl=0
+                if [ "$isPeriodicFWCheckEnabled" == "true" ]; then
+			# No need of looping here as we will trigger a cron job at random time
+			exit
+		fi
             fi
 
         else
-             retry_download=`expr $retry_download + 1`
-             download_image_success=0
-             if [ $retry_download -eq 3 ]
-             then
-                 echo "XCONF SCRIPT : ERROR : URL & Filename not set correctly after 3 retries.Exiting" >> $XCONF_LOG_FILE
-                 rm -rf $DOWNLOAD_INPROGRESS
-             exit
-             fi
-        fi
+	    download_image_success=0
+            # Set the flag to 0 to force a requery
+            image_upg_avl=0
+            rm -rf $DOWNLOAD_INPROGRESS
+ 	    if [ "$isPeriodicFWCheckEnabled" == "true" ]; then
+                 retry_download=`expr $retry_download + 1`
+	     
+         	 if [ $retry_download -eq 3 ]
+          	 then
+             	    echo_t "XCONF SCRIPT : ERROR : URL & Filename not set correctly after 3 retries.Exiting" >> $XCONF_LOG_FILE
+        	    exit  
+          	 fi
+            fi       
+	fi
     fi
 done
 

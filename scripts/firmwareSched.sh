@@ -27,8 +27,24 @@ CRONTAB_FILE=$CRONTAB_DIR"root"
 OUTFILE='/tmp/DCMSettings.conf'
 OUTFILEOPT='/tmp/.DCMSettings.conf'
 CRON_FILE_BK="/tmp/cron_tab.txt"
-DOWNLOAD_SCRIPT="/etc/xb3_firmwareDwnld.sh"
-SCRIPT_NAME="xb3_firmwareDwnld.sh"
+REBOOT_WAIT="/tmp/.waitingreboot"
+
+if [ "$BOX_TYPE" = "XB3" ]
+then
+    DOWNLOAD_SCRIPT="/etc/xb3_firmwareDwnld.sh"
+    SCRIPT_NAME="xb3_firmwareDwnld.sh"
+elif [ "$BOX_TYPE" = "XB6" ]
+then
+    DOWNLOAD_SCRIPT="/etc/xb6_firmwareDwnld.sh"
+    SCRIPT_NAME="xb6_firmwareDwnld.sh"
+elif [ "$BOX_TYPE" = "XF3" ]
+then
+    DOWNLOAD_SCRIPT="/etc/xf3_firmwareDwnld.sh"
+    SCRIPT_NAME="xf3_firmwareDwnld.sh"
+else
+    echo "Box Type Not found exiting scheduler script"
+    exit
+fi
 
 processJsonResponse()
 {   
@@ -78,7 +94,7 @@ updateCron()
 
     cronPattern="$rand_min $rand_hr * * *"
     crontab -l -c $CRONTAB_DIR > $CRON_FILE_BK
-    sed -i '/xb3_firmwareDwnld.sh/d' $CRON_FILE_BK
+    sed -i '/$SCRIPT_NAME/d' $CRON_FILE_BK
     echo "$cronPattern  $DOWNLOAD_SCRIPT 2" >> $CRON_FILE_BK
     crontab $CRON_FILE_BK -c $CRONTAB_DIR
     rm -rf $CRON_FILE_BK
@@ -93,6 +109,22 @@ updateCron()
 #                          Main App                          #
 #                                                            #
 ##############################################################
+
+# Check if the crontab entry needs to be removed or not
+if [ "$1" == "RemoveCronJob" ]
+then
+   echo_t "XCONF SCRIPT: Removing the firmwareDwnld crontab"
+   crontab -l -c $CRONTAB_DIR > $CRON_FILE_BK
+   sed -i '/$SCRIPT_NAME/d' $CRON_FILE_BK
+   crontab $CRON_FILE_BK -c $CRONTAB_DIR
+   rm -rf $CRON_FILE_BK
+   
+   echo_t "XCONF SCRIPT: Starting the Download Script"
+   $DOWNLOAD_SCRIPT 1 &
+   
+   echo_t "XCONF SCRIPT: Removed firmwareDwnld crontab entry, exiting... "
+   exit
+fi
 
 # Check if we have DCM response file
 if [ ! -f $DCMRESPONSE ]
@@ -112,6 +144,11 @@ then
    done
 fi
 
+if [ ! -f $REBOOT_WAIT ]
+then
+    killall $DOWNLOAD_SCRIPT
+fi
+
 if [ -f $DCMRESPONSE ]; then
         processJsonResponse
 	cronPattern=""
@@ -123,25 +160,38 @@ if [ -f $DCMRESPONSE ]; then
            then
 	      echo_t "XCONF SCRIPT: Firmware scheduler cron schedule time is $cronPattern"
               crontab -l -c $CRONTAB_DIR > $CRON_FILE_BK
-              sed -i '/xb3_firmwareDwnld.sh/d' $CRON_FILE_BK
+              sed -i '/$SCRIPT_NAME/d' $CRON_FILE_BK
               echo "$cronPattern  $DOWNLOAD_SCRIPT 2" >> $CRON_FILE_BK
               crontab $CRON_FILE_BK -c $CRONTAB_DIR
               rm -rf $CRON_FILE_BK
-              echo_t "XCONF SCRIPT: Cron scheduling done, now call download script during bootup"
-              $DOWNLOAD_SCRIPT 1 &
-           else
-	      #Cron pattern not found for Xconf firmware download.
-              echo_t "Cron pattern not found for firmware downlaod, call firmware download script"
-              updateCron
-              $DOWNLOAD_SCRIPT 1 &           
+              
+              if [ ! -f $REBOOT_WAIT ]
+	      then
+              	  echo_t "XCONF SCRIPT: Cron scheduling done, now call download script during bootup"
+                  $DOWNLOAD_SCRIPT 1 &
+              fi
+           else 
+             #Cron pattern not found for Xconf firmware download.
+             echo_t "Cron pattern not found for firmware downlaod, call firmware download script"
+             updateCron
+             if [ ! -f $REBOOT_WAIT ]
+	     then
+              	$DOWNLOAD_SCRIPT 1 &           
+             fi
            fi
        else
-            echo_t "XCONF SCRIPT: File->/tmp/DCMSettings.conf not available, call firmware download script"            
-            updateCron
-            $DOWNLOAD_SCRIPT 1 &     
+           echo_t "XCONF SCRIPT: File->/tmp/DCMSettings.conf not available, call firmware download script"            
+           updateCron
+    	   if [ ! -f $REBOOT_WAIT ]
+	   then
+            	$DOWNLOAD_SCRIPT 1 &     
+           fi
        fi
 else
        echo_t "XCONF SCRIPT: DCMresponse.txt file not present, call firmware download script"
        updateCron
-       $DOWNLOAD_SCRIPT 1 &
+       if [ ! -f $REBOOT_WAIT ]
+       then
+          $DOWNLOAD_SCRIPT 1 &
+       fi
 fi
