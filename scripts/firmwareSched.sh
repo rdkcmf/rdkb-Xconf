@@ -94,7 +94,7 @@ updateCron()
 
     cronPattern="$rand_min $rand_hr * * *"
     crontab -l -c $CRONTAB_DIR > $CRON_FILE_BK
-    sed -i '/$SCRIPT_NAME/d' $CRON_FILE_BK
+    sed -i "/$SCRIPT_NAME/d" $CRON_FILE_BK
     echo "$cronPattern  $DOWNLOAD_SCRIPT 2" >> $CRON_FILE_BK
     crontab $CRON_FILE_BK -c $CRONTAB_DIR
     rm -rf $CRON_FILE_BK
@@ -115,7 +115,7 @@ if [ "$1" == "RemoveCronJob" ]
 then
    echo_t "XCONF SCRIPT: Removing the firmwareDwnld crontab"
    crontab -l -c $CRONTAB_DIR > $CRON_FILE_BK
-   sed -i '/$SCRIPT_NAME/d' $CRON_FILE_BK
+   sed -i "/$SCRIPT_NAME/d" $CRON_FILE_BK
    crontab $CRON_FILE_BK -c $CRONTAB_DIR
    rm -rf $CRON_FILE_BK
    
@@ -160,7 +160,7 @@ if [ -f $DCMRESPONSE ]; then
            then
 	      echo_t "XCONF SCRIPT: Firmware scheduler cron schedule time is $cronPattern"
               crontab -l -c $CRONTAB_DIR > $CRON_FILE_BK
-              sed -i '/$SCRIPT_NAME/d' $CRON_FILE_BK
+              sed -i "/$SCRIPT_NAME/d" $CRON_FILE_BK
               echo "$cronPattern  $DOWNLOAD_SCRIPT 2" >> $CRON_FILE_BK
               crontab $CRON_FILE_BK -c $CRONTAB_DIR
               rm -rf $CRON_FILE_BK

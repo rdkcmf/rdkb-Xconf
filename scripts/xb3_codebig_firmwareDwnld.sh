@@ -48,12 +48,12 @@ firmwareName_configured=""
 
 isPeriodicFWCheckEnabled=`syscfg get PeriodicFWCheck_Enable`
 
-if [ $# -ne 1 ]; then
+#if [ $# -ne 1 ]; then
         #echo "USAGE: $0 <TFTP Server IP> <UploadProtocol> <UploadHttpLink> <uploadOnReboot>"
-    echo_t "USAGE: $0 <firmwareName>"
-else
-        firmwareName_configured=$1
-fi
+#    echo_t "USAGE: $0 <firmwareName>"
+#else
+#       firmwareName_configured=$1
+#fi
 
 
 #
