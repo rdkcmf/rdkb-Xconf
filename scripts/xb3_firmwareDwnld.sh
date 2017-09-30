@@ -369,7 +369,7 @@ calcRandTime()
     #
     # Generate time to check for update
     #
-    if [ $1 -eq '1' ]; then
+    if [ "$1" == "1" ]; then
         
         echo_t "XCONF SCRIPT : Check Update time being calculated within 24 hrs."
         echo_t "XCONF SCRIPT : Check Update time being calculated within 24 hrs." >> $XCONF_LOG_FILE
@@ -580,11 +580,11 @@ getBuildType
 
 # Check if the firmware download process is initiated by scheduler or during boot up.
 triggeredFrom=""
-if [ $1 -eq 1 ]
+if [ "$1" == "1" ]
 then
    echo_t "XCONF SCRIPT : Trigger is from boot" >> $XCONF_LOG_FILE
    triggeredFrom="boot"
-elif [ $1 -eq 2 ]
+elif [ "$1" == "2" ]
 then
    echo_t "XCONF SCRIPT : Trigger is from cron" >> $XCONF_LOG_FILE
    triggeredFrom="cron"
