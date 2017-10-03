@@ -73,6 +73,15 @@ getPartnerId()
     fi
 }
 
+getRequestType()
+{
+     request_type=2
+     if [ "$1" == "ci.xconfds.ccp.xcal.tv" ]; then
+            request_type=4
+     fi
+     return $request_type
+}
+
 # release numbering system rules
 #
 
@@ -234,8 +243,11 @@ getFirmwareUpgDetail()
             HTTP_RESPONSE_CODE=$(awk -F\" '{print $1}' $HTTP_CODE)
             echo_t "Direct Communication - ret:$ret, http_code:$HTTP_RESPONSE_CODE" >> $XCONF_LOG_FILE
         else
+            domain_name=`echo $xconf_url | cut -d / -f3`
+            getRequestType $domain_name
+            request_type=$?
             echo_t "Trying Codebig Communication" >> $XCONF_LOG_FILE
-            SIGN_CMD="configparamgen 2 \"$JSONSTR\""
+            SIGN_CMD="configparamgen $request_type \"$JSONSTR\""
             eval $SIGN_CMD > /tmp/.signedRequest
             CB_SIGNED_REQUEST=`cat /tmp/.signedRequest`
             rm -f /tmp/.signedRequest

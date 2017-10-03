@@ -314,6 +314,14 @@ checkFirmwareUpgCriteria_temp()
                                                                                                                                                                        fi
 }
 
+getRequestType()
+{
+     request_type=2
+     if [ "$1" == "ci.xconfds.ccp.xcal.tv" ]; then
+            request_type=4
+     fi
+     return $request_type
+}
 
 # Adjusting date. This is required for liboauth patch
 adjustDate()
@@ -448,13 +456,17 @@ getFirmwareUpgDetail()
 			echo_t "ret = $ret http_code: $HTTP_RESPONSE_CODE" >> $XCONF_LOG_FILE
 
 		else
-
+                echo_t "Trying Codebig Communication" >> $XCONF_LOG_FILE
                 ###############Jason string creation##########
                 echo_t "XCONF SCRIPT : Jason string creation"
+             
                 JSONSTR="&eStbMac=${MAC}&firmwareVersion=${currentVersion}&env=${env}&model=${devicemodel}&serial=$serial&localtime=${date}&timezone=US/Eastern${CB_CAPABILITIES}"
                 echo_t "XCONF SCRIPT : JSONSTR : $JSONSTR" >> $XCONF_LOG_FILE
                 echo_t "XCONF SCRIPT : Get Signed URL from configparamgen"
 
+                domain_name=`echo $xconf_url | cut -d / -f3`
+                getRequestType $domain_name
+                request_type=$?
 
                 ########Get Signed URL from configparamgen.################
                 SIGN_CMD="configparamgen $request_type \"$JSONSTR\""
@@ -476,7 +488,7 @@ getFirmwareUpgDetail()
 
             HTTP_RESPONSE_CODE=$(awk -F\" '{print $1}' $HTTP_CODE)
             echo_t "ret = $ret http_code: $HTTP_RESPONSE_CODE" >> $XCONF_LOG_FILE
-
+            echo_t "Codebig Communication - ret:$ret, http_code:$HTTP_RESPONSE_CODE" >> $XCONF_LOG_FILE
 		fi	
 
         echo_t "XCONF SCRIPT : HTTP RESPONSE CODE is $HTTP_RESPONSE_CODE"
