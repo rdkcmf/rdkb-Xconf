@@ -218,6 +218,7 @@ getFirmwareUpgDetail()
             ret=$?
             HTTP_RESPONSE_CODE=$(awk -F\" '{print $1}' $HTTP_CODE)
             echo_t "Direct Communication - ret:$ret, http_code:$HTTP_RESPONSE_CODE" >> $XCONF_LOG_FILE
+            echo_t "Direct Communication - ret:$ret, http_code:$HTTP_RESPONSE_CODE" >> ${LOG_PATH}/TlsVerify.txt
         else
             echo_t "Trying Codebig Communication" >> $XCONF_LOG_FILE
             SIGN_CMD="configparamgen 2 \"$JSONSTR\""
@@ -229,6 +230,7 @@ getFirmwareUpgDetail()
             ret=$?
             HTTP_RESPONSE_CODE=$(awk -F\" '{print $1}' $HTTP_CODE)
             echo_t "Codebig Communication - ret:$ret, http_code:$HTTP_RESPONSE_CODE" >> $XCONF_LOG_FILE
+            echo_t "Codebig Communication - ret:$ret, http_code:$HTTP_RESPONSE_CODE" >> ${LOG_PATH}/TlsVerify.txt
         fi
 
         echo_t "XCONF SCRIPT : HTTP RESPONSE CODE is $HTTP_RESPONSE_CODE"
