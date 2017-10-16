@@ -300,7 +300,9 @@ checkFirmwareUpgCriteria_temp()
                                 echo_t "XCONF SCRIPT : Current image ("$currentVersion") and Requested imgae ("$firmwareVersion") are same. No upgrade/downgrade required"
                                 echo_t "XCONF SCRIPT : Current image ("$currentVersion") and Requested imgae ("$firmwareVersion") are same. No upgrade/downgrade required">> $XCONF_LOG_FILE
                                 image_upg_avl=0
-								exit
+				if [ "$isPeriodicFWCheckEnabled" == "true" ]; then
+		  		   exit
+		        	fi
                         else
                                 echo_t "XCONF SCRIPT : Current image ("$currentVersion") and Requested imgae ("$firmwareVersion") are different. Processing Upgrade/Downgrade"
                                 echo_t "XCONF SCRIPT : Current image ("$currentVersion") and Requested imgae ("$firmwareVersion") are different. Processing Upgrade/Downgrade">> $XCONF_LOG_FILE
@@ -310,7 +312,9 @@ checkFirmwareUpgCriteria_temp()
                         echo_t "XCONF SCRIPT : Current image ("$currentVersion") Or Requested imgae ("$firmwareVersion") returned NULL. No Upgrade/Downgrade"
                         echo_t "XCONF SCRIPT : Current image ("$currentVersion") Or Requested imgae ("$firmwareVersion") returned NULL. No Upgrade/Downgrade">> $XCONF_LOG_FILE
                         image_upg_avl=0
-						exit
+			if [ "$isPeriodicFWCheckEnabled" == "true" ]; then
+                                   exit  
+                        fi  
                                                                                                                                                                        fi
 }
 
