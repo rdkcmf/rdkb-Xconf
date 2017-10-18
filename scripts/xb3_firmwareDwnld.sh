@@ -853,7 +853,13 @@ while [ $reboot_device_success -eq 0 ]; do
 
     # The reboot ready status changed to OK within the maintenance window,proceed
     if [ $http_reboot_ready_stat -eq 0 ];then
-		        
+
+	#Wait for Notification to propogate
+	deferfw=`dmcli eRT getv Device.DeviceInfo.X_RDKCENTRAL-COM_xOpsDeviceMgmt.RPC.DeferFWDownloadReboot | grep value | cut -d ":" -f 3 | tr -d ' ' `
+	echo_t "XCONF SCRIPT : Sleeping for $deferfw seconds before reboot"
+	dmcli eRT setv Device.DeviceInfo.X_RDKCENTRAL-COM_xOpsDeviceMgmt.RPC.RebootPendingNotification uint $deferfw
+	sleep $deferfw
+	        
         #Reboot the device
         echo_t "XCONF SCRIPT : Reboot possible. Issuing reboot command"
         echo_t "RDKB_REBOOT : Reboot command issued from XCONF"
