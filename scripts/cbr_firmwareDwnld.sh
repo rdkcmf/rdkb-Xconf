@@ -97,6 +97,8 @@ getCurrentFw()
  fi
  echo $currentfw
 }
+TLS_LOG_FILE_NAME="TlsVerify.txt.0"
+TLS_LOG_FILE="$LOG_PATH/$TLS_LOG_FILE_NAME"
 
 checkFirmwareUpgCriteria()
 {
@@ -218,7 +220,12 @@ getFirmwareUpgDetail()
             ret=$?
             HTTP_RESPONSE_CODE=$(awk -F\" '{print $1}' $HTTP_CODE)
             echo_t "Direct Communication - ret:$ret, http_code:$HTTP_RESPONSE_CODE" >> $XCONF_LOG_FILE
-            echo_t "Direct Communication - ret:$ret, http_code:$HTTP_RESPONSE_CODE" >> ${LOG_PATH}/TlsVerify.txt
+            # log security failure
+            case $ret in
+              35|51|53|54|58|59|60|64|66|77|80|82|83|90|91)
+                echo_t "Direct Communication Failure - ret:$ret, http_code:$HTTP_RESPONSE_CODE" >> $TLS_LOG_FILE
+                ;;
+            esac
         else
             echo_t "Trying Codebig Communication" >> $XCONF_LOG_FILE
             SIGN_CMD="configparamgen 2 \"$JSONSTR\""
@@ -230,7 +237,12 @@ getFirmwareUpgDetail()
             ret=$?
             HTTP_RESPONSE_CODE=$(awk -F\" '{print $1}' $HTTP_CODE)
             echo_t "Codebig Communication - ret:$ret, http_code:$HTTP_RESPONSE_CODE" >> $XCONF_LOG_FILE
-            echo_t "Codebig Communication - ret:$ret, http_code:$HTTP_RESPONSE_CODE" >> ${LOG_PATH}/TlsVerify.txt
+            # log security failure
+            case $ret in
+              35|51|53|54|58|59|60|64|66|77|80|82|83|90|91)
+                echo_t "Codebig Communication Failure - ret:$ret, http_code:$HTTP_RESPONSE_CODE" >> $TLS_LOG_FILE
+                ;;
+            esac
         fi
 
         echo_t "XCONF SCRIPT : HTTP RESPONSE CODE is $HTTP_RESPONSE_CODE"
