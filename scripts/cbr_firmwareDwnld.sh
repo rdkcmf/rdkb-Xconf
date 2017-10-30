@@ -38,9 +38,11 @@ DOWNLOAD_INPROGRESS="/tmp/.downloadingfw"
 HTTP_CODE=/tmp/fwdl_http_code.txt
 FWDL_JSON=/tmp/response.txt
 codebig_enabled=$CODEBIG_ENABLE
-if [ -f /tmp/RFC/.codebigenabled ]; then
+codebig=`dmcli eRT getv Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.CodebigSupport | grep value | cut -d ":" -f 3 | tr -d ' ' `
+if [ "$codebig" == "true" ]; then
     codebig_enabled=yes
-    echo "Codebig support is enabled through RFC" >> $XCONF_LOG_FILE
+    echo_t "Codebig support is enabled through RFC"
+    echo_t "Codebig support is enabled through RFC" >> $XCONF_LOG_FILE
 fi
         
 #GLOBAL DECLARATIONS
@@ -99,6 +101,15 @@ getCurrentFw()
 }
 TLS_LOG_FILE_NAME="TlsVerify.txt.0"
 TLS_LOG_FILE="$LOG_PATH/$TLS_LOG_FILE_NAME"
+
+getRequestType()
+{
+     request_type=2
+     if [ "$1" == "ci.xconfds.ccp.xcal.tv" ]; then
+            request_type=4
+     fi
+     return $request_type
+}
 
 checkFirmwareUpgCriteria()
 {
@@ -213,12 +224,15 @@ getFirmwareUpgDetail()
         JSONSTR='eStbMac='${MAC}'&firmwareVersion='${currentVersion}'&env='${env}'&model='${modelName}'&localtime='${date}'&timezone=EST05&capabilities=rebootDecoupled&capabilities=RCDL&capabilities=supportsFullHttpUrl'
 
         if [ "$codebig_enabled" != "yes" ]; then
+            echo_t "Trying Direct Communication"
             echo_t "Trying Direct Communication" >> $XCONF_LOG_FILE
             CURL_CMD="$CURL_PATH/curl --interface $interface -w '%{http_code}\n' --tlsv1.2 -d \"$JSONSTR\" -o \"$FWDL_JSON\" \"$xconf_url\" --connect-timeout 30 -m 30"
+            echo_t "CURL_CMD:$CURL_CMD"
             echo_t "CURL_CMD:$CURL_CMD" >> $XCONF_LOG_FILE
             result= eval $CURL_CMD > $HTTP_CODE
             ret=$?
             HTTP_RESPONSE_CODE=$(awk -F\" '{print $1}' $HTTP_CODE)
+            echo_t "Direct Communication - ret:$ret, http_code:$HTTP_RESPONSE_CODE"
             echo_t "Direct Communication - ret:$ret, http_code:$HTTP_RESPONSE_CODE" >> $XCONF_LOG_FILE
             # log security failure
             case $ret in
@@ -227,8 +241,12 @@ getFirmwareUpgDetail()
                 ;;
             esac
         else
+            echo_t "Trying Codebig Communication"
             echo_t "Trying Codebig Communication" >> $XCONF_LOG_FILE
-            SIGN_CMD="configparamgen 2 \"$JSONSTR\""
+            domain_name=`echo $xconf_url | cut -d / -f3`
+            getRequestType $domain_name
+            request_type=$?
+            SIGN_CMD="configparamgen $request_type \"$JSONSTR\""
             eval $SIGN_CMD > /tmp/.signedRequest
             CB_SIGNED_REQUEST=`cat /tmp/.signedRequest`
             rm -f /tmp/.signedRequest
@@ -236,6 +254,7 @@ getFirmwareUpgDetail()
             result= eval $CURL_CMD > $HTTP_CODE
             ret=$?
             HTTP_RESPONSE_CODE=$(awk -F\" '{print $1}' $HTTP_CODE)
+            echo_t "Codebig Communication - ret:$ret, http_code:$HTTP_RESPONSE_CODE"
             echo_t "Codebig Communication - ret:$ret, http_code:$HTTP_RESPONSE_CODE" >> $XCONF_LOG_FILE
             # log security failure
             case $ret in
