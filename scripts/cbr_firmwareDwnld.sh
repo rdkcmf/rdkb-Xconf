@@ -31,7 +31,7 @@ XCONF_LOG_FILE=${XCONF_LOG_FILE_PATHNAME}
 
 CURL_PATH=/usr/bin
 interface=erouter0
-BIN_PATH=/bin
+BIN_PATH=/usr/bin
 REBOOT_WAIT="/tmp/.waitingreboot"
 DOWNLOAD_INPROGRESS="/tmp/.downloadingfw"
 
