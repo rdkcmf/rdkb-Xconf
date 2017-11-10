@@ -971,6 +971,13 @@ retry_download=0
 while [ $download_image_success -eq 0 ];
 do
 
+   #skip download if file exist
+   file="/tmp/.downloadBreak"
+   if [ -f "$file" ]
+   then
+      break
+   fi
+
     if [ "$isPeriodicFWCheckEnabled" != "true" ]
     then
        # If an image wasn't available, check it's 
@@ -1172,6 +1179,15 @@ while [ $reboot_device_success -eq 0 ]; do
 	echo_t "XCONF SCRIPT : Sleeping for $deferfw seconds before reboot"
 	dmcli eRT setv Device.DeviceInfo.X_RDKCENTRAL-COM_xOpsDeviceMgmt.RPC.RebootPendingNotification uint $deferfw
 	sleep $deferfw
+
+        #Abort Reboot
+        file="/tmp/AbortReboot"
+        if [ -f "$file" ]
+        then
+               touch /tmp/.downloadBreak
+               rm $file
+               exit 1
+        fi
 
         #Reboot the device
             echo_t "XCONF SCRIPT : Reboot possible. Issuing reboot command"
