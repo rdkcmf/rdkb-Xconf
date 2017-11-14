@@ -34,6 +34,9 @@ interface=erouter0
 BIN_PATH=/fss/gw/usr/bin
 REBOOT_WAIT="/tmp/.waitingreboot"
 DOWNLOAD_INPROGRESS="/tmp/.downloadingfw"
+deferReboot="/tmp/.deferringreboot"
+NO_DOWNLOAD="/tmp/.downloadBreak"
+ABORT_REBOOT="/tmp/AbortReboot"
 
 HTTP_CODE=/tmp/fwdl_http_code.txt
 FWDL_JSON=/tmp/response.txt
@@ -690,8 +693,11 @@ echo_t "XCONF SCRIPT : $interface has an ipv4 address of $estbIp or an ipv6 addr
     ######################
 
 # Check if new image is available
-echo_t "XCONF SCRIPT : Checking image availability at boot up" >> $XCONF_LOG_FILE	
-getFirmwareUpgDetail
+echo_t "XCONF SCRIPT : Checking image availability at boot up" >> $XCONF_LOG_FILE
+if [ ! -e $NO_DOWNLOAD ]
+then	
+   getFirmwareUpgDetail
+fi
 
 if [ "$rebootImmediately" == "true" ];then
     echo_t "XCONF SCRIPT : Reboot Immediately : TRUE!!"
@@ -711,8 +717,7 @@ do
 
 
     #skip download if file exist
-    file="/tmp/.downloadBreak"
-    if [ -f "$file" ]
+    if [ -f $NO_DOWNLOAD ]
     then
        break
     fi
@@ -888,18 +893,13 @@ while [ $reboot_device_success -eq 0 ]; do
 	#Wait for Notification to propogate
 	deferfw=`dmcli eRT getv Device.DeviceInfo.X_RDKCENTRAL-COM_xOpsDeviceMgmt.RPC.DeferFWDownloadReboot | grep value | cut -d ":" -f 3 | tr -d ' ' `
 	echo_t "XCONF SCRIPT : Sleeping for $deferfw seconds before reboot"
+        touch $deferReboot 
 	dmcli eRT setv Device.DeviceInfo.X_RDKCENTRAL-COM_xOpsDeviceMgmt.RPC.RebootPendingNotification uint $deferfw
 	sleep $deferfw
 
         #Abort Reboot
-	file="/tmp/AbortReboot"
-	if [ -f "$file" ]
+	if [ ! -e "$ABORT_REBOOT" ]
 	then
-	        touch /tmp/.downloadBreak
-                rm $file
-        	exit 1
-	fi
-
 	        
         #Reboot the device
         echo_t "XCONF SCRIPT : Reboot possible. Issuing reboot command"
@@ -925,7 +925,17 @@ while [ $reboot_device_success -eq 0 ]; do
         else 
             # The reboot command failed, retry in the next maintenance window 
             reboot_device_success=0
-            #Goto start of Reboot Manager again  
+            #Goto start of Reboot Manager again 
+            fi
+        else
+                echo_t "XCONF SCRIPT : Reboot aborted by user, will try in next maintenance window "
+       	        touch $NO_DOWNLOAD
+                rm -rf $ABORT_REBOOT
+                rm -rf $deferReboot
+                reboot_device_success=0
+                if [ "$isPeriodicFWCheckEnabled" == "true" ]; then
+                      exit
+                fi 
         fi
 
      # The reboot ready status didn't change to OK within the maintenance window 
