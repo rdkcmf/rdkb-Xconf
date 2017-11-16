@@ -506,7 +506,8 @@ getFirmwareUpgDetail()
             # Query the  XCONF Server, using TLS 1.2
             echo_t "Attempting TLS1.2 connection to $xconf_url " >> $XCONF_LOG_FILE
             CURL_CMD="curl --connect-timeout 30 --interface $interface -w '%{http_code}\n' --tlsv1.2 -o \"$FILENAME\" \"$CB_SIGNED_REQUEST\" -m 30"
-            echo_t "CURL_CMD: $CURL_CMD" >> $XCONF_LOG_FILE
+            echo_t "CURL_CMD:$CURL_CMD"
+            echo_t "CURL_CMD:$CURL_CMD" >> $XCONF_LOG_FILE
             result= eval "$CURL_CMD" > $HTTP_CODE
             ret=$?
 

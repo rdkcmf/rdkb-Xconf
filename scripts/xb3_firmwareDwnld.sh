@@ -268,6 +268,8 @@ getFirmwareUpgDetail()
             CB_SIGNED_REQUEST=`cat /tmp/.signedRequest`
             rm -f /tmp/.signedRequest
             CURL_CMD="$CURL_PATH/curl --interface $interface -w '%{http_code}\n' --tlsv1.2 -o \"$FWDL_JSON\" \"$CB_SIGNED_REQUEST\" --connect-timeout 30 -m 30"
+            echo_t "CURL_CMD:$CURL_CMD"
+            echo_t "CURL_CMD:$CURL_CMD" >> $XCONF_LOG_FILE
             result= eval $CURL_CMD > $HTTP_CODE
             ret=$?
             HTTP_RESPONSE_CODE=$(awk -F\" '{print $1}' $HTTP_CODE)
