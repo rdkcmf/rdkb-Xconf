@@ -51,6 +51,25 @@ reb_window=0
 
 isPeriodicFWCheckEnabled=`syscfg get PeriodicFWCheck_Enable`
 
+# Function to get partner_id
+# Below implementation is subjected to change when CBR has a unified build for all syndication partners.
+getPartnerId()
+{
+    if [ -f "/etc/device.properties" ]
+    then
+        partner_id=`cat /etc/device.properties | grep PARTNER_ID | cut -f2 -d=`
+        if [ "$partner_id" == "" ];then
+            #Assigning default partner_id as Comcast.
+            #If any device want to report differently, then PARTNER_ID flag has to be updated in /etc/device.properties accordingly
+            echo "comcast"
+        else
+            echo "$partner_id"
+        fi
+    else
+       echo "null"
+    fi
+}
+
 #
 # release numbering system rules
 #
@@ -221,7 +240,8 @@ getFirmwareUpgDetail()
 
         # Query the  XCONF Server, using TLS 1.2
         echo_t "Attempting TLS1.2 connection to $xconf_url " >> $XCONF_LOG_FILE
-        JSONSTR='eStbMac='${MAC}'&firmwareVersion='${currentVersion}'&env='${env}'&model='${modelName}'&localtime='${date}'&timezone=EST05&capabilities=rebootDecoupled&capabilities=RCDL&capabilities=supportsFullHttpUrl'
+        partnerId=$(getPartnerId)
+        JSONSTR='eStbMac='${MAC}'&firmwareVersion='${currentVersion}'&env='${env}'&model='${modelName}'&partnerId='${partnerId}'&localtime='${date}'&timezone=EST05&capabilities=rebootDecoupled&capabilities=RCDL&capabilities=supportsFullHttpUrl'
 
         if [ "$codebig_enabled" != "yes" ]; then
             echo_t "Trying Direct Communication"

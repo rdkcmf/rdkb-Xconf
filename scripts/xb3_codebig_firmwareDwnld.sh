@@ -58,6 +58,23 @@ isPeriodicFWCheckEnabled=`syscfg get PeriodicFWCheck_Enable`
 #       firmwareName_configured=$1
 #fi
 
+# Below implementation is subjected to change when XB3 has a unified build for all syndication partners.
+getPartnerId()
+{
+    if [ -f "/etc/device.properties" ]
+    then
+        partner_id=`cat /etc/device.properties | grep PARTNER_ID | cut -f2 -d=`
+        if [ "$partner_id" == "" ];then
+            #Assigning default partner_id as Comcast.
+            #If any device want to report differently, then PARTNER_ID flag has to be updated in /etc/device.properties accordingly
+            echo "comcast"
+        else
+            echo "$partner_id"
+        fi
+    else
+       echo "null"
+    fi
+}
 
 #
 # release numbering system rules
@@ -446,10 +463,10 @@ getFirmwareUpgDetail()
 		if [ "$firmwareName_configured" != "" ]; then
                     currentVersion=$firmwareName_configured
                 fi
-
+                partnerId=$(getPartnerId)
 		if [ $CDL_SERVER_OVERRIDE -eq 1 ];then
 			echo_t "XCONF SCRIPT : Post string creation"
-			POSTSTR="eStbMac=$MAC&firmwareVersion=$currentVersion&env=$env&model=$devicemodel&localtime=$date&timezone=EST05&capabilities=\"rebootDecoupled\"&capabilities=\"RCDL\"&capabilities=\"supportsFullHttpUrl\""
+			POSTSTR="eStbMac=$MAC&firmwareVersion=$currentVersion&env=$env&model=$devicemodel&partnerId=$partnerId&localtime=$date&timezone=EST05&capabilities=\"rebootDecoupled\"&capabilities=\"RCDL\"&capabilities=\"supportsFullHttpUrl\""
 			echo_t "XCONF SCRIPT : POSTSTR : $POSTSTR" >> $XCONF_LOG_FILE
 
 			# Query the  XCONF Server, using TLS 1.2
@@ -466,8 +483,8 @@ getFirmwareUpgDetail()
                 echo_t "Trying Codebig Communication" >> $XCONF_LOG_FILE
                 ###############Jason string creation##########
                 echo_t "XCONF SCRIPT : Jason string creation"
-             
-                JSONSTR="&eStbMac=${MAC}&firmwareVersion=${currentVersion}&env=${env}&model=${devicemodel}&serial=$serial&localtime=${date}&timezone=US/Eastern${CB_CAPABILITIES}"
+                 
+                JSONSTR="&eStbMac=${MAC}&firmwareVersion=${currentVersion}&env=${env}&model=${devicemodel}&partnerId=${partnerId}&serial=$serial&localtime=${date}&timezone=US/Eastern${CB_CAPABILITIES}"
                 echo_t "XCONF SCRIPT : JSONSTR : $JSONSTR" >> $XCONF_LOG_FILE
                 echo_t "XCONF SCRIPT : Get Signed URL from configparamgen"
 
