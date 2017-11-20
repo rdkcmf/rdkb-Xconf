@@ -217,12 +217,18 @@ getFirmwareUpgDetail()
 #TODO
         currentVersion=`cat /version.txt | grep "imagename:" | cut -d ":" -f 2`
 #TODO
-        devicemodel=`dmcli eRT getv Device.DeviceInfo.ModelName  | grep "value:" | cut -d ":" -f 3 | tr -d ' ' `
-        if [ "$devicemodel" == "" ];then
-        echo_t "XCONF SCRIPT : ModelName obtained from DeviceInfo.ModelName is NULL, reading Model from /etc/device.properties.. " >> $XCONF_LOG_FILE
-        echo_t "XCONF SCRIPT : ModelName obtained from DeviceInfo.ModelName is NULL, reading Model from /etc/device.properties.. "
+        #Taking device model from /etc/device.properties
         devicemodel=$MODEL_NUM
+
+        if [ "$devicemodel" == "" ];then
+        echo_t "XCONF SCRIPT : Device model returned NULL from /etc/device.properties. Reading it from DeviceInfo.ModelName.. " >> $XCONF_LOG_FILE
+        echo_t "XCONF SCRIPT : Device model returned NULL from /etc/device.properties. Reading it from DeviceInfo.ModelName.. "
+        devicemodel=`dmcli eRT getv Device.DeviceInfo.ModelName  | grep string | awk '{print $5}'`
+        else
+        echo_t "XCONF SCRIPT : Device model taken from /etc/device.properties " >> $XCONF_LOG_FILE
+        echo_t "XCONF SCRIPT : Device model taken from /etc/device.properties "
         fi
+
         MAC=`ifconfig $interface  | grep HWaddr | cut -d' ' -f7`
         date=`date`
         partnerId=$(getPartnerId)
