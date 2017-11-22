@@ -465,6 +465,7 @@ getFirmwareUpgDetail()
                 fi
                 partnerId=$(getPartnerId)
 		if [ $CDL_SERVER_OVERRIDE -eq 1 ];then
+                        echo_t "Trying Direct Communication" >> $XCONF_LOG_FILE
 			echo_t "XCONF SCRIPT : Post string creation"
 			POSTSTR="eStbMac=$MAC&firmwareVersion=$currentVersion&env=$env&model=$devicemodel&partnerId=$partnerId&localtime=$date&timezone=EST05&capabilities=\"rebootDecoupled\"&capabilities=\"RCDL\"&capabilities=\"supportsFullHttpUrl\""
 			echo_t "XCONF SCRIPT : POSTSTR : $POSTSTR" >> $XCONF_LOG_FILE
