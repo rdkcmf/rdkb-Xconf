@@ -611,7 +611,7 @@ getFirmwareUpgDetail()
                         echo $authorizationHeader > /tmp/authHeader
                         echo_t "authorizationHeader written to /tmp/authHeader"
 
-                   CURL_CMD="curl --connect-timeout 30 --interface $interface -H '$authorizationHeader' $addr_type -w '%{http_code}\n' -fgLo /var/$firmwareFilename '$serverUrl'"
+                   CURL_CMD="curl --connect-timeout 30 --tlsv1.2 --interface $interface -H '$authorizationHeader' $addr_type -w '%{http_code}\n' -fgLo /var/$firmwareFilename '$serverUrl'"
                         CURL_CMD_LOG=`echo $CURL_CMD | sed -ne 's#oauth_consumer_key=.*oauth_signature.*#-- <hidden> --#p'`
                         echo CURL_CMD_CDL : $CURL_CMD_LOG
                         echo CURL_CMD_CDL : $CURL_CMD_LOG >>$XCONF_LOG_FILE
