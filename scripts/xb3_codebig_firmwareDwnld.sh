@@ -612,7 +612,7 @@ getFirmwareUpgDetail()
                         echo $authorizationHeader > /tmp/authHeader
                         echo_t "authorizationHeader written to /tmp/authHeader"
 
-                   CURL_CMD="curl --connect-timeout 30 --interface $interface -H '$authorizationHeader' -w '%{http_code}\n' -fgLo /var/$firmwareFilename '$serverUrl'"
+                   CURL_CMD="curl --connect-timeout 30 --tlsv1.2 --interface $interface -H '$authorizationHeader' -w '%{http_code}\n' -fgLo /var/$firmwareFilename '$serverUrl'"
                         echo CURL_CMD_CDL : $CURL_CMD
                         echo CURL_CMD_CDL : $CURL_CMD >>$XCONF_LOG_FILE
                     echo_t "Execute above curl command to start code download (if you want to try manually)"
