@@ -37,6 +37,7 @@ DOWNLOAD_INPROGRESS="/tmp/.downloadingfw"
 deferReboot="/tmp/.deferringreboot"
 NO_DOWNLOAD="/tmp/.downloadBreak"
 ABORT_REBOOT="/tmp/AbortReboot"
+abortReboot_count=0
 
 #GLOBAL DECLARATIONS
 image_upg_avl=0
@@ -1198,12 +1199,16 @@ while [ $reboot_device_success -eq 0 ]; do
     # The reboot ready status changed to OK within the maintenance window,proceed
     if [ $http_reboot_ready_stat -eq 0 ];then
 
-	#Wait for Notification to propogate
-	deferfw=`dmcli eRT getv Device.DeviceInfo.X_RDKCENTRAL-COM_xOpsDeviceMgmt.RPC.DeferFWDownloadReboot | grep value | cut -d ":" -f 3 | tr -d ' ' `
-	echo_t "XCONF SCRIPT : Sleeping for $deferfw seconds before reboot"
-        touch $deferReboot
-	dmcli eRT setv Device.DeviceInfo.X_RDKCENTRAL-COM_xOpsDeviceMgmt.RPC.RebootPendingNotification uint $deferfw
-	sleep $deferfw
+	if [ $abortReboot_count -lt 5 ];then
+		#Wait for Notification to propogate
+		deferfw=`dmcli eRT getv Device.DeviceInfo.X_RDKCENTRAL-COM_xOpsDeviceMgmt.RPC.DeferFWDownloadReboot | grep value | cut -d ":" -f 3 | tr -d ' ' `
+		echo_t "XCONF SCRIPT : Sleeping for $deferfw seconds before reboot"
+		touch $deferReboot 
+		dmcli eRT setv Device.DeviceInfo.X_RDKCENTRAL-COM_xOpsDeviceMgmt.RPC.RebootPendingNotification uint $deferfw
+		sleep $deferfw
+	else
+		echo_t "XCONF SCRIPT : Abort Count reached maximum limit $abortReboot_count"
+	fi
 
         #Abort Reboot
         if [ ! -e "$ABORT_REBOOT" ]
@@ -1218,33 +1223,35 @@ while [ $reboot_device_success -eq 0 ]; do
         # This indicates we're within the maintenace window/rebootImmediate=TRUE
         # and the reboot ready status is OK, issue the reboot
         # command and check if it returned correctly
-                if [ $reboot_device -eq 0 ];then
+            if [ $reboot_device -eq 0 ];then
             reboot_device_success=1
                      #For rdkb-4260
-                    echo "Creating file /nvram/reboot_due_to_sw_upgrade"
-                    touch /nvram/reboot_due_to_sw_upgrade
-                    echo "XCONF SCRIPT : REBOOTING DEVICE"
+            echo_t "Creating file /nvram/reboot_due_to_sw_upgrade"
+            touch /nvram/reboot_due_to_sw_upgrade
+            echo_t "XCONF SCRIPT : REBOOTING DEVICE"
             echo_t "RDKB_REBOOT : Rebooting device due to software upgrade"
             echo_t "XCONF SCRIPT : setting LastRebootReason"
             dmcli eRT setv Device.DeviceInfo.X_RDKCENTRAL-COM_LastRebootReason string Software_upgrade
             echo_t "XCONF SCRIPT : SET succeeded"
 
 
-        else
+            else
             # The reboot command failed, retry in the next maintenance window
             reboot_device_success=0
             #Goto start of Reboot Manager again
             fi
         else
                 echo_t "XCONF SCRIPT : Reboot aborted by user, will try in next maintenance window "
-       	        touch $NO_DOWNLOAD
+		abortReboot_count=$((abortReboot_count+1))
+		echo_t "XCONF SCRIPT : Abort Count is  $abortReboot_count"
+                touch $NO_DOWNLOAD
                 rm -rf $ABORT_REBOOT
                 rm -rf $deferReboot
                 reboot_device_success=0
                 if [ "$isPeriodicFWCheckEnabled" == "true" ]; then
                       exit
                 fi
-        fi
+       fi
 
      # The reboot ready status didn't change to OK within the maintenance window
      else
