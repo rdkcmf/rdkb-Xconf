@@ -1097,12 +1097,12 @@ while [ $reboot_device_success -eq 0 ]; do
 	if [ $abortReboot_count -lt 5 ];then
 		#Wait for Notification to propogate
 		deferfw=`dmcli eRT getv Device.DeviceInfo.X_RDKCENTRAL-COM_xOpsDeviceMgmt.RPC.DeferFWDownloadReboot | grep value | cut -d ":" -f 3 | tr -d ' ' `
-		echo_t "XCONF SCRIPT : Sleeping for $deferfw seconds before reboot"
+		echo_t "XCONF SCRIPT : Sleeping for $deferfw seconds before reboot" >> $XCONF_LOG_FILE
 		touch $deferReboot 
 		dmcli eRT setv Device.DeviceInfo.X_RDKCENTRAL-COM_xOpsDeviceMgmt.RPC.RebootPendingNotification uint $deferfw
 		sleep $deferfw
 	else
-		echo_t "XCONF SCRIPT : Abort Count reached maximum limit $abortReboot_count"
+		echo_t "XCONF SCRIPT : Abort Count reached maximum limit $abortReboot_count" >> $XCONF_LOG_FILE
 	fi
 
 
@@ -1137,9 +1137,9 @@ while [ $reboot_device_success -eq 0 ]; do
             #Goto start of Reboot Manager again  
         fi
       else 
-                echo_t "XCONF SCRIPT : Reboot aborted by user, will try in next maintenance window "
+                echo_t "XCONF SCRIPT : Reboot aborted by user, will try in next maintenance window " >> $XCONF_LOG_FILE
 		abortReboot_count=$((abortReboot_count+1))
-		echo_t "XCONF SCRIPT : Abort Count is  $abortReboot_count"
+		echo_t "XCONF SCRIPT : Abort Count is  $abortReboot_count" >> $XCONF_LOG_FILE
                 touch $NO_DOWNLOAD
                 rm -rf $ABORT_REBOOT
                 rm -rf $deferReboot
