@@ -944,6 +944,7 @@ while [ $reboot_device_success -eq 0 ]; do
                 reboot_device_success=0
                 if [ "$isPeriodicFWCheckEnabled" == "true" ]; then
                       exit
+		fi
        fi
 
      # The reboot ready status didn't change to OK within the maintenance window 
