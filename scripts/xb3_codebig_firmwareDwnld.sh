@@ -918,6 +918,11 @@ else
    triggeredFrom="boot"
 fi
 
+if [ "$1" == "cleanup" ]; then
+	echo_t "XCONF SCRIPT : Cleaning tmp files" >> $XCONF_LOG_FILE
+	rm -rf $REBOOT_WAIT $DOWNLOAD_INPROGRESS $deferReboot $NO_DOWNLOAD $ABORT_REBOOT
+fi
+
 # If unit is waiting for reboot after image download,we need not have to download image again.
 if [ -f $REBOOT_WAIT ]
 then
