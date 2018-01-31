@@ -182,6 +182,7 @@ getFirmwareUpgDetail()
     # respose or the URL received
     xconf_retry_count=1
     retry_flag=1
+    isIPv6=`ifconfig erouter0 | grep inet6 | grep -i 'Global'`
 
     # Set the XCONF server url read from /tmp/Xconf 
     # Determine the env from $type
@@ -205,6 +206,14 @@ getFirmwareUpgDetail()
 
     echo_t "XCONF SCRIPT : env is $env"
     echo_t "XCONF SCRIPT : xconf url  is $xconf_url"
+
+    # If interface doesnt have ipv6 address then we will force the curl to go with ipv4.
+    # Otherwise we will not specify the ip address family in curl options
+    if [ "$isIPv6" != "" ]; then
+        addr_type=""
+    else
+        addr_type="-4"
+    fi
 
     # Check with the XCONF server if an update is available 
     while [ $xconf_retry_count -le 3 ] && [ $retry_flag -eq 1 ]
@@ -246,7 +255,7 @@ getFirmwareUpgDetail()
         if [ "$codebig_enabled" != "yes" ]; then
             echo_t "Trying Direct Communication"
             echo_t "Trying Direct Communication" >> $XCONF_LOG_FILE
-            CURL_CMD="$CURL_PATH/curl --interface $interface -w '%{http_code}\n' --tlsv1.2 -d \"$JSONSTR\" -o \"$FWDL_JSON\" \"$xconf_url\" --connect-timeout 30 -m 30"
+            CURL_CMD="$CURL_PATH/curl --interface $interface $addr_type -w '%{http_code}\n' --tlsv1.2 -d \"$JSONSTR\" -o \"$FWDL_JSON\" \"$xconf_url\" --connect-timeout 30 -m 30"
             echo_t "CURL_CMD:$CURL_CMD"
             echo_t "CURL_CMD:$CURL_CMD" >> $XCONF_LOG_FILE
             result= eval $CURL_CMD > $HTTP_CODE
@@ -270,7 +279,7 @@ getFirmwareUpgDetail()
             eval $SIGN_CMD > /tmp/.signedRequest
             CB_SIGNED_REQUEST=`cat /tmp/.signedRequest`
             rm -f /tmp/.signedRequest
-            CURL_CMD="$CURL_PATH/curl --interface $interface -w '%{http_code}\n' --tlsv1.2 -o \"$FWDL_JSON\" \"$CB_SIGNED_REQUEST\" --connect-timeout 30 -m 30"
+            CURL_CMD="$CURL_PATH/curl --interface $interface $addr_type -w '%{http_code}\n' --tlsv1.2 -o \"$FWDL_JSON\" \"$CB_SIGNED_REQUEST\" --connect-timeout 30 -m 30"
             echo_t "CURL_CMD:$CURL_CMD"
             echo_t "CURL_CMD:$CURL_CMD" >> $XCONF_LOG_FILE
             result= eval $CURL_CMD > $HTTP_CODE

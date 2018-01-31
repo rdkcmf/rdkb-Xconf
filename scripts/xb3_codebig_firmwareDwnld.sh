@@ -391,6 +391,7 @@ getFirmwareUpgDetail()
     # respose or the URL received
     xconf_retry_count=1
     retry_flag=1
+    isIPv6=`ifconfig erouter0 | grep inet6 | grep -i 'Global'`
 
     # Set the XCONF server url read from /tmp/Xconf
     # Determine the env from $type
@@ -414,6 +415,14 @@ getFirmwareUpgDetail()
 
     echo_t "XCONF SCRIPT : env is $env"
     echo_t "XCONF SCRIPT : xconf url  is $xconf_url"
+
+    # If interface doesnt have ipv6 address then we will force the curl to go with ipv4.
+    # Otherwise we will not specify the ip address family in curl options
+    if [ "$isIPv6" != "" ]; then
+        addr_type=""
+    else
+        addr_type="-4"
+    fi
 
     # Check with the XCONF server if an update is available
     while [ $xconf_retry_count -le 3 ] && [ $retry_flag -eq 1 ]
@@ -473,7 +482,7 @@ getFirmwareUpgDetail()
 
 			# Query the  XCONF Server, using TLS 1.2
 			echo_t "Attempting TLS1.2 connection to $xconf_url " >> $XCONF_LOG_FILE
-			CURL_CMD="curl --connect-timeout 30 --interface $interface -w '%{http_code}\n' --tlsv1.2 -d \"$POSTSTR\" -o \"$FILENAME\" $xconf_url -m 30"
+			CURL_CMD="curl --connect-timeout 30 --interface $interface $addr_type -w '%{http_code}\n' --tlsv1.2 -d \"$POSTSTR\" -o \"$FILENAME\" $xconf_url -m 30"
 			echo_t "CURL_CMD: $CURL_CMD" >> $XCONF_LOG_FILE
 			result= eval "$CURL_CMD" > $HTTP_CODE
 			ret=$?
@@ -507,7 +516,7 @@ getFirmwareUpgDetail()
 
             # Query the  XCONF Server, using TLS 1.2
             echo_t "Attempting TLS1.2 connection to $xconf_url " >> $XCONF_LOG_FILE
-            CURL_CMD="curl --connect-timeout 30 --interface $interface -w '%{http_code}\n' --tlsv1.2 -o \"$FILENAME\" \"$CB_SIGNED_REQUEST\" -m 30"
+            CURL_CMD="curl --connect-timeout 30 --interface $interface $addr_type -w '%{http_code}\n' --tlsv1.2 -o \"$FILENAME\" \"$CB_SIGNED_REQUEST\" -m 30"
             echo_t "CURL_CMD:$CURL_CMD"
             echo_t "CURL_CMD:$CURL_CMD" >> $XCONF_LOG_FILE
             result= eval "$CURL_CMD" > $HTTP_CODE
@@ -613,7 +622,7 @@ getFirmwareUpgDetail()
                         echo $authorizationHeader > /tmp/authHeader
                         echo_t "authorizationHeader written to /tmp/authHeader"
 
-                   CURL_CMD="curl --connect-timeout 30 --tlsv1.2 --interface $interface -H '$authorizationHeader' -w '%{http_code}\n' -fgLo /var/$firmwareFilename '$serverUrl'"
+                   CURL_CMD="curl --connect-timeout 30 --tlsv1.2 --interface $interface -H '$authorizationHeader' $addr_type -w '%{http_code}\n' -fgLo /var/$firmwareFilename '$serverUrl'"
                         echo CURL_CMD_CDL : $CURL_CMD
                         echo CURL_CMD_CDL : $CURL_CMD >>$XCONF_LOG_FILE
                     echo_t "Execute above curl command to start code download (if you want to try manually)"
