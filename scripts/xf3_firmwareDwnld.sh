@@ -253,7 +253,7 @@ getFirmwareUpgDetail()
         MAC=`ifconfig  | grep $interface |  grep -v $interface:0 | tr -s ' ' | cut -d ' ' -f5`
         serialNumber=`grep SERIAL_NUMBER /nvram/serialization.txt | cut -f 2 -d "="`
         date=`date`
-        modelName=`dmcli eRT getv Device.DeviceInfo.ModelName | awk '/value:/ {print "P"$5;}'`;
+        modelName=`dmcli eRT getv Device.DeviceInfo.ModelName | awk '/value:/ {print $5;}'`;
         if [ "$modelName" = "" ]
         then
             echo_t "XCONF SCRIPT : modelNum not returnd from dmcli, revert to grabbing from /nvram/serialization.txt"
