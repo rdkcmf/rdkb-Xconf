@@ -468,13 +468,13 @@ calcRandTime()
 
         if [ "$UTC_ENABLE" == "true" ]
         then
-           cur_hr=`LTime H`
-           cur_min=`LTime M`
-           cur_sec=`date +"%S"`
+           cur_hr=`LTime H | sed 's/^0*//'`
+           cur_min=`LTime M | sed 's/^0*//'`
+           cur_sec=`date +"%S" | sed 's/^0*//'`
         else
-           cur_hr=`date +"%H"`
-           cur_min=`date +"%M"`
-           cur_sec=`date +"%S"`
+           cur_hr=`date +"%H" | sed 's/^0*//'`
+           cur_min=`date +"%M" | sed 's/^0*//'`
+           cur_sec=`date +"%S" | sed 's/^0*//'`
         fi
 
         # Time to maintenance window
@@ -626,13 +626,13 @@ calcRandTimeBCI()
         # Get current time
         if [ "$UTC_ENABLE" == "true" ]
         then
-            cur_hr=`LTime H`
-            cur_min=`LTime M`
-            cur_sec=`date +"%S"`
+            cur_hr=`LTime H | sed 's/^0*//'`
+            cur_min=`LTime M | sed 's/^0*//'`
+            cur_sec=`date +"%S" | sed 's/^0*//'`
         else
-            cur_hr=`date +"%H"`
-            cur_min=`date +"%M"`
-            cur_sec=`date +"%S"`
+            cur_hr=`date +"%H" | sed 's/^0*//'`
+            cur_min=`date +"%M" | sed 's/^0*//'`
+            cur_sec=`date +"%S" | sed 's/^0*//'`
         fi
         echo_t "XCONF SCRIPT : Current Local Time: $cur_hr hr $cur_min min $cur_sec sec" >> $XCONF_LOG_FILE
 
@@ -746,13 +746,13 @@ checkMaintenanceWindow()
 
     if [ "$UTC_ENABLE" == "true" ]
     then
-        reb_hr=`LTime H`
-        reb_min=`LTime M`
-        reb_sec=`date +"%S"`
+        reb_hr=`LTime H | sed 's/^0*//'`
+        reb_min=`LTime M | sed 's/^0*//'`
+        reb_sec=`date +"%S" | sed 's/^0*//'`
     else
-        reb_hr=`date +"%H"`
-        reb_min=`date +"%M"`
-        reb_sec=`date +"%S"`
+        reb_hr=`date +"%H" | sed 's/^0*//'`
+        reb_min=`date +"%M" | sed 's/^0*//'`
+        reb_sec=`date +"%S" | sed 's/^0*//'`
     fi
 
     reb_window=0
