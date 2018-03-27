@@ -40,15 +40,22 @@ NO_DOWNLOAD="/tmp/.downloadBreak"
 ABORT_REBOOT="/tmp/AbortReboot"
 abortReboot_count=0
 
-HTTP_CODE=/tmp/fwdl_http_code.txt
 FWDL_JSON=/tmp/response.txt
-codebig_enabled=$CODEBIG_ENABLE
-codebig=`dmcli eRT getv Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.CodebigSupport | grep value | cut -d ":" -f 3 | tr -d ' ' `
-if [ "$codebig" == "true" ]; then
-    codebig_enabled=yes
-    echo_t "Codebig support is enabled through RFC"
-    echo_t "Codebig support is enabled through RFC" >> $XCONF_LOG_FILE
-fi
+SIGN_FILE="/tmp/.signedRequest_$$_`date +'%s'`"
+DIRECT_BLOCK_TIME=86400
+DIRECT_BLOCK_FILENAME="/tmp/.lastdirectfail_cdl"
+
+CONN_RETRIES=3
+curr_conn_type=""
+use_first_conn=1
+conn_str="Direct"
+first_conn=useDirectRequest
+sec_conn=useCodebigRequest
+CodebigAvailable=0
+
+CURL_CMD_SSR=""
+#codebig_enabled=$CODEBIG_ENABLE
+#codebig=`dmcli eRT getv Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.CodebigSupport | grep value | cut -d ":" -f 3 | tr -d ' ' `
         
 #GLOBAL DECLARATIONS
 image_upg_avl=0
@@ -185,6 +192,139 @@ checkFirmwareUpgCriteria()
 	fi
 }
 
+IsDirectBlocked()
+{
+    ret=0
+    if [ -f $DIRECT_BLOCK_FILENAME ]; then
+        modtime=$(($(date +%s) - $(date +%s -r $DIRECT_BLOCK_FILENAME)))
+        if [ "$modtime" -le "$DIRECT_BLOCK_TIME" ]; then
+            echo "XCONF SCRIPT: Last direct failed blocking is still valid, preventing direct" 
+            echo "XCONF SCRIPT: Last direct failed blocking is still valid, preventing direct" >> $XCONF_LOG_FILE
+            ret=1
+        else
+            echo "XCONF SCRIPT: Last direct failed blocking has expired, removing $DIRECT_BLOCK_FILENAME, allowing direct" 
+            echo "XCONF SCRIPT: Last direct failed blocking has expired, removing $DIRECT_BLOCK_FILENAME, allowing direct" >> $XCONF_LOG_FILE
+            rm -f $DIRECT_BLOCK_FILENAME
+            ret=0
+        fi
+    fi
+    return $ret
+}
+
+# Get the configuration of codebig settings
+get_Codebigconfig()
+{
+   # If configparamgen not available, then only direct connection available and no fallback mechanism
+   if [ -f $CONFIGPARAMGEN ]; then
+      CodebigAvailable=1
+   fi
+   if [ "$CodebigAvailable" -eq "1" ]; then 
+       CodeBigEnable=`dmcli eRT getv Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.CodeBigFirst.Enable | grep true 2>/dev/null`
+   fi
+   if [ "$CodebigAvailable" -eq "1" ] && [ "x$CodeBigEnable" != "x" ] ; then 
+      conn_str="Codebig" 
+      first_conn=useCodebigRequest 
+      sec_conn=useDirectRequest
+   fi
+
+   if [ "$CodebigAvailable" -eq "1" ]; then
+      echo_t "XCONF SCRIPT : Using $conn_str connection as the Primary"
+      echo_t "XCONF SCRIPT : Using $conn_str connection as the Primary" >> $XCONF_LOG_FILE
+   else
+      echo_t "XCONF SCRIPT : Only $conn_str connection is available"
+      echo_t "XCONF SCRIPT : Only $conn_str connection is available" >> $XCONF_LOG_FILE
+   fi
+}
+
+# Get and set the codebig signed info
+do_Codebig_signing()
+{
+     if [ "$1" = "Xconf" ]; then
+            domain_name=`echo $xconf_url | cut -d / -f3`
+            getRequestType $domain_name
+            request_type=$?
+            SIGN_CMD="configparamgen $request_type \"$JSONSTR\""
+            eval $SIGN_CMD > $SIGN_FILE
+            CB_SIGNED_REQUEST=`cat $SIGN_FILE`
+            rm -f $SIGN_FILE
+      else
+            SIGN_CMD="configparamgen 1 \"$imageHTTPURL\""
+            echo $SIGN_CMD >>$XCONF_LOG_FILE
+            echo -e "\n"
+            eval $SIGN_CMD > $SIGN_FILE
+            cbSignedimageHTTPURL=`cat $SIGN_FILE`
+            rm -f $SIGN_FILE
+#            echo $cbSignedimageHTTPURL >>$XCONF_LOG_FILE
+            cbSignedimageHTTPURL=`echo $cbSignedimageHTTPURL | sed 's|stb_cdl%2F|stb_cdl/|g'`
+            serverUrl=`echo $cbSignedimageHTTPURL | sed -e "s|&oauth_consumer_key.*||g"`
+            authorizationHeader=`echo $cbSignedimageHTTPURL | sed -e "s|&|\", |g" -e "s|=|=\"|g" -e "s|.*oauth_consumer_key|oauth_consumer_key|g"`
+            authorizationHeader="Authorization: OAuth realm=\"\", $authorizationHeader\""
+            CURL_CMD_SSR="curl --connect-timeout 30 --tlsv1.2 --interface $interface -H '$authorizationHeader' $addr_type -w '%{http_code}\n' -fgLo $TMP_PATH/$firmwareFilename '$serverUrl'"
+      fi
+}
+
+# Direct connection Download function
+useDirectRequest()
+{
+            curr_conn_type="direct"
+            # Direct connection will not be tried if .lastdirectfail exists
+            IsDirectBlocked
+            if [ "$?" -eq "1" ]; then
+                 return 1
+            fi
+            echo_t "Trying Direct Communication"
+            echo_t "Trying Direct Communication" >> $XCONF_LOG_FILE
+            CURL_CMD="$CURL_PATH/curl --interface $interface $addr_type -w '%{http_code}\n' --tlsv1.2 -d \"$JSONSTR\" -o \"$FWDL_JSON\" \"$xconf_url\" --connect-timeout 30 -m 30"
+            echo_t "CURL_CMD:$CURL_CMD"
+            echo_t "CURL_CMD:$CURL_CMD" >> $XCONF_LOG_FILE
+            HTTP_CODE=`result= eval $CURL_CMD`
+            ret=$?
+            HTTP_RESPONSE_CODE=$(echo "$HTTP_CODE" | awk -F\" '{print $1}' )
+            echo_t "Direct Communication - ret:$ret, http_code:$HTTP_RESPONSE_CODE"
+            echo_t "Direct Communication - ret:$ret, http_code:$HTTP_RESPONSE_CODE" >> $XCONF_LOG_FILE
+            # log security failure
+            case $ret in
+              35|51|53|54|58|59|60|64|66|77|80|82|83|90|91)
+                echo_t "Direct Communication Failure - ret:$ret, http_code:$HTTP_RESPONSE_CODE" >> $XCONF_LOG_FILE
+                ;;
+            esac
+            [ "x$HTTP_RESPONSE_CODE" != "x" ] || HTTP_RESPONSE_CODE=0
+            if [ "$ret" -ne  "0" ] && [ "x$HTTP_RESPONSE_CODE" != "x200" ] && [ "x$HTTP_RESPONSE_CODE" != "x404" ] ; then
+                 directconn_count=$(( directconn_count + 1 ))
+                 if [ "$directconn_count" -gt "$CONN_RETRIES" ] ; then
+                     [ "$CodebigAvailable" -ne "1" ] || [ -f $DIRECT_BLOCK_FILENAME ] || touch $DIRECT_BLOCK_FILENAME
+                 fi
+            fi
+}
+
+# Codebig connection Download function
+useCodebigRequest()
+{
+            curr_conn_type="codebig"
+            # Do not try Codebig if CodebigAvailable != 1 (configparamgen not there)
+            if [ "$CodebigAvailable" -eq "0" ] ; then
+                  echo_t "XCONF SCRIPT: Only direct connection Available" >> $XCONF_LOG_FILE
+                  return 1
+            fi
+            do_Codebig_signing "Xconf"
+            CURL_CMD="$CURL_PATH/curl --interface $interface $addr_type -w '%{http_code}\n' --tlsv1.2 -o \"$FWDL_JSON\" \"$CB_SIGNED_REQUEST\" --connect-timeout 30 -m 30"
+            echo_t "Trying Codebig Communication at `echo "$CURL_CMD" | sed -ne 's#.*\(https:.*\)?.*#\1#p'`"
+            echo_t "Trying Codebig Communication at `echo "$CURL_CMD" | sed -ne 's#.*\(https:.*\)?.*#\1#p'`" >> $XCONF_LOG_FILE
+            echo_t "CURL_CMD: `echo "$CURL_CMD" | sed -ne 's#oauth_consumer_key=.*oauth_signature.* --#<hidden> --#p'`" 
+            echo_t "CURL_CMD: `echo "$CURL_CMD" | sed -ne 's#oauth_consumer_key=.*oauth_signature.* --#<hidden> --#p'`"  >> $XCONF_LOG_FILE
+            HTTP_CODE=`result= eval $CURL_CMD`
+            ret=$?
+            HTTP_RESPONSE_CODE=$(echo "$HTTP_CODE" | awk -F\" '{print $1}' )
+            echo_t "Codebig Communication - ret:$ret, http_code:$HTTP_RESPONSE_CODE"
+            echo_t "Codebig Communication - ret:$ret, http_code:$HTTP_RESPONSE_CODE" >> $XCONF_LOG_FILE
+            # log security failure
+            case $ret in
+              35|51|53|54|58|59|60|64|66|77|80|82|83|90|91)
+                echo_t "Codebig Communication Failure - ret:$ret, http_code:$HTTP_RESPONSE_CODE" >> $XCONF_LOG_FILE
+                ;;
+            esac
+}
+
 # Check if a new image is available on the XCONF server
 getFirmwareUpgDetail()
 {
@@ -193,7 +333,8 @@ getFirmwareUpgDetail()
     # respose or the URL received
     xconf_retry_count=1
     retry_flag=1
-    isIPv6=`ifconfig erouter0 | grep inet6 | grep -i 'Global'`
+    directconn_count=1
+    isIPv6=`ifconfig $interface | grep inet6 | grep -i 'Global'`
 
     # Set the XCONF server url read from /tmp/Xconf 
     # Determine the env from $type
@@ -225,9 +366,10 @@ getFirmwareUpgDetail()
     else
         addr_type="-4"
     fi
+    get_Codebigconfig
 
     # Check with the XCONF server if an update is available 
-    while [ $xconf_retry_count -le 3 ] && [ $retry_flag -eq 1 ]
+    while [ $xconf_retry_count -le $CONN_RETRIES ] && [ $retry_flag -eq 1 ]
     do
 
         echo_t "**RETRY is $xconf_retry_count and RETRY_FLAG is $retry_flag**" >> $XCONF_LOG_FILE
@@ -239,7 +381,6 @@ getFirmwareUpgDetail()
         
         # Perform cleanup by deleting any previous responses
         rm -f $FWDL_JSON /tmp/XconfOutput.txt
-        rm -f $HTTP_CODE
         firmwareDownloadProtocol=""
         firmwareFilename=""
         firmwareLocation=""
@@ -271,41 +412,14 @@ getFirmwareUpgDetail()
         partnerId=$(getPartnerId)
         JSONSTR='eStbMac='${MAC}'&firmwareVersion='${currentVersion}'&serial='${serialNumber}'&env='${env}'&model='${modelName}'&partnerId='${partnerId}'&localtime='${date}'&timezone=EST05&capabilities=rebootDecoupled&capabilities=RCDL&capabilities=supportsFullHttpUrl'
 
-        if [ "$codebig_enabled" != "yes" ]; then
-            echo_t "Trying Direct Communication"
-            echo_t "Trying Direct Communication" >> $XCONF_LOG_FILE
-            CURL_CMD="$CURL_PATH/curl --interface $interface -s $addr_type -w '%{http_code}\n' --tlsv1.2 -d \"$JSONSTR\" -o \"$FWDL_JSON\" \"$xconf_url\" --connect-timeout 30 -m 30"
-            echo_t "CURL_CMD:$CURL_CMD" >> $XCONF_LOG_FILE
-            echo_t "CURL_CMD:$CURL_CMD"
-            result= eval $CURL_CMD > $HTTP_CODE
-            ret=$?
-            HTTP_RESPONSE_CODE=$(awk -F\" '{print $1}' $HTTP_CODE)
-            echo_t "Direct Communication - ret:$ret, http_code:$HTTP_RESPONSE_CODE"
-            echo_t "Direct Communication - ret:$ret, http_code:$HTTP_RESPONSE_CODE" >> $XCONF_LOG_FILE
+        if [ $use_first_conn = "1" ]; then
+           $first_conn
         else
-            echo_t "Trying Codebig Communication"
-            echo_t "Trying Codebig Communication" >> $XCONF_LOG_FILE
-            domain_name=`echo $xconf_url | cut -d / -f3`
-            getRequestType $domain_name
-            request_type=$?
-            SIGN_CMD="configparamgen $request_type \"$JSONSTR\""
-            eval $SIGN_CMD > /tmp/.signedRequest
-            CB_SIGNED_REQUEST=`cat /tmp/.signedRequest`
-            rm -f /tmp/.signedRequest
-            CURL_CMD="$CURL_PATH/curl --interface $interface -s $addr_type -w '%{http_code}\n' --tlsv1.2 -o \"$FWDL_JSON\" \"$CB_SIGNED_REQUEST\" --connect-timeout 30 -m 30"
-            echo_t "CURL_CMD:$CURL_CMD"
-            echo_t "CURL_CMD:$CURL_CMD" >> $XCONF_LOG_FILE
-            result= eval $CURL_CMD > $HTTP_CODE
-            ret=$?
-            HTTP_RESPONSE_CODE=$(awk -F\" '{print $1}' $HTTP_CODE)
-            echo_t "Codebig Communication - ret:$ret, http_code:$HTTP_RESPONSE_CODE"
-            echo_t "Codebig Communication - ret:$ret, http_code:$HTTP_RESPONSE_CODE" >> $XCONF_LOG_FILE
+           $sec_conn
         fi
+        [ "x$HTTP_RESPONSE_CODE" != "x" ] || HTTP_RESPONSE_CODE=0
 
-        echo_t "XCONF SCRIPT : HTTP RESPONSE CODE is $HTTP_RESPONSE_CODE"
-        echo_t "XCONF SCRIPT : HTTP RESPONSE CODE is $HTTP_RESPONSE_CODE" >> $XCONF_LOG_FILE
-
-        if [ $HTTP_RESPONSE_CODE -eq 200 ];then
+        if [ "x$HTTP_RESPONSE_CODE" = "x200" ];then
             # Print the response
             cat $FWDL_JSON
             echo
@@ -327,17 +441,25 @@ getFirmwareUpgDetail()
             else
                 echo_t "XCONF SCRIPT : Download from $firmwareDownloadProtocol server not supported, check XCONF server configurations"
                 echo_t "XCONF SCRIPT : Download from $firmwareDownloadProtocol server not supported, check XCONF server configurations" >> $XCONF_LOG_FILE
-                echo_t "XCONF SCRIPT : Retrying query in 2 minutes" >> $XCONF_LOG_FILE
                 
-                # sleep for 2 minutes and retry
-                sleep 120;
-
                 retry_flag=1
                 image_upg_avl=0
 
                 #Increment the retry count
                 xconf_retry_count=$((xconf_retry_count+1))
-
+                if [ "$CodebigAvailable" -eq 1 ] && [ $use_first_conn = "1" ] && [ $xconf_retry_count -gt $CONN_RETRIES ]; then
+                    use_first_conn=0
+                    xconf_retry_count=1
+                fi
+                # sleep for 2 minutes and retry
+                if [ "$curr_conn_type" = "direct" ] && [ -f $DIRECT_BLOCK_FILENAME ]; then
+                   echo_t "XCONF SCRIPT : Ignore tring to do direct connection " >> $XCONF_LOG_FILE
+                else
+                   if  [ $xconf_retry_count -le $CONN_RETRIES ]; then
+                       echo_t "XCONF SCRIPT : Retrying query in 2 minutes" >> $XCONF_LOG_FILE
+                       sleep 120;
+                   fi
+                fi
                 continue
             fi
 
@@ -347,11 +469,6 @@ getFirmwareUpgDetail()
 	    upgradeDelay=`grep upgradeDelay $OUTPUT | cut -d \| -f2`
             rebootImmediately=`grep rebootImmediately $OUTPUT | cut -d \| -f2`    
                                     
-            echo_t "XCONF SCRIPT : Protocol :"$firmwareDownloadProtocol
-            echo_t "XCONF SCRIPT : Filename :"$firmwareFilename
-            echo_t "XCONF SCRIPT : Location :"$firmwareLocation
-            echo_t "XCONF SCRIPT : Version  :"$firmwareVersion
-            echo_t "XCONF SCRIPT : Reboot   :"$rebootImmediately
 	
             if [ "X"$firmwareLocation = "X" ];then
                 echo_t "XCONF SCRIPT : No URL received in $FWDL_JSON"
@@ -361,18 +478,47 @@ getFirmwareUpgDetail()
 
                 #Increment the retry count
                 xconf_retry_count=$((xconf_retry_count+1))
+                if [ "$CodebigAvailable" -eq 1 ] && [ $use_first_conn = "1" ] && [ $xconf_retry_count -gt $CONN_RETRIES ]; then
+                    use_first_conn=0
+                    xconf_retry_count=1
+                fi
 
             else
-                echo "$firmwareLocation" > /tmp/.xconfssrdownloadurl
+                # Will only entry here is last connection was success with 200 & http. So use the last succesful conn type.
+                if [ "$curr_conn_type" = "direct" ]; then 
+                    echo_t "XCONF SCRIPT : SSR download is set to : DIRECT" 
+                    echo_t "XCONF SCRIPT : SSR download is set to : DIRECT" >> $XCONF_LOG_FILE
+                    echo_t "XCONF SCRIPT : Protocol :"$firmwareDownloadProtocol
+                    echo_t "XCONF SCRIPT : Filename :"$firmwareFilename
+                    echo_t "XCONF SCRIPT : Location :"$firmwareLocation
+                    echo_t "XCONF SCRIPT : Version  :"$firmwareVersion
+                    echo_t "XCONF SCRIPT : Reboot   :"$rebootImmediately
+                else
+                    echo_t "XCONF SCRIPT : SSR download is set to : CODEBIG" 
+                    echo_t "XCONF SCRIPT : SSR download is set to : CODEBIG" >> $XCONF_LOG_FILE
+                    serverUrl=""
+                    authorizationHeader=""
+                    imageHTTPURL="$firmwareLocation/$firmwareFilename"
+                    domainName=`echo $imageHTTPURL | awk -F/ '{print $3}'`
+                    imageHTTPURL=`echo $imageHTTPURL | sed -e "s|.*$domainName||g"`
+                    do_Codebig_signing "SSR" 
+                    # firmwareLocation=`echo "$serverUrl" | sed -ne 's/\/'"$firmwareFilename.*"'//p'`
+                    echo_t "XCONF SCRIPT : Protocol :"$firmwareDownloadProtocol 
+                    echo_t "XCONF SCRIPT : Filename :"$firmwareFilename 
+                    echo_t "XCONF SCRIPT : Location :"`echo "$serverUrl" | sed -ne 's/\/'"$firmwareFilename.*"'//p'` 
+                    echo_t "XCONF SCRIPT : Version  :"$firmwareVersion
+                    echo_t "XCONF SCRIPT : Reboot   :"$rebootImmediately
+                fi
            	# Check if a newer version was returned in the response
-            # If image_upg_avl = 0, retry reconnecting with XCONf in next window
-            # If image_upg_avl = 1, download new firmware 
-                checkFirmwareUpgCriteria  
-			fi
+                # If image_upg_avl = 0, retry reconnecting with XCONf in next window
+                # If image_upg_avl = 1, download new firmware 
+                checkFirmwareUpgCriteria   
+                echo "$firmwareLocation" > /tmp/.xconfssrdownloadurl
+            fi
 		
 
         # If a response code of 404 was received, exit
-            elif [ $HTTP_RESPONSE_CODE -eq 404 ]; then
+            elif [ "x$HTTP_RESPONSE_CODE" = "x404" ]; then
                 retry_flag=0
                 image_upg_avl=0
                 echo_t "XCONF SCRIPT : Response code received is 404" >> $XCONF_LOG_FILE
@@ -383,15 +529,25 @@ getFirmwareUpgDetail()
         # If a response code of 0 was received, the server is unreachable
         # Try reconnecting
         else
-            echo_t "XCONF SCRIPT : Response code is $HTTP_RESPONSE_CODE, sleeping for 2 minutes and retrying" >> $XCONF_LOG_FILE
-            # sleep for 2 minutes and retry
-            sleep 120;
 
             retry_flag=1
             image_upg_avl=0
 
             #Increment the retry count
             xconf_retry_count=$((xconf_retry_count+1))
+            if [ "$CodebigAvailable" -eq 1 ] && [ $use_first_conn = "1" ] && [ $xconf_retry_count -gt $CONN_RETRIES ]; then
+                 use_first_conn=0
+                 xconf_retry_count=1
+            fi
+           # sleep for 2 minutes and retry
+           if [ "$curr_conn_type" = "direct" ] && [ -f $DIRECT_BLOCK_FILENAME ]; then
+                   echo_t "XCONF SCRIPT : Ignore tring to do direct connection " >> $XCONF_LOG_FILE
+           else
+                 if [ $xconf_retry_count -le $CONN_RETRIES ]; then
+                   echo_t "XCONF SCRIPT : Response code is $HTTP_RESPONSE_CODE, sleeping for 2 minutes and retrying" >> $XCONF_LOG_FILE
+                   sleep 120;
+                 fi
+           fi
 
         fi
 
@@ -425,14 +581,14 @@ calcRandTime()
     #
     if [ $1 -eq '1' ]; then
         
-        echo "XCONF SCRIPT : Check Update time being calculated within 24 hrs."
-        echo "XCONF SCRIPT : Check Update time being calculated within 24 hrs." >> $XCONF_LOG_FILE
+        echo_t "XCONF SCRIPT : Check Update time being calculated within 24 hrs." 
+        echo_t "XCONF SCRIPT : Check Update time being calculated within 24 hrs." >> $XCONF_LOG_FILE
 
         # Calculate random hour
         # The max random time can be 23:59:59
         rand_hr=`awk -v min=0 -v max=23 -v seed=$RANDOM 'BEGIN{print int(((min+seed)/32768)*(max-min+1))}'`
 
-        echo "XCONF SCRIPT : Time Generated : $rand_hr hr $rand_min min $rand_sec sec"
+        echo_t "XCONF SCRIPT : Time Generated : $rand_hr hr $rand_min min $rand_sec sec"
         min_to_sleep=$(($rand_hr*60 + $rand_min))
         sec_to_sleep=$(($min_to_sleep*60 + $rand_sec))
 
@@ -443,8 +599,8 @@ calcRandTime()
         date_upgch_part="$(( `date +%s`+$sec_to_sleep ))"
         date_upgch_final=`date -d "@$date_upgch_part"`
 	
-	echo "XCONF SCRIPT : Checking update on $date_upgch_final"
-        echo "XCONF SCRIPT : Checking update on $date_upgch_final" >> $XCONF_LOG_FILE
+	echo_t "XCONF SCRIPT : Checking update on $date_upgch_final"
+	echo_t "XCONF SCRIPT : Checking update on $date_upgch_final" >> $XCONF_LOG_FILE
 
     fi
 
@@ -923,9 +1079,23 @@ do
     if [ $image_upg_avl -eq 1 ];then
        echo "$firmwareLocation" > /tmp/xconfdownloadurl
 
-       # Set the url and filename
-       echo_t "XCONF SCRIPT : URL --- $firmwareLocation and NAME --- $firmwareFilename" >> $XCONF_LOG_FILE
-       $BIN_PATH/XconfHttpDl set_http_url $firmwareLocation $firmwareFilename
+       if [ "$curr_conn_type" = "direct" ]; then
+          # Set the url and filename
+          echo_t "XCONF SCRIPT : URL --- $firmwareLocation and NAME --- $firmwareFilename"
+          echo_t "XCONF SCRIPT : URL --- $firmwareLocation and NAME --- $firmwareFilename" >> $XCONF_LOG_FILE
+          CURL_CMD_SSR="curl --connect-timeout 30 --tlsv1.2 --interface $interface $addr_type -w '%{http_code}\n' -fgLo $TMP_PATH/$firmwareFilename '$firmwareLocation/$firmwareFilename'"
+          echo_t "Direct CURL_CMD : $CURL_CMD_SSR"
+          echo_t "Direct CURL_CMD : $CURL_CMD_SSR" >> $XCONF_LOG_FILE
+#          $BIN_PATH/XconfHttpDl set_http_url "$firmwareLocation" "$firmwareFilename"
+       else
+          # Set the url and filename
+          echo_t "XCONF SCRIPT : URL --- $serverUrl and NAME --- $firmwareFilename"
+          echo_t "XCONF SCRIPT : URL --- $serverUrl and NAME --- $firmwareFilename" >> $XCONF_LOG_FILE
+          echo_t "Codebig CURL_CMD :`echo  "$CURL_CMD_SSR" |  sed -ne 's#'"$authorizationHeader"'#<Hidden authorization-header>#p'`"
+          echo_t "Codebig CURL_CMD :`echo  "$CURL_CMD_SSR" |  sed -ne 's#'"$authorizationHeader"'#<Hidden authorization-header>#p'`" >> $XCONF_LOG_FILE
+#          $BIN_PATH/XconfHttpDl set_http_url "$serverUrl" "$firmwareFilename"
+       fi
+
        set_url_stat=$?
         
        # If the URL was correctly set, initiate the download
@@ -947,10 +1117,21 @@ do
             sleep 5
 			
            # Start the image download
-           echo "[ $(date) ] XCONF SCRIPT  ### httpdownload started ###" >> $XCONF_LOG_FILE
-           $BIN_PATH/XconfHttpDl http_download
+           echo_t "XCONF SCRIPT  ### httpdownload started ###" >> $XCONF_LOG_FILE
+# Check for direct/codebig not required : as CMD already set. 
+# ToCheck : In case fallback mechanism needs to be implemented for SSR, as no loop was implemented here originally
+           HTTP_CODE=`result= eval $CURL_CMD_SSR`
            http_dl_stat=$?
-           echo "[ $(date) ] XCONF SCRIPT  ### httpdownload completed ###" >> $XCONF_LOG_FILE
+           HTTP_RESPONSE_CODE=$(echo "$HTTP_CODE" | awk -F\" '{print $1}' )
+           [ "x$HTTP_RESPONSE_CODE" != "x" ] || HTTP_RESPONSE_CODE=0
+           if [ "x$HTTP_RESPONSE_CODE" = "x200" ] ; then
+               http_dl_stat=0
+           else
+               echo_t "XCONF SCRIPT : $curr_conn_type SSR download failed - ret:$http_dl_stat, http_code:$HTTP_RESPONSE_CODE" 
+               echo_t "XCONF SCRIPT : $curr_conn_type SSR download failed - ret:$http_dl_stat, http_code:$HTTP_RESPONSE_CODE" >> $XCONF_LOG_FILE
+               http_dl_stat=1
+           fi
+           echo_t "XCONF SCRIPT  ### httpdownload completed ###" >> $XCONF_LOG_FILE
            echo_t "**XCONF SCRIPT : HTTP DL STATUS $http_dl_stat**" >> $XCONF_LOG_FILE
 			
            # If the http_dl_stat is 0, the download was succesful,          
