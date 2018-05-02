@@ -1308,6 +1308,16 @@ while [ $reboot_device_success -eq 0 ]; do
         #Reboot the device
         echo_t "XCONF SCRIPT : Reboot possible. Issuing reboot command"
         echo_t "RDKB_REBOOT : Reboot command issued from XCONF"
+
+        #For rdkb-4260
+        echo_t "Creating file /nvram/reboot_due_to_sw_upgrade"
+        touch /nvram/reboot_due_to_sw_upgrade
+        echo_t "XCONF SCRIPT : REBOOTING DEVICE"
+        echo_t "RDKB_REBOOT : Rebooting device due to software upgrade"
+        echo_t "XCONF SCRIPT : setting LastRebootReason"
+        dmcli eRT setv Device.DeviceInfo.X_RDKCENTRAL-COM_LastRebootReason string Software_upgrade
+        echo_t "XCONF SCRIPT : SET succeeded"
+
         $BIN_PATH/XconfHttpDl http_reboot 
         reboot_device=$?
 		       
@@ -1316,16 +1326,6 @@ while [ $reboot_device_success -eq 0 ]; do
         # command and check if it returned correctly
         if [ $reboot_device -eq 0 ];then
             reboot_device_success=1
-            #For rdkb-4260
-            echo_t "Creating file /nvram/reboot_due_to_sw_upgrade"
-            touch /nvram/reboot_due_to_sw_upgrade
-            echo_t "XCONF SCRIPT : REBOOTING DEVICE"
-            echo_t "RDKB_REBOOT : Rebooting device due to software upgrade"
-            echo_t "XCONF SCRIPT : setting LastRebootReason"
-            dmcli eRT setv Device.DeviceInfo.X_RDKCENTRAL-COM_LastRebootReason string Software_upgrade
-            echo_t "XCONF SCRIPT : SET succeeded"
-            touch /tmp/xconf.reboot
-            shutdown -r now
             echo "XCONF SCRIPT : REBOOTING DEVICE"            
                 
         else 
