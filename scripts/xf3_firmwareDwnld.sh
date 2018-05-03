@@ -418,6 +418,8 @@ getFirmwareUpgDetail()
            $sec_conn
         fi
         [ "x$HTTP_RESPONSE_CODE" != "x" ] || HTTP_RESPONSE_CODE=0
+        echo_t "XCONF SCRIPT : HTTP RESPONSE CODE is $HTTP_RESPONSE_CODE"
+        echo_t "XCONF SCRIPT : HTTP RESPONSE CODE is $HTTP_RESPONSE_CODE" >> $XCONF_LOG_FILE
 
         if [ "x$HTTP_RESPONSE_CODE" = "x200" ];then
             # Print the response
@@ -1124,14 +1126,14 @@ do
            http_dl_stat=$?
            HTTP_RESPONSE_CODE=$(echo "$HTTP_CODE" | awk -F\" '{print $1}' )
            [ "x$HTTP_RESPONSE_CODE" != "x" ] || HTTP_RESPONSE_CODE=0
+           echo_t "XCONF SCRIPT : $curr_conn_type SSR download failed - ret:$http_dl_stat, http_code:$HTTP_RESPONSE_CODE" 
+           echo_t "XCONF SCRIPT : $curr_conn_type SSR download failed - ret:$http_dl_stat, http_code:$HTTP_RESPONSE_CODE" >> $XCONF_LOG_FILE
            if [ "x$HTTP_RESPONSE_CODE" = "x200" ] ; then
                http_dl_stat=0
+               echo_t "XCONF SCRIPT  ### httpdownload completed ###" >> $XCONF_LOG_FILE
            else
-               echo_t "XCONF SCRIPT : $curr_conn_type SSR download failed - ret:$http_dl_stat, http_code:$HTTP_RESPONSE_CODE" 
-               echo_t "XCONF SCRIPT : $curr_conn_type SSR download failed - ret:$http_dl_stat, http_code:$HTTP_RESPONSE_CODE" >> $XCONF_LOG_FILE
                http_dl_stat=1
            fi
-           echo_t "XCONF SCRIPT  ### httpdownload completed ###" >> $XCONF_LOG_FILE
            echo_t "**XCONF SCRIPT : HTTP DL STATUS $http_dl_stat**" >> $XCONF_LOG_FILE
 			
            # If the http_dl_stat is 0, the download was succesful,          
