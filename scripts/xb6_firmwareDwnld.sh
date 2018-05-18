@@ -22,6 +22,11 @@ then
     source /etc/device.properties
 fi
 
+if [ -f /lib/rdk/getpartnerid.sh ]
+then
+	source /lib/rdk/getpartnerid.sh
+fi
+
 XCONF_LOG_PATH=/rdklogs/logs
 XCONF_LOG_FILE_NAME=xconf.txt.0
 XCONF_LOG_FILE_PATHNAME=${XCONF_LOG_PATH}/${XCONF_LOG_FILE_NAME}
@@ -58,25 +63,6 @@ isPeriodicFWCheckEnabled=`syscfg get PeriodicFWCheck_Enable`
 echo_t()
 {
 	    echo "`date +"%y%m%d-%T.%6N"` $1"
-}
-
-# Function to get partner_id
-# Below implementation is subjected to change when XB6 has a unified build for all syndication partners.
-getPartnerId()
-{
-    if [ -f "/etc/device.properties" ]
-    then
-        partner_id=`cat /etc/device.properties | grep PARTNER_ID | cut -f2 -d=`
-        if [ "$partner_id" == "" ];then
-            #Assigning default partner_id as Comcast.
-            #If any device want to report differently, then PARTNER_ID flag has to be updated in /etc/device.properties accordingly
-            echo "comcast"
-        else
-            echo "$partner_id"
-        fi
-    else
-       echo "null"
-    fi
 }
 
 getRequestType()
