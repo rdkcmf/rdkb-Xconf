@@ -19,6 +19,7 @@
 ##########################################################################
 source /etc/utopia/service.d/log_capture_path.sh
 source /fss/gw/etc/utopia/service.d/log_env_var.sh
+source /lib/rdk/getpartnerid.sh
 
 if [ -f /etc/device.properties ]
 then
@@ -58,24 +59,6 @@ isPeriodicFWCheckEnabled=`syscfg get PeriodicFWCheck_Enable`
 #else
 #       firmwareName_configured=$1
 #fi
-
-# Below implementation is subjected to change when XB3 has a unified build for all syndication partners.
-getPartnerId()
-{
-    if [ -f "/etc/device.properties" ]
-    then
-        partner_id=`cat /etc/device.properties | grep PARTNER_ID | cut -f2 -d=`
-        if [ "$partner_id" == "" ];then
-            #Assigning default partner_id as Comcast.
-            #If any device want to report differently, then PARTNER_ID flag has to be updated in /etc/device.properties accordingly
-            echo "comcast"
-        else
-            echo "$partner_id"
-        fi
-    else
-       echo "null"
-    fi
-}
 
 #
 # release numbering system rules
