@@ -381,8 +381,10 @@ getFirmwareUpgDetail()
         if [ "$modelName" = "" ]
         then
             echo_t "XCONF SCRIPT : modelNum not returnd from dmcli, revert to grabbing from /nvram/serialization.txt"
-            modelName=`grep MODEL /nvram/serialization.txt | sed 's/.*=/P/'`
+            modelName=`grep MODEL /nvram/serialization.txt | sed 's/.*=//'`
         fi
+        # Add leading P to model since XConf SW upgrade server expects it (XF3-3547)
+        modelName=$(echo $modelName | sed 's/^/P/')
 
         echo_t "XCONF SCRIPT : CURRENT VERSION : $currentVersion" 
         echo_t "XCONF SCRIPT : CURRENT MAC  : $MAC"
