@@ -21,6 +21,7 @@
 source /etc/utopia/service.d/log_capture_path.sh
 source /fss/gw/etc/utopia/service.d/log_env_var.sh
 source /lib/rdk/getpartnerid.sh
+source /lib/rdk/getaccountid.sh
 
 if [ -f /etc/device.properties ]
 then
@@ -371,7 +372,8 @@ getFirmwareUpgDetail()
         # Query the  XCONF Server, using TLS 1.2
         echo_t "Attempting TLS1.2 connection to $xconf_url " >> $XCONF_LOG_FILE
         partnerId=$(getPartnerId)
-        JSONSTR='eStbMac='${MAC}'&firmwareVersion='${currentVersion}'&env='${env}'&model='${modelName}'&partnerId='${partnerId}'&localtime='${date}'&timezone=EST05&capabilities=rebootDecoupled&capabilities=RCDL&capabilities=supportsFullHttpUrl'
+        accountId=$(getAccountId)
+        JSONSTR='eStbMac='${MAC}'&firmwareVersion='${currentVersion}'&env='${env}'&model='${modelName}'&partnerId='${partnerId}'&accountId='${accountId}'&localtime='${date}'&timezone=EST05&capabilities=rebootDecoupled&capabilities=RCDL&capabilities=supportsFullHttpUrl'
         if [ $use_first_conn = "1" ]; then
            $first_conn
         else

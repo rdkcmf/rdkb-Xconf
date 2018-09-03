@@ -21,6 +21,7 @@
 source /etc/utopia/service.d/log_capture_path.sh
 source /fss/gw/etc/utopia/service.d/log_env_var.sh
 source /lib/rdk/getpartnerid.sh
+source /lib/rdk/getaccountid.sh
 
 if [ -f /etc/device.properties ]
 then
@@ -459,10 +460,11 @@ getFirmwareUpgDetail()
                     currentVersion=$firmwareName_configured
                 fi
                 partnerId=$(getPartnerId)
+                accountId=$(getAccountId)
 		if [ $CDL_SERVER_OVERRIDE -eq 1 ];then
                         echo_t "Trying Direct Communication" >> $XCONF_LOG_FILE
 			echo_t "XCONF SCRIPT : Post string creation"
-			POSTSTR="eStbMac=$MAC&firmwareVersion=$currentVersion&env=$env&model=$devicemodel&partnerId=$partnerId&localtime=$date&timezone=EST05&capabilities=\"rebootDecoupled\"&capabilities=\"RCDL\"&capabilities=\"supportsFullHttpUrl\""
+			POSTSTR="eStbMac=$MAC&firmwareVersion=$currentVersion&env=$env&model=$devicemodel&partnerId=$partnerId&accountId=${accountId}&localtime=$date&timezone=EST05&capabilities=\"rebootDecoupled\"&capabilities=\"RCDL\"&capabilities=\"supportsFullHttpUrl\""
 			echo_t "XCONF SCRIPT : POSTSTR : $POSTSTR" >> $XCONF_LOG_FILE
 
 			# Query the  XCONF Server, using TLS 1.2
@@ -479,7 +481,7 @@ getFirmwareUpgDetail()
                 echo_t "Trying Codebig Communication" >> $XCONF_LOG_FILE
                 ###############Jason string creation##########
                 echo_t "XCONF SCRIPT : Jason string creation"
-                JSONSTR="&eStbMac=${MAC}&firmwareVersion=${currentVersion}&env=${env}&model=${devicemodel}&partnerId=${partnerId}&serial=$serial&localtime=${date}&timezone=US/Eastern${CB_CAPABILITIES}"
+                JSONSTR="&eStbMac=${MAC}&firmwareVersion=${currentVersion}&env=${env}&model=${devicemodel}&partnerId=${partnerId}&accountId=${accountId}&serial=$serial&localtime=${date}&timezone=US/Eastern${CB_CAPABILITIES}"
                 echo_t "XCONF SCRIPT : JSONSTR : $JSONSTR" >> $XCONF_LOG_FILE
                 echo_t "XCONF SCRIPT : Get Signed URL"
 

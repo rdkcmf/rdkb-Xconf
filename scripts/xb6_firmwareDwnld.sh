@@ -28,6 +28,11 @@ then
 	source /lib/rdk/getpartnerid.sh
 fi
 
+if [ -f /lib/rdk/getaccountid.sh ]
+then
+        source /lib/rdk/getaccountid.sh
+fi
+
 XCONF_LOG_PATH=/rdklogs/logs
 XCONF_LOG_FILE_NAME=xconf.txt.0
 XCONF_LOG_FILE_PATHNAME=${XCONF_LOG_PATH}/${XCONF_LOG_FILE_NAME}
@@ -418,6 +423,7 @@ getFirmwareUpgDetail()
         MAC=`ifconfig $interface  | grep HWaddr | cut -d' ' -f7`
         date=`date`
         partnerId=$(getPartnerId)
+        accountId=$(getAccountId)
         
         echo_t "XCONF SCRIPT : CURRENT VERSION : $currentVersion"
         echo_t "XCONF SCRIPT : CURRENT MAC  : $MAC"
@@ -426,7 +432,7 @@ getFirmwareUpgDetail()
 
         # Query the  XCONF Server, using TLS 1.2
         echo_t "Attempting TLS1.2 connection to $xconf_url " >> $XCONF_LOG_FILE
-        JSONSTR='eStbMac='${MAC}'&firmwareVersion='${currentVersion}'&env='${env}'&model='${devicemodel}'&partnerId='${partnerId}'&localtime='${date}'&timezone=EST05&capabilities=rebootDecoupled&capabilities=RCDL&capabilities=supportsFullHttpUrl'
+        JSONSTR='eStbMac='${MAC}'&firmwareVersion='${currentVersion}'&env='${env}'&model='${devicemodel}'&partnerId='${partnerId}'&accountId='${accountId}'&localtime='${date}'&timezone=EST05&capabilities=rebootDecoupled&capabilities=RCDL&capabilities=supportsFullHttpUrl'
         if [ $use_first_conn = "1" ]; then
            $first_conn
         else
