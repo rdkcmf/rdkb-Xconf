@@ -367,6 +367,11 @@ getFirmwareUpgDetail()
         date=`date`
 
         modelName=`dmcli eRT getv Device.DeviceInfo.ModelName | grep value | cut -d ":" -f 3 | tr -d ' ' `
+        if [ "$modelName" == "" ];then
+        echo_t "XCONF SCRIPT : ModelName obtained from DeviceInfo.ModelName is NULL, reading Model from /etc/device.properties.. " >> $XCONF_LOG_FILE
+        echo_t "XCONF SCRIPT : ModelName obtained from DeviceInfo.ModelName is NULL, reading Model from /etc/device.properties.. "
+        modelName=$MODEL_NUM
+        fi
         echo_t "XCONF SCRIPT : CURRENT VERSION : $currentVersion" 
         echo_t "XCONF SCRIPT : CURRENT MAC  : $MAC" 
         echo_t "XCONF SCRIPT : CURRENT DATE : $date"  
