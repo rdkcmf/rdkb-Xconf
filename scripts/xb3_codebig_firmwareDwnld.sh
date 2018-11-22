@@ -930,7 +930,8 @@ then
     exit
 fi
 
-echo "XCONF SCRIPT : MODEL IS $type" >> $XCONF_LOG_FILE
+modelName=`dmcli eRT getv Device.DeviceInfo.ModelName | grep value | cut -d ":" -f 3 | tr -d ' ' `
+echo "XCONF SCRIPT : MODEL IS $modelName" >> $XCONF_LOG_FILE
 
 #Default xconf url
 url="https://xconf.xcal.tv/xconf/swu/stb/"
