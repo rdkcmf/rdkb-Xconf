@@ -250,8 +250,7 @@ useDirectRequest()
             HTTP_CODE=`result= eval $CURL_CMD`
             ret=$?
             HTTP_RESPONSE_CODE=$(echo "$HTTP_CODE" | awk -F\" '{print $1}' )
-            echo_t "Direct Communication - ret:$ret, http_code:$HTTP_RESPONSE_CODE"
-            echo_t "Direct Communication - ret:$ret, http_code:$HTTP_RESPONSE_CODE" >> $XCONF_LOG_FILE
+            echo_t "Direct Communication - ret:$ret, http_code:$HTTP_RESPONSE_CODE" | tee -a $XCONF_LOG_FILE ${LOG_PATH}/TlsVerify.txt
             # log security failure
             case $ret in
               35|51|53|54|58|59|60|64|66|77|80|82|83|90|91)
@@ -285,8 +284,7 @@ useCodebigRequest()
             HTTP_CODE=`result= eval $CURL_CMD`
             ret=$?
             HTTP_RESPONSE_CODE=$(echo "$HTTP_CODE" | awk -F\" '{print $1}' )
-            echo_t "Codebig Communication - ret:$ret, http_code:$HTTP_RESPONSE_CODE"
-            echo_t "Codebig Communication - ret:$ret, http_code:$HTTP_RESPONSE_CODE" >> $XCONF_LOG_FILE
+            echo_t "Codebig Communication - ret:$ret, http_code:$HTTP_RESPONSE_CODE" | tee -a $XCONF_LOG_FILE ${LOG_PATH}/TlsVerify.txt
             # log security failure
             case $ret in
               35|51|53|54|58|59|60|64|66|77|80|82|83|90|91)
