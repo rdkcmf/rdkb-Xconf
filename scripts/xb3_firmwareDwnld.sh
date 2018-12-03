@@ -916,6 +916,13 @@ do
 			#echo "XCONF SCRIPT : Sleep to prevent gw refresh error" >> $XCONF_LOG_FILE
             #sleep 60
 
+		#Trigger FirmwareDownloadStartedNotification before commencement of firmware download
+
+		current_time=`date +%s`
+		echo_t "current_time calculated as $current_time" >> $XCONF_LOG_FILE
+		dmcli eRT setv Device.DeviceInfo.X_RDKCENTRAL-COM_xOpsDeviceMgmt.RPC.FirmwareDownloadStartedNotification string $current_time
+		echo_t "XCONF SCRIPT : FirmwareDownloadStartedNotification SET succeeded" >> $XCONF_LOG_FILE
+
 	        # Start the image download
 			echo "[ $(date) ] XCONF SCRIPT  ### httpdownload started ###" >> $XCONF_LOG_FILE
 	        $BIN_PATH/XconfHttpDl http_download
@@ -944,6 +951,18 @@ do
 			exit
 		   fi
            fi
+
+		#Trigger FirmwareDownloadCompletedNotification after firmware download
+		# true indicates successful download and false indicates unsuccessful download.
+		if [ $http_dl_stat -eq 0 ];then
+			dmcli eRT setv Device.DeviceInfo.X_RDKCENTRAL-COM_xOpsDeviceMgmt.RPC.FirmwareDownloadCompletedNotification bool true
+			echo_t "FirmwareDownloadCompletedNotification SET to true succeeded" >> $XCONF_LOG_FILE
+		else
+			dmcli eRT setv Device.DeviceInfo.X_RDKCENTRAL-COM_xOpsDeviceMgmt.RPC.FirmwareDownloadCompletedNotification bool false
+			echo_t "FirmwareDownloadCompletedNotification SET to false succeeded" >> $XCONF_LOG_FILE
+		fi
+
+
        else
                 download_image_success=0
             	# Set the flag to 0 to force a requery
@@ -1051,6 +1070,9 @@ while [ $reboot_device_success -eq 0 ]; do
         #Reboot the device
 	    echo_t "XCONF SCRIPT : Reboot possible. Issuing reboot command"
 	    echo_t "RDKB_REBOOT : Reboot command issued from XCONF"
+		echo_t "setting LastRebootReason"
+		dmcli eRT setv Device.DeviceInfo.X_RDKCENTRAL-COM_LastRebootReason string Software_upgrade
+		echo_t "XCONF SCRIPT : SET succeeded"
 		$BIN_PATH/XconfHttpDl http_reboot 
 		reboot_device=$?
 		       
@@ -1064,10 +1086,6 @@ while [ $reboot_device_success -eq 0 ]; do
 		    touch /nvram/reboot_due_to_sw_upgrade
 		    echo_t "XCONF SCRIPT : REBOOTING DEVICE"
             echo_t "RDKB_REBOOT : Rebooting device due to software upgrade"
-            echo_t "setting LastRebootReason"
-            dmcli eRT setv Device.DeviceInfo.X_RDKCENTRAL-COM_LastRebootReason string Software_upgrade
-	    echo_t "XCONF SCRIPT : SET succeeded"
-            
                 
         else 
             # The reboot command failed, retry in the next maintenance window 
