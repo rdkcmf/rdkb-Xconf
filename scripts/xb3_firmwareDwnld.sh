@@ -827,6 +827,7 @@ fi
 download_image_success=0
 reboot_device_success=0
 http_flash_led_disable=0
+http_flash_led_enable=1
 is_already_flash_led_disable=0
 
 while [ $download_image_success -eq 0 ]; 
@@ -894,9 +895,21 @@ do
 
 				echo "XCONF SCRIPT : Reboot Immediately : FALSE. Downloading image now"
 				echo_t "XCONF SCRIPT : Reboot Immediately : FALSE. Downloading image now" >> $XCONF_LOG_FILE
+			if  [ $is_already_flash_led_disable -eq 0 ];
+			then
+				echo_t "XCONF SCRIPT	: ### Disabling httpdownload LED flash ###" >> $XCONF_LOG_FILE
+				$BIN_PATH/XconfHttpDl http_flash_led $http_flash_led_disable
+				 is_already_flash_led_disable=1
+			fi    
             else
                 echo  "XCONF SCRIPT : Reboot Immediately : TRUE : Downloading image now"
                 echo_t  "XCONF SCRIPT : Reboot Immediately : TRUE : Downloading image now" >> $XCONF_LOG_FILE
+			if  [ $is_already_flash_led_disable -eq 1 ];
+			then
+				echo_t "XCONF SCRIPT	: ### Enabling httpdownload LED flash ###" >> $XCONF_LOG_FILE
+				$BIN_PATH/XconfHttpDl http_flash_led $http_flash_led_enable
+				 is_already_flash_led_disable=0
+			fi  
             fi
 			
 			#echo "XCONF SCRIPT : Sleep to prevent gw refresh error"
@@ -977,13 +990,6 @@ while [ $reboot_device_success -eq 0 ]; do
             reboot_now=0
         fi
 
-
-        if [ $reboot_now -eq 0 ] && [ $is_already_flash_led_disable -eq 0 ];
-		then
-			echo "XCONF SCRIPT	: ### httpdownload flash LED disabled ###" >> $XCONF_LOG_FILE
-			$BIN_PATH/XconfHttpDl http_flash_led $http_flash_led_disable
-            is_already_flash_led_disable=1
-        fi    
 
         # If we are not supposed to reboot now, calculate random time
         # to reboot in next maintenance window 
