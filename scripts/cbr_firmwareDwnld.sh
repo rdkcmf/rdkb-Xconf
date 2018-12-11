@@ -936,6 +936,13 @@ do
 
            if [ "$rebootImmediately" == "false" ];then
               echo_t "XCONF SCRIPT : Reboot Immediately : FALSE. Downloading image now" >> $XCONF_LOG_FILE
+                if [ $is_already_flash_led_disable -eq 0 ];
+                then
+                        echo "XCONF SCRIPT      : ### httpdownload flash LED disabled ###" >> $XCONF_LOG_FILE
+                        echo "calling XconfHttpDl with argument as http_flash_led $http_flash_led_disable"
+                        $BIN_PATH/XconfHttpDl http_flash_led $http_flash_led_disable
+                        is_already_flash_led_disable=1
+                fi
            else
               echo_t  "XCONF SCRIPT : Reboot Immediately : TRUE : Downloading image now" >> $XCONF_LOG_FILE
            fi
