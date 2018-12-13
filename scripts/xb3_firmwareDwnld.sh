@@ -1047,7 +1047,7 @@ while [ $reboot_device_success -eq 0 ]; do
         #Abort Reboot
 	if [ ! -e "$ABORT_REBOOT" ]
 	then
-	        
+	    /usr/ccsp/tad/check_gw_health.sh store-health
         #Reboot the device
 	    echo_t "XCONF SCRIPT : Reboot possible. Issuing reboot command"
 	    echo_t "RDKB_REBOOT : Reboot command issued from XCONF"
