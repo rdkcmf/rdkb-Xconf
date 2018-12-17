@@ -901,8 +901,12 @@ getFirmwareUpgDetail
 fi
 
 if [ "$rebootImmediately" == "true" ];then
+    rm -f /tmp/.dwd_led_blink_disable
+    echo "XCONF SCRIPT : .dwd_led_blink_disable deleted" >> $XCONF_LOG_FILE
     echo_t "XCONF SCRIPT : Reboot Immediately : TRUE!!"
 else
+    touch /tmp/.dwd_led_blink_disable
+    echo "XCONF SCRIPT : .dwd_led_blink_disable created" >> $XCONF_LOG_FILE
     echo_t "XCONF SCRIPT : Reboot Immediately : FALSE."
 
 fi    
