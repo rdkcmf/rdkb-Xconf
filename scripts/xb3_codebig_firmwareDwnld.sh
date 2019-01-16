@@ -1089,7 +1089,7 @@ do
 			current_time=`date +%s`
 			echo_t "current_time calculated as" $current_time >> $XCONF_LOG_FILE
 			dmcli eRT setv Device.DeviceInfo.X_RDKCENTRAL-COM_xOpsDeviceMgmt.RPC.FirmwareDownloadStartedNotification string $current_time
-			echo_t "XCONF SCRIPT : FirmwareDownloadStartedNotification SET succeeded" >> $XCONF_LOG_FILE
+			echo_t "XCONF SCRIPT : FirmwareDownloadStartedNotification SET is triggered" >> $XCONF_LOG_FILE
 
                 # Start the image download
                         echo "[ $(date) ] XCONF SCRIPT  ### httpdownload started ###" >> $XCONF_LOG_FILE
@@ -1125,10 +1125,10 @@ do
 		# true indicates successful download and false indicates unsuccessful download.
 		if [ $http_dl_stat -eq 0 ];then
 			dmcli eRT setv Device.DeviceInfo.X_RDKCENTRAL-COM_xOpsDeviceMgmt.RPC.FirmwareDownloadCompletedNotification bool true
-			echo_t "FirmwareDownloadCompletedNotification SET to true succeeded" >> $XCONF_LOG_FILE
+			echo_t "FirmwareDownloadCompletedNotification SET to true is triggered" >> $XCONF_LOG_FILE
 		else
 			dmcli eRT setv Device.DeviceInfo.X_RDKCENTRAL-COM_xOpsDeviceMgmt.RPC.FirmwareDownloadCompletedNotification bool false
-			echo_t "FirmwareDownloadCompletedNotification SET to false succeeded" >> $XCONF_LOG_FILE
+			echo_t "FirmwareDownloadCompletedNotification SET to false is triggered" >> $XCONF_LOG_FILE
 		fi
 
 
