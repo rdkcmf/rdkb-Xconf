@@ -1004,7 +1004,7 @@ do
 			if  [ $is_already_flash_led_disable -eq 0 ] && [ "$MODEL_NUM" = "TG3482G" ] ;
 			then
 				echo_t "XCONF SCRIPT	: ### Disabling httpdownload LED flash ###" >> $XCONF_LOG_FILE
-				$BIN_PATH/XconfHttpDl http_flash_led $http_flash_led_disable
+				XconfHttpDl http_flash_led $http_flash_led_disable  >> $XCONF_LOG_FILE
 				 is_already_flash_led_disable=1
 			fi    
             else
@@ -1014,7 +1014,7 @@ do
 			if  [ $is_already_flash_led_disable -eq 1 ] && [ "$MODEL_NUM" = "TG3482G" ]  ;
 			then
 				echo_t "XCONF SCRIPT	: ### Enabling httpdownload LED flash ###" >> $XCONF_LOG_FILE
-				$BIN_PATH/XconfHttpDl http_flash_led $http_flash_led_enable
+				XconfHttpDl http_flash_led $http_flash_led_enable  >> $XCONF_LOG_FILE
 				 is_already_flash_led_disable=0
 			fi  
             fi
