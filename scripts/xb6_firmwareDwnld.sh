@@ -100,6 +100,15 @@ echo_t()
 	    echo "`date +"%y%m%d-%T.%6N"` $1"
 }
 
+# NOTE:: RDKB-20262 if rdkfwupgrader daemon is enabled, don't do anything in these scripts.
+if [ "$isPeriodicFWCheckEnabled" == "true" ] ;then
+        /etc/rdkfwupgrader_message.sh
+        
+        if [ $? -ne 0 ] ;then
+            exit 1
+        fi
+
+fi
 
 # Get currrent firmware in th eunit
 getCurrentFw()
@@ -1179,9 +1188,8 @@ do
 				echo_t "XCONF SCRIPT	: ### Enabling httpdownload LED flash ###" >> $XCONF_LOG_FILE
 				XconfHttpDl http_flash_led $http_flash_led_enable  >> $XCONF_LOG_FILE
 				 is_already_flash_led_disable=0
-			fi  
+ 			fi
             fi
-			
 			#echo_t "XCONF SCRIPT : Sleep to prevent gw refresh error"
 			#echo_t "XCONF SCRIPT : Sleep to prevent gw refresh error" >> $XCONF_LOG_FILE
             #sleep 60

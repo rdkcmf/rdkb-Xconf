@@ -95,6 +95,16 @@ echo_t()
 	    echo "`date +"%y%m%d-%T.%6N"` $1"
 }
 
+# NOTE:: RDKB-20262 if rdkfwupgrader daemon is enabled, don't do anything in these scripts.
+if [ "$isPeriodicFWCheckEnabled" == "true" ] ;then
+        /etc/rdkfwupgrader_message.sh
+        
+        if [ $? -ne 0 ] ;then
+            exit 1
+        fi
+
+fi
+
 #Grab the model number
 modelNum=`dmcli eRT getv Device.DeviceInfo.ModelName | awk '/value:/ {print "P"$5;}'`;
 if [ "$modelNum" = "" ]
