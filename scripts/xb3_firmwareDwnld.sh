@@ -83,6 +83,16 @@ isPeriodicFWCheckEnabled=`syscfg get PeriodicFWCheck_Enable`
 isWanLinkHealEnabled=`syscfg get wanlinkheal`
 reb_window=0
 
+# NOTE:: RDKB-20262 if rdkfwupgrader daemon is enabled, don't do anything in these scripts.
+if [ "$isPeriodicFWCheckEnabled" == "true" ] ;then
+        /etc/rdkfwupgrader_message.sh
+        
+        if [ $? -ne 0 ] ;then
+            exit 1
+        fi
+
+fi
+
 #
 # release numbering system rules
 #

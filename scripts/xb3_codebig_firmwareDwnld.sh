@@ -81,6 +81,15 @@ conn_str="Direct"
 CodebigAvailable=0
 UseCodebig=0
 
+# NOTE:: RDKB-20262 if rdkfwupgrader daemon is enabled, don't do anything in these scripts.
+if [ "$isPeriodicFWCheckEnabled" == "true" ] ;then
+        /etc/rdkfwupgrader_message.sh
+        
+        if [ $? -ne 0 ] ;then
+            exit 1
+        fi
+
+fi
 
 #if [ $# -ne 1 ]; then
         #echo "USAGE: $0 <TFTP Server IP> <UploadProtocol> <UploadHttpLink> <uploadOnReboot>"

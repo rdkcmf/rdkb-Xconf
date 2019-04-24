@@ -32,21 +32,24 @@ REBOOT_WAIT="/tmp/.waitingreboot"
 DCM_FILE_DOWNLOADED="/tmp/dcmFileDownloaded"
 MAX_RETRY=10
 file_check_count=0
-
 XCONF_LOG_FILE_NAME=xconf.txt.0
 XCONF_LOG_FILE_PATHNAME=${LOG_PATH}/${XCONF_LOG_FILE_NAME}
 XCONF_LOG_FILE=${XCONF_LOG_FILE_PATHNAME}
-
 FWUPGRADE_EXCLUDE=`syscfg get AutoExcludedEnabled`
-
 if [ "$FWUPGRADE_EXCLUDE" = "true" ] && [ "$type" != "PROD" ] && [ $BUILD_TYPE != "prod" ] && [ ! -f /nvram/swupdate.conf ] ; then
     echo "Device excluded from FW Upgrade!! Exiting"
     exit
 fi
-
 BOX=`grep BOX_TYPE /etc/device.properties | cut -d "=" -f2 | tr 'A-Z' 'a-z'`
-
-if [ "$BOX" = "tccbr" ]; then
+RDKFWUpgrader_PID=`pidof rdkfwupgrader`
+#check if RDKFirmwareUpgrader is enabled if true send dbus trigger to the rdkfwupgrader daemon uing check_now()
+isRDKFWUpgraderEnabled=`syscfg get RDKFirmwareUpgraderEnabled`
+if [ "x$isRDKFWUpgraderEnabled" = "xtrue" ] && [ -n "$RDKFWUpgrader_PID" ] ; then
+    echo "isRDKFWUpgraderEnabled = $isRDKFWUpgraderEnabled"
+    DOWNLOAD_SCRIPT="/lib/rdk/rdkfwupgrader_check_now.sh"
+    SCRIPT_NAME="rdkfwupgrader_check_now.sh"
+	
+elif [ "$BOX" = "tccbr" ]; then
     DOWNLOAD_SCRIPT="/etc/cbr_firmwareDwnld.sh"
     SCRIPT_NAME="cbr_firmwareDwnld.sh"
 else
@@ -54,12 +57,10 @@ else
     DOWNLOAD_SCRIPT="/etc/$BOX$FIRMWARE_DOWNLOAD"
     SCRIPT_NAME="$BOX$FIRMWARE_DOWNLOAD"
 fi
-
 if [ -z "$BOX" ]; then
     echo_t "Box Type Not found exiting scheduler script"  >> $XCONF_LOG_FILE
     exit
 fi
-
 isPeriodicFWCheckEnabled=`syscfg get PeriodicFWCheck_Enable`
 if [ "$isPeriodicFWCheckEnabled" != "true" ]
 then
@@ -111,31 +112,24 @@ updateCron()
 {
     rand_hr=0
     rand_min=0
-
     # Calculate random time for cron pattern
     # The max random time can be 23:59:59
     echo_t "XCONF SCRIPT: Check Update time being calculated within 24 hrs." >> $XCONF_LOG_FILE
     rand_hr=`awk -v min=0 -v max=23 -v seed="$(date +%N)" 'BEGIN{srand(seed);print int(min+rand()*(max-min+1))}'`
     rand_min=`awk -v min=0 -v max=59 -v seed="$(date +%N)" 'BEGIN{srand(seed);print int(min+rand()*(max-min+1))}'`
-
     cronPattern="$rand_min $rand_hr * * *"
     crontab -l -c $CRONTAB_DIR > $CRON_FILE_BK
     sed -i "/$SCRIPT_NAME/d" $CRON_FILE_BK
     echo "$cronPattern  $DOWNLOAD_SCRIPT 2" >> $CRON_FILE_BK
     crontab $CRON_FILE_BK -c $CRONTAB_DIR
     rm -rf $CRON_FILE_BK
-
     echo_t "XCONF SCRIPT: Time Generated : $rand_hr hr $rand_min min"
-
 }
-
-
 ##############################################################
 #                                                            #
 #                          Main App                          #
 #                                                            #
 ##############################################################
-
 # Check if the crontab entry needs to be removed or not
 if [ "$1" == "RemoveCronJob" ]
 then
@@ -151,7 +145,6 @@ then
    echo_t "XCONF SCRIPT: Removed firmwareDwnld crontab entry, exiting... "
    exit
 fi
-
 # Check if we have DCM response file
 if [ ! -f $DCMRESPONSE ]
 then
@@ -169,13 +162,10 @@ then
      
    done
 fi
-
 if [ ! -f $REBOOT_WAIT ]
 then
     killall $DOWNLOAD_SCRIPT
 fi
-
-
 while [ $file_check_count -lt $MAX_RETRY ]
 do
   if [ -f "$DCM_FILE_DOWNLOADED" ];then
@@ -187,7 +177,6 @@ do
   fi
   file_check_count=$((file_check_count + 1))
 done
-
 if [ -f "$DCMRESPONSE" ] && [ -f "$DCM_FILE_DOWNLOADED" ]; then
         echo "calling processJsonResponse"
         processJsonResponse
@@ -227,7 +216,6 @@ if [ -f "$DCMRESPONSE" ] && [ -f "$DCM_FILE_DOWNLOADED" ]; then
             	$DOWNLOAD_SCRIPT 1 &     
            fi
        fi
-
 else
        echo_t "XCONF SCRIPT: DCMresponse.txt file or $DCM_FILE_DOWNLOADED not present, call firmware download script"
        updateCron
