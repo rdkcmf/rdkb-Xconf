@@ -29,21 +29,28 @@ OUTFILEOPT='/tmp/.DCMSettings.conf'
 CRON_FILE_BK="/tmp/cron_tab.txt"
 REBOOT_WAIT="/tmp/.waitingreboot"
 
-if [ "$BOX_TYPE" = "XB3" ]
-then
-    DOWNLOAD_SCRIPT="/etc/xb3_firmwareDwnld.sh"
-    SCRIPT_NAME="xb3_firmwareDwnld.sh"
-elif [ "$BOX_TYPE" = "XB6" ]
-then
-    DOWNLOAD_SCRIPT="/etc/xb6_firmwareDwnld.sh"
-    SCRIPT_NAME="xb6_firmwareDwnld.sh"
-elif [ "$BOX_TYPE" = "XF3" ]
-then
-    DOWNLOAD_SCRIPT="/etc/xf3_firmwareDwnld.sh"
-    SCRIPT_NAME="xf3_firmwareDwnld.sh"
+BOX=`cat /etc/device.properties | grep BOX_TYPE | cut -d "=" -f2 | tr 'A-Z' 'a-z'`
+
+if [ "$BOX" = "tccbr" ]; then
+    DOWNLOAD_SCRIPT="/etc/cbr_firmwareDwnld.sh"
+    SCRIPT_NAME="cbr_firmwareDwnld.sh"
 else
-    echo "Box Type Not found exiting scheduler script"
+    FIRMWARE_DOWNLOAD='_firmwareDwnld.sh'
+    DOWNLOAD_SCRIPT="/etc/$BOX$FIRMWARE_DOWNLOAD"
+    SCRIPT_NAME="$BOX$FIRMWARE_DOWNLOAD"
+fi
+
+if [ -z "$BOX" ]; then
+    echo_t "Box Type Not found exiting scheduler script"  >> $XCONF_LOG_FILE
     exit
+fi
+
+isPeriodicFWCheckEnabled=`syscfg get PeriodicFWCheck_Enable`
+if [ "$isPeriodicFWCheckEnabled" != "true" ]
+then
+  echo "XCONF SCRIPT : Calling XCONF CDL script"
+  $DOWNLOAD_SCRIPT 1 &
+  exit
 fi
 
 processJsonResponse()
