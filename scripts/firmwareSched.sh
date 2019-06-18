@@ -43,7 +43,7 @@ DMCLI_CHECKNOW="dmcli eRT setv Device.X_COMCAST-COM_Xcalibur.Client.xconfCheckNo
 # it uses first argument's value as 1 for boot and 2 for cron. Its only usage in target scripts 
 # is to print log and we didn't find a corrseponding test case. So shouldn't break anything as such.
 
-BOX=`cat /etc/device.properties | grep BOX_TYPE | cut -d "=" -f2 | tr 'A-Z' 'a-z'`
+BOX=`grep BOX_TYPE /etc/device.properties | cut -d "=" -f2 | tr 'A-Z' 'a-z'`
 
 if [ "$BOX" = "tccbr" ]; then
     DOWNLOAD_SCRIPT="/etc/cbr_firmwareDwnld.sh"
@@ -172,7 +172,7 @@ if [ -f $DCMRESPONSE ]; then
 	cronPattern=""
         if [ -f "$OUTFILE" ]
         then
-           cronPattern=`cat $OUTFILE | grep "urn:settings:CheckSchedule:cron" | cut -f2 -d=`
+           cronPattern=`grep "urn:settings:CheckSchedule:cron" $OUTFILE | cut -f2 -d=`
         
            if [ "$cronPattern" != "" ]
            then
