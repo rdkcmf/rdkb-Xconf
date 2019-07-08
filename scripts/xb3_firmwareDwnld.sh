@@ -362,6 +362,12 @@ getFirmwareUpgDetail()
         MAC=`ifconfig  | grep $interface |  grep -v $interface:0 | tr -s ' ' | cut -d ' ' -f5`
         date=`date`
         modelName=`dmcli eRT getv Device.DeviceInfo.ModelName | grep value | cut -d ":" -f 3 | tr -d ' ' `
+
+		if [ "$modelName" == "" ]; then
+			echo_t "XCONF SCRIPT : Device model returned NULL from DeviceInfo.ModelName . Reading it from /etc/device.properties " >> $XCONF_LOG_FILE
+			modelName=$MODEL_NUM
+		fi
+
         echo_t "XCONF SCRIPT : CURRENT VERSION : $currentVersion" 
         echo_t "XCONF SCRIPT : CURRENT MAC  : $MAC" 
         echo_t "XCONF SCRIPT : CURRENT DATE : $date"  
