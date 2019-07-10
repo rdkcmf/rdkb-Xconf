@@ -871,16 +871,16 @@ do
 
        if [ "$curr_conn_type" = "direct" ]; then
           # Set the url and filename
-          echo_t "XCONF SCRIPT : URL --- --tlsv1.2 -fgL $firmwareLocation/$firmwareFilename and NAME --- $firmwareFilename" >> $XCONF_LOG_FILE
+          echo_t "XCONF SCRIPT : URL --- --tlsv1.2 $addr_type -fgL $firmwareLocation/$firmwareFilename and NAME --- $firmwareFilename" >> $XCONF_LOG_FILE
 #          CURL_CMD_SSR="curl --connect-timeout 30 --tlsv1.2 --interface $interface $addr_type -w '%{http_code}\n' -fgLo $TMP_PATH/$firmwareFilename '$firmwareLocation/$firmwareFilename'"
-          $BIN_PATH/XconfHttpDl set_http_url "-fgL '$firmwareLocation/$firmwareFilename'" "$firmwareFilename" complete_url
+          $BIN_PATH/XconfHttpDl set_http_url "$addr_type -fgL '$firmwareLocation/$firmwareFilename'" "$firmwareFilename" complete_url
           set_url_stat=$?
        else
           # Set the url and filename
-          echo_t "XCONF SCRIPT : URL --- `echo "$CURL_SSR_PARAM"| sed -e  's/oauth_consumer_key=.*oauth_signature=.*/<hidden>/g'` and NAME --- $firmwareFilename"
-          echo_t "XCONF SCRIPT : URL --- `echo "$CURL_SSR_PARAM"| sed -e  's/oauth_consumer_key=.*oauth_signature=.*/<hidden>/g'` and NAME --- $firmwareFilename" >> $XCONF_LOG_FILE
+          echo_t "XCONF SCRIPT : URL --- `echo "$addr_type $CURL_SSR_PARAM"| sed -e  's/oauth_consumer_key=.*oauth_signature=.*/<hidden>/g'` and NAME --- $firmwareFilename"
+          echo_t "XCONF SCRIPT : URL --- `echo "$addr_type $CURL_SSR_PARAM"| sed -e  's/oauth_consumer_key=.*oauth_signature=.*/<hidden>/g'` and NAME --- $firmwareFilename" >> $XCONF_LOG_FILE
 #          echo_t "Codebig CURL_CMD :`echo  "$CURL_CMD_SSR" |  sed -ne 's#'"$authorizationHeader"'#<Hidden authorization-header>#p'`"
-          $BIN_PATH/XconfHttpDl set_http_url "$CURL_SSR_PARAM" "$firmwareFilename" complete_url
+          $BIN_PATH/XconfHttpDl set_http_url "$addr_type $CURL_SSR_PARAM" "$firmwareFilename" complete_url
           set_url_stat=$?
        fi
         
