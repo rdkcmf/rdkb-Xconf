@@ -97,7 +97,7 @@ checkFirmwareUpgCriteria()
     image_upg_avl=0;
 
     # Retrieve current firmware version
-        currentVersion=`dmcli eRT getvalues Device.DeviceInfo.X_CISCO_COM_FirmwareName | grep DPC3941 | cut -d ":" -f 3 | tr -d ' ' `
+      currentVersion=`dmcli eRT getvalues Device.DeviceInfo.X_CISCO_COM_FirmwareName | grep value | cut -d ":" -f 3 | tr -d ' ' `
 
     echo_t "XCONF SCRIPT : CurrentVersion : $currentVersion"
     echo_t "XCONF SCRIPT : UpgradeVersion : $firmwareVersion"
@@ -434,8 +434,14 @@ getFirmwareUpgDetail()
         ipv6FirmwareLocation=""
         upgradeDelay=""
 
-                currentVersion=`cat /version.txt | grep "imagename:" | cut -d ":" -f 2`
-                devicemodel=`dmcli eRT getv Device.DeviceInfo.ModelName | grep DPC3941 | cut -d ":" -f 3 | tr -d ' ' `
+		 currentVersion=`cat /version.txt | grep "imagename:" | cut -d ":" -f 2`
+		 devicemodel=`dmcli eRT getv Device.DeviceInfo.ModelName | grep value | cut -d ":" -f 3 | tr -d ' ' `
+
+		if [ "$devicemodel" == "" ];then
+			echo_t "XCONF SCRIPT : Device model returned NULL from DeviceInfo.ModelName . Reading it from /etc/device.properties " >> $XCONF_LOG_FILE
+			devicemodel=$MODEL_NUM
+		fi
+
         MAC=`ifconfig  | grep $interface |  grep -v $interface:0 | tr -s ' ' | cut -d ' ' -f5`
                 date=`date`
 
@@ -681,10 +687,17 @@ calcRandTime()
     then
         echo_t "XCONF SCRIPT : Start time can not be equal to end time" >> $XCONF_LOG_FILE
         echo_t "XCONF SCRIPT : Resetting values to default" >> $XCONF_LOG_FILE
+	if [ "$MODEL_NUM" = "DPC3939B" ] || [ "$MODEL_NUM" = "DPC3941B" ]; then
+        dmcli eRT setv Device.DeviceInfo.X_RDKCENTRAL-COM_MaintenanceWindow.FirmwareUpgradeStartTime string "0"
+        dmcli eRT setv Device.DeviceInfo.X_RDKCENTRAL-COM_MaintenanceWindow.FirmwareUpgradeEndTime string "10800"
+        start_time=0
+        end_time=10800
+       else
         dmcli eRT setv Device.DeviceInfo.X_RDKCENTRAL-COM_MaintenanceWindow.FirmwareUpgradeStartTime string "3600"
         dmcli eRT setv Device.DeviceInfo.X_RDKCENTRAL-COM_MaintenanceWindow.FirmwareUpgradeEndTime string "14400"
         start_time=3600
         end_time=14400
+	fi
     fi
 
     echo_t "XCONF SCRIPT : Firmware upgrade start time : $start_time" >> $XCONF_LOG_FILE
@@ -859,10 +872,17 @@ checkMaintenanceWindow()
     then
         echo_t "XCONF SCRIPT : Start time can not be equal to end time" >> $XCONF_LOG_FILE
         echo_t "XCONF SCRIPT : Resetting values to default" >> $XCONF_LOG_FILE
+	if [ "$MODEL_NUM" = "DPC3939B" ] || [ "$MODEL_NUM" = "DPC3941B" ]; then
+        dmcli eRT setv Device.DeviceInfo.X_RDKCENTRAL-COM_MaintenanceWindow.FirmwareUpgradeStartTime string "0"
+        dmcli eRT setv Device.DeviceInfo.X_RDKCENTRAL-COM_MaintenanceWindow.FirmwareUpgradeEndTime string "10800"
+        start_time=0
+        end_time=10800
+       else
         dmcli eRT setv Device.DeviceInfo.X_RDKCENTRAL-COM_MaintenanceWindow.FirmwareUpgradeStartTime string "3600"
         dmcli eRT setv Device.DeviceInfo.X_RDKCENTRAL-COM_MaintenanceWindow.FirmwareUpgradeEndTime string "14400"
         start_time=3600
         end_time=14400
+	fi
     fi
     echo_t "XCONF SCRIPT : Firmware upgrade start time : $start_time" >> $XCONF_LOG_FILE
     echo_t "XCONF SCRIPT : Firmware upgrade end time : $end_time" >> $XCONF_LOG_FILE
