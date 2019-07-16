@@ -810,6 +810,8 @@ calcRandTime()
             sec_to_sleep=$((sec_to_12+random_time_in_sec))
         fi
 
+        min_to_sleep=$((sec_to_sleep/60))
+
         time=$(( `date +%s`+$sec_to_sleep ))
         date_final=`date -d @${time} +"%T"`
 
