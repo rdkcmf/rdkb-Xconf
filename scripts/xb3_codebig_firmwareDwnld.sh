@@ -53,6 +53,9 @@ WAN_INTERFACE="erouter0"
 
 firmwareName_configured=""
 
+FW_START="/nvram/.FirmwareUpgradeStartTime"
+FW_END="/nvram/.FirmwareUpgradeEndTime"
+
 isPeriodicFWCheckEnabled=`syscfg get PeriodicFWCheck_Enable`
 
 #if [ $# -ne 1 ]; then
@@ -678,24 +681,25 @@ calcRandTime()
     rand_sec=`awk -v min=0 -v max=59 -v seed="$(date +%N)" 'BEGIN{srand(seed);print int(min+rand()*(max-min+1))}'`
 
     # Extract maintenance window start and end time
-    start_time=`dmcli eRT getv Device.DeviceInfo.X_RDKCENTRAL-COM_MaintenanceWindow.FirmwareUpgradeStartTime | grep "value:" | cut -d ":" -f 3 | tr -d ' '`
-    end_time=`dmcli eRT getv Device.DeviceInfo.X_RDKCENTRAL-COM_MaintenanceWindow.FirmwareUpgradeEndTime | grep "value:" | cut -d ":" -f 3 | tr -d ' '`
+    if [ -f "$FW_START" ] && [ -f "$FW_END" ]
+    then
+      start_time=`cat $FW_START`
+      end_time=`cat $FW_END`
+    fi
 
     if [ "$start_time" = "$end_time" ]
     then
         echo_t "XCONF SCRIPT : Start time can not be equal to end time" >> $XCONF_LOG_FILE
         echo_t "XCONF SCRIPT : Resetting values to default" >> $XCONF_LOG_FILE
 	if [ "$MODEL_NUM" = "DPC3939B" ] || [ "$MODEL_NUM" = "DPC3941B" ]; then
-        dmcli eRT setv Device.DeviceInfo.X_RDKCENTRAL-COM_MaintenanceWindow.FirmwareUpgradeStartTime string "0"
-        dmcli eRT setv Device.DeviceInfo.X_RDKCENTRAL-COM_MaintenanceWindow.FirmwareUpgradeEndTime string "10800"
-        start_time=0
-        end_time=10800
-       else
-        dmcli eRT setv Device.DeviceInfo.X_RDKCENTRAL-COM_MaintenanceWindow.FirmwareUpgradeStartTime string "3600"
-        dmcli eRT setv Device.DeviceInfo.X_RDKCENTRAL-COM_MaintenanceWindow.FirmwareUpgradeEndTime string "14400"
-        start_time=3600
-        end_time=14400
+          start_time=0
+          end_time=10800
+        else
+          start_time=3600
+          end_time=14400
 	fi
+        echo "$start_time" > $FW_START
+        echo "$end_time" > $FW_END
     fi
 
     echo_t "XCONF SCRIPT : Firmware upgrade start time : $start_time" >> $XCONF_LOG_FILE
@@ -863,24 +867,25 @@ removeLegacyResources()
 # Check if it is still in maintenance window
 checkMaintenanceWindow()
 {
-    start_time=`dmcli eRT getv Device.DeviceInfo.X_RDKCENTRAL-COM_MaintenanceWindow.FirmwareUpgradeStartTime | grep "value:" | cut -d ":" -f 3 | tr -d ' '`
-    end_time=`dmcli eRT getv Device.DeviceInfo.X_RDKCENTRAL-COM_MaintenanceWindow.FirmwareUpgradeEndTime | grep "value:" | cut -d ":" -f 3 | tr -d ' '`
+    if [ -f "$FW_START" ] && [ -f "$FW_END" ]
+    then
+      start_time=`cat $FW_START`
+      end_time=`cat $FW_END`
+    fi
 
     if [ "$start_time" -eq "$end_time" ]
     then
         echo_t "XCONF SCRIPT : Start time can not be equal to end time" >> $XCONF_LOG_FILE
         echo_t "XCONF SCRIPT : Resetting values to default" >> $XCONF_LOG_FILE
 	if [ "$MODEL_NUM" = "DPC3939B" ] || [ "$MODEL_NUM" = "DPC3941B" ]; then
-        dmcli eRT setv Device.DeviceInfo.X_RDKCENTRAL-COM_MaintenanceWindow.FirmwareUpgradeStartTime string "0"
-        dmcli eRT setv Device.DeviceInfo.X_RDKCENTRAL-COM_MaintenanceWindow.FirmwareUpgradeEndTime string "10800"
-        start_time=0
-        end_time=10800
-       else
-        dmcli eRT setv Device.DeviceInfo.X_RDKCENTRAL-COM_MaintenanceWindow.FirmwareUpgradeStartTime string "3600"
-        dmcli eRT setv Device.DeviceInfo.X_RDKCENTRAL-COM_MaintenanceWindow.FirmwareUpgradeEndTime string "14400"
-        start_time=3600
-        end_time=14400
+          start_time=0
+          end_time=10800
+        else
+          start_time=3600
+          end_time=14400
 	fi
+        echo "$start_time" > $FW_START
+        echo "$end_time" > $FW_END
     fi
     echo_t "XCONF SCRIPT : Firmware upgrade start time : $start_time" >> $XCONF_LOG_FILE
     echo_t "XCONF SCRIPT : Firmware upgrade end time : $end_time" >> $XCONF_LOG_FILE
