@@ -823,11 +823,6 @@ checkMaintenanceWindow()
 }
 #####################################################Main Application#####################################################
 
-#Setting up the iptable rule that needed for ci-xconf to communicate
-#This need to be removed once we have proper firewall settings
-
-iptables -t mangle -A OUTPUT -o erouter0 -j DSCP --set-dscp-class AF32
-
 # Determine the env type and url and write to /tmp/Xconf
 #type=`printenv model | cut -d "=" -f2`
 
