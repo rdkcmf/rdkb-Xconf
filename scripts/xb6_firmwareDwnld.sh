@@ -355,20 +355,29 @@ getFirmwareUpgDetail()
 
     #s16 : env=`cat /tmp/Xconf | cut -d "=" -f1`
     env=$type
-    xconf_url=`cat /tmp/Xconf | cut -d "=" -f2`
-    
+
     # If an /tmp/Xconf file was not created, use the default values
     if [ ! -f /tmp/Xconf ]; then
         echo_t "XCONF SCRIPT : ERROR : /tmp/Xconf file not found! Using defaults"
         echo_t "XCONF SCRIPT : ERROR : /tmp/Xconf file not found! Using defaults" >> $XCONF_LOG_FILE
         env="PROD"
         xconf_url="https://xconf.xcal.tv/xconf/swu/stb/"
+    else
+        xconf_url=`cat /tmp/Xconf | cut -d "=" -f2`
     fi
 
     # if xconf_url uses http, then log it
-    if [ `echo "${xconf_url:0:6}" | tr '[:upper:]' '[:lower:]'` != "https:" ]; then
-        echo_t "firmware download config using HTTP to $xconf_url" >> $XCONF_LOG_FILE
-    fi
+    case $(echo "$xconf_url" | cut -d ":" -f1 | tr '[:upper:]' '[:lower:]') in
+        "https")
+            #echo_t "XCONF SCRIPT : firmware download config using HTTPS to $xconf_url" >> $XCONF_LOG_FILE
+            ;;
+        "http")
+            echo_t "XCONF SCRIPT : firmware download config using HTTP to $xconf_url" >> $XCONF_LOG_FILE
+            ;;
+        *)
+            echo_t "XCONF SCRIPT : ERROR : firmware download config using invalid URL to '$xconf_url'" >> $XCONF_LOG_FILE
+            ;;
+    esac
 
     echo_t "XCONF SCRIPT : env is $env"
     echo_t "XCONF SCRIPT : xconf url  is $xconf_url"

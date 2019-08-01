@@ -384,7 +384,6 @@ getFirmwareUpgDetail()
 
     #s16 : env=`cat /tmp/Xconf | cut -d "=" -f1`
     env=$type
-    xconf_url=`cat /tmp/Xconf | cut -d "=" -f2`
 
     # If an /tmp/Xconf file was not created, use the default values
     if [ ! -f /tmp/Xconf ]; then
@@ -392,23 +391,22 @@ getFirmwareUpgDetail()
         echo_t "XCONF SCRIPT : ERROR : /tmp/Xconf file not found! Using defaults" >> $XCONF_LOG_FILE
         env="PROD"
         xconf_url="https://xconf.xcal.tv/xconf/swu/stb/"
+    else
+        xconf_url=`cat /tmp/Xconf | cut -d "=" -f2`
     fi
 
     # if xconf_url uses http, then log it
-    if [ `echo "${xconf_url:0:6}" | tr '[:upper:]' '[:lower:]'` != "https:" ]; then
-        echo "firmware download using insecure protocol to $xconf_url" >> $XCONF_LOG_FILE
-    fi
-
-    echo_t "XCONF SCRIPT : env is $env"
-    echo_t "XCONF SCRIPT : xconf url  is $xconf_url"
-
-    # If interface doesnt have ipv6 address then we will force the curl to go with ipv4.
-    # Otherwise we will not specify the ip address family in curl options
-    if [ "$isIPv6" != "" ]; then
-        addr_type=""
-    else
-        addr_type="-4"
-    fi
+    case $(echo "$xconf_url" | cut -d ":" -f1 | tr '[:upper:]' '[:lower:]') in
+        "https")
+            #echo_t "XCONF SCRIPT : firmware download using HTTPS to $xconf_url" >> $XCONF_LOG_FILE
+            ;;
+        "http")
+            echo_t "XCONF SCRIPT : firmware download using insecure protocol to $xconf_url" >> $XCONF_LOG_FILE
+            ;;
+        *)
+            echo_t "XCONF SCRIPT : ERROR : firmware download using invalid URL to '$xconf_url'" >> $XCONF_LOG_FILE
+            ;;
+    esac
 
     # Check with the XCONF server if an update is available
     while [ $xconf_retry_count -le 3 ] && [ $retry_flag -eq 1 ]
