@@ -1012,6 +1012,11 @@ do
 				 is_already_flash_led_disable=1
 			fi    
             else
+                if [ -f /tmp/.dwd_led_blink_disable ]
+                then
+                        rm -f /tmp/.dwd_led_blink_disable
+                        echo "XCONF SCRIPT : .dwd_led_blink_disable deleted" >> $XCONF_LOG_FILE
+                fi
                 echo_t  "XCONF SCRIPT : Reboot Immediately : TRUE : Downloading image now"
                 echo_t  "XCONF SCRIPT : Reboot Immediately : TRUE : Downloading image now" >> $XCONF_LOG_FILE
 			# TCXB6 deferred reboot functionality implementation is not yet available, making change ArriXB6 specific
