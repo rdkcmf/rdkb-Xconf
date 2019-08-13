@@ -29,7 +29,7 @@
 #define RETRY_HTTP_DOWNLOAD_LIMIT 3
 #define RETURN_OK 0
 #define LONG long
-#define CM_HTTPURL_LEN 512
+#define CM_HTTPURL_LEN 1024
 #define CM_FILENAME_LEN 200
 
 /*Typedefs Declared*/
