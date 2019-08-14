@@ -1123,12 +1123,63 @@ do
            # Start the image download
            echo_t "XCONF SCRIPT  ### httpdownload started ###" >> $XCONF_LOG_FILE
 # Check for direct/codebig not required : as CMD already set. 
-# ToCheck : In case fallback mechanism needs to be implemented for SSR, as no loop was implemented here originally
-           HTTP_CODE=`result= eval $CURL_CMD_SSR`
-           http_dl_stat=$?
-           HTTP_RESPONSE_CODE=$(echo "$HTTP_CODE" | awk -F\" '{print $1}' )
-           [ "x$HTTP_RESPONSE_CODE" != "x" ] || HTTP_RESPONSE_CODE=0
-           if [ "x$HTTP_RESPONSE_CODE" = "x200" ] ; then
+##################################################################################################################################################
+#	Following code will loop through 5 times to download image.
+#       Code Flow:
+#               Retry downloading for "numberOfTries" times if download fails until numberOfTries hasn't met otherwise exit if succeeded.  
+#               Determine success/failure based on following errors 1) file not available 2) connection error 
+#		3) if partial file was downloaded 4) if nothing was returned from server 5) Network failure 6)other failures
+#               If full file was successfully downloaded then invoke OEM to flash it on device
+##################################################################################################################################################
+           currentTry=0
+           numberOfTries=5
+           while [ $currentTry -lt $numberOfTries ]; 
+           do
+		HTTP_CODE=`result= eval $CURL_CMD_SSR`
+		curl_code=$?
+		HTTP_RESPONSE_CODE=$(echo "$HTTP_CODE" | awk -F\" '{print $1}' )
+		echo_t "XCONF SCRIPT : Direct CURL_CMD_SSR : $CURL_CMD_SSR" >> $XCONF_LOG_FILE  
+		echo_t "XCONF SCRIPT : curl_code:$curl_code, http_code:$HTTP_RESPONSE_CODE"  >> $XCONF_LOG_FILE
+		[ "x$HTTP_RESPONSE_CODE" != "x" ] || HTTP_RESPONSE_CODE=0    
+		if [ "x$curl_code" ==  "x0" ] && [ "x$HTTP_RESPONSE_CODE" == "x200" ] ; then
+                    echo_t "XCONF SCRIPT : Breaking the download loop as Download is successful. curl_code:$curl_code, http_code:$HTTP_RESPONSE_CODE" >> $XCONF_LOG_FILE
+                    http_dl_stat=0
+                    break
+                else 
+                    echo_t "XCONF SCRIPT : curl error code: $curl_code, http_code: $HTTP_RESPONSE_CODE"  >> $XCONF_LOG_FILE
+                    #cleanup 
+                    rm $TMP_PATH/$firmwareFilename$
+                    http_dl_stat=1
+                    if [ "x$curl_code" == "x23" ] || [ "x$curl_code" == "x25" ] || [ "x$curl_code" == "x26" ]; then
+                        #file errors 23,25,26
+                        echo_t "XCONF SCRIPT : Curl did not find file on server in $currentTry attempt. curl error code: $curl_code" >> $XCONF_LOG_FILE
+                    elif [ "x$curl_code" == "x5" ] || [ "x$curl_code" == "x6" ] || [ "x$curl_code" == "x7" ]; then
+                        #connection errors 5,6,7
+                        echo_t "XCONF SCRIPT : Curl could not connect to server in $currentTry attempt. curl error code: $curl_code" >> $XCONF_LOG_FILE
+                    elif [ "x$curl_code" == "x18" ] || [ "x$curl_code" == "x19" ]; then
+                        #partial file download errors 18,19
+                        echo_t "XCONF SCRIPT : Curl could not download full file from server in $currentTry attempt. curl error code: $curl_code" >> $XCONF_LOG_FILE
+                    elif [ "x$curl_code" == "x52" ]; then
+                        #server did not return anything errors 52
+                        echo_t "XCONF SCRIPT : Curl could not retrieve anything from server in $currentTry attempt. curl error code: $curl_code" >> $XCONF_LOG_FILE
+                    elif [ "x$curl_code" == "x55" ] || [ "x$curl_code" == "x56" ]; then
+                        #Failure with network data 55,56
+                        echo_t "XCONF SCRIPT : Curl failure with network data in $currentTry attempt. curl error code: $curl_code" >> $XCONF_LOG_FILE
+                    else
+                        #other errors
+                        echo_t "XCONF SCRIPT : Unknown Curl error in $currentTry attempt. curl error code: $curl_code" >> $XCONF_LOG_FILE
+                    fi
+
+
+                    if [ $currentTry -eq $numberOfTries ]; then
+                        echo_t "XCONF SCRIPT : Something went wrong tried to download $numberOfTries times but did not succeed. Exiting" >> $XCONF_LOG_FILE
+                    else
+                        echo_t "XCONF SCRIPT : Something went wrong tried to download $currentTry times but did not succeed. Will try again..." >> $XCONF_LOG_FILE
+                        let currentTry=$currentTry+1
+                    fi
+                fi
+           done
+          if [ "x$HTTP_RESPONSE_CODE" = "x200" ] ; then
                http_dl_stat=0
                echo_t "XCONF SCRIPT  ### httpdownload completed ###" >> $XCONF_LOG_FILE
            else
