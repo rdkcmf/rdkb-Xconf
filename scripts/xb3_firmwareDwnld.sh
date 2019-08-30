@@ -506,14 +506,18 @@ getFirmwareUpgDetail()
 	      fi
 		
         # If a response code of 404 was received, exit
-            elif [ $HTTP_RESPONSE_CODE -eq 404 ]; then
-                retry_flag=0
-                image_upg_avl=0
-                echo_t "XCONF SCRIPT : Response code received is 404" >> $XCONF_LOG_FILE
+        elif [ $HTTP_RESPONSE_CODE -eq 404 ]; then
+            retry_flag=0
+            image_upg_avl=0
+            echo_t "XCONF SCRIPT : Response code received is 404" >> $XCONF_LOG_FILE
+            if [ "$DEVICE_MODEL" = "TCHXB3" ]; then
+                echo_t "XCONF SCRIPT : Creating /tmp/.xconfssrdownloadurl with $HTTP_RESPONSE_CODE Xconf response"  >> $XCONF_LOG_FILE
+                echo "404" > /tmp/.xconfssrdownloadurl
+            fi
                 
-                if [ "$isPeriodicFWCheckEnabled" == "true" ]; then
-		   exit
-		fi
+            if [ "$isPeriodicFWCheckEnabled" == "true" ]; then
+                exit
+            fi
         # If a response code of 0 was received, the server is unreachable
         # Try reconnecting
         else
