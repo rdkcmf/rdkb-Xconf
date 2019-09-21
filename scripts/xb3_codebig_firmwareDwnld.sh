@@ -1308,9 +1308,20 @@ while [ $reboot_device_success -eq 0 ]; do
                 rm -rf $ABORT_REBOOT
                 rm -rf $deferReboot
                 reboot_device_success=0
-                if [ "$isPeriodicFWCheckEnabled" == "true" ]; then
-                      exit
-                fi
+
+		while [ 1 ]
+		do
+		    checkMaintenanceWindow
+
+		    if [ $reb_window -eq 1 ]
+		    then
+		        #We're still within the maintenance window, sleeping for 2 hr to come out of maintenance window
+		        sleep 7200
+		    else
+		        #If we're out of the maintenance window, exit while loop
+		        break
+		    fi
+		done
        fi
 
      # The reboot ready status didn't change to OK within the maintenance window
