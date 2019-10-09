@@ -409,7 +409,7 @@ getFirmwareUpgDetail()
         env="PROD"
         xconf_url="https://xconf.xcal.tv/xconf/swu/stb/"
     else
-        xconf_url=`cat /tmp/Xconf | cut -d "=" -f2`
+        xconf_url=`cut -d "=" -f2 /tmp/Xconf`
     fi
 
     # if xconf_url uses http, then log it
@@ -849,7 +849,7 @@ getMacAddress()
 
 getBuildType()
 {
-   IMAGENAME=`cat /fss/gw/version.txt | grep imagename: | cut -d ":" -f 2`
+   IMAGENAME=`grep "imagename" /fss/gw/version.txt | cut -d ":" -f 2`
 
    TEMPDEV=`echo $IMAGENAME | grep DEV`
    if [ "$TEMPDEV" != "" ]
