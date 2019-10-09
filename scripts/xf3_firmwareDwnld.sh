@@ -144,12 +144,12 @@ getCurrentFw()
  # Check the location of version.txt file
  if [ -f "/fss/gw/version.txt" ]
  then
-    currentfw=`cat /fss/gw/version.txt | grep image | cut -f2 -d:`
+    currentfw=`grep image /fss/gw/version.txt | cut -f2 -d:`
  elif [ -f "/version.txt" ]
  then
     if [ "$currentfw" = "" ]
 	then
-        currentfw=`cat /version.txt | grep image | cut -f2 -d:`
+        currentfw=`grep image /version.txt | cut -f2 -d:`
 	fi
  fi
  echo $currentfw
@@ -363,7 +363,7 @@ getFirmwareUpgDetail()
         env="PROD"
         xconf_url="https://xconf.xcal.tv/xconf/swu/stb/"
     else
-        xconf_url=`cat /tmp/Xconf | cut -d "=" -f2`
+        xconf_url=`cut -d "=" -f2 /tmp/Xconf`
     fi
 
     # if xconf_url uses http, then log it
@@ -861,7 +861,7 @@ getMacAddress()
 
 getBuildType()
 {
-   IMAGENAME=`cat /version.txt | grep imagename: | cut -d ":" -f 2`
+   IMAGENAME=`grep "imagename" /version.txt | cut -d ":" -f 2`
 
    TEMPDEV=`echo $IMAGENAME | grep DEV`
    if [ "$TEMPDEV" != "" ]

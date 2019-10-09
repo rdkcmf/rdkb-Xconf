@@ -104,7 +104,7 @@ fi
 # Get currrent firmware in th eunit
 getCurrentFw()
 {
-    currentfw=`cat /version.txt | grep "imagename:" | cut -d ":" -f 2`
+    currentfw=`grep "imagename" /version.txt | cut -d ":" -f 2`
     echo $currentfw
 }
 
@@ -332,7 +332,7 @@ checkFirmwareUpgCriteria_temp()
 {
 	image_upg_avl=0
 
-	currentVersion=`cat /version.txt | grep "imagename:" | cut -d ":" -f 2`
+	currentVersion=`grep "imagename" /version.txt | cut -d ":" -f 2`
 	firmwareVersion=`head -n1 /tmp/response.txt | cut -d "," -f4 | cut -d ":" -f2 | cut -d '"' -f2`
 	currentVersion=`echo $currentVersion | tr '[A-Z]' '[a-z]'`
 	firmwareVersion=`echo $firmwareVersion | tr '[A-Z]' '[a-z]'`
@@ -378,7 +378,7 @@ getFirmwareUpgDetail()
         env="PROD"
         xconf_url="https://xconf.xcal.tv/xconf/swu/stb/"
     else
-        xconf_url=`cat /tmp/Xconf | cut -d "=" -f2`
+        xconf_url=`cut -d "=" -f2 /tmp/Xconf`
     fi
 
     # if xconf_url uses http, then log it
@@ -758,7 +758,7 @@ getMacAddress()
 
 getBuildType()
 {
-   IMAGENAME=`cat /version.txt | grep "imagename:" | cut -d ":" -f 2`
+   IMAGENAME=`grep "imagename" /version.txt | cut -d ":" -f 2`
    
    #Assigning default type as DEV
    type="DEV"
