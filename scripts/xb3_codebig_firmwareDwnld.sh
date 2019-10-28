@@ -1131,7 +1131,7 @@ do
 
 			#Trigger FirmwareDownloadStartedNotification before commencement of firmware download
 			current_time=`date +%s`
-			echo_t "current_time calculated as" $current_time >> $XCONF_LOG_FILE
+			echo_t "current_time calculated as $current_time" >> $XCONF_LOG_FILE
 			dmcli eRT setv Device.DeviceInfo.X_RDKCENTRAL-COM_xOpsDeviceMgmt.RPC.FirmwareDownloadStartedNotification string $current_time
 			echo_t "XCONF SCRIPT : FirmwareDownloadStartedNotification SET is triggered" >> $XCONF_LOG_FILE
 
