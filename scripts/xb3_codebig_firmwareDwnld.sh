@@ -314,7 +314,7 @@ checkFirmwareUpgCriteria_temp()
 {
                 image_upg_avl=0
 
-                currentVersion=`cat /version.txt | grep "imagename:" | cut -d ":" -f 2`
+                currentVersion=$IMAGENAME
                 firmwareVersion=`grep firmwareVersion $OUTPUT | cut -d \| -f2 | sed 's/-signed.*//'`
                 currentVersion=`echo $currentVersion | tr '[A-Z]' '[a-z]'`
                 firmwareVersion=`echo $firmwareVersion | tr '[A-Z]' '[a-z]'`
@@ -449,8 +449,13 @@ getFirmwareUpgDetail()
         ipv6FirmwareLocation=""
         upgradeDelay=""
 
-		 currentVersion=`cat /version.txt | grep "imagename:" | cut -d ":" -f 2`
-		 devicemodel=`dmcli eRT getv Device.DeviceInfo.ModelName | grep value | cut -d ":" -f 3 | tr -d ' ' `
+                currentVersion=$IMAGENAME
+                devicemodel=$modelName
+
+                # Retry if $devicemodel is NULL
+                if [ -z "$devicemodel" ];then
+                    devicemodel=`dmcli eRT getv Device.DeviceInfo.ModelName | grep value | cut -d ":" -f 3 | tr -d ' ' `
+                fi
 
 		if [ "$devicemodel" == "" ];then
 			echo_t "XCONF SCRIPT : Device model returned NULL from DeviceInfo.ModelName . Reading it from /etc/device.properties " >> $XCONF_LOG_FILE
