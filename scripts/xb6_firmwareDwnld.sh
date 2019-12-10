@@ -72,7 +72,6 @@ CURL_SSR_PARAM=""
 FW_START="/nvram/.FirmwareUpgradeStartTime"
 FW_END="/nvram/.FirmwareUpgradeEndTime"
 
-
 #codebig_enabled=$CODEBIG_ENABLE
 #codebig=`dmcli eRT getv Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.CodebigSupport | grep value | cut -d ":" -f 3 | tr -d ' ' `
 
@@ -87,19 +86,6 @@ echo_t()
 	    echo "`date +"%y%m%d-%T.%6N"` $1"
 }
 
-# NOTE:: RDKB-20262: if rdkfwupgrader daemon is enabled, don't do anything in these scripts.
-# this is to safeguard against future mistakes or corner cases where someone 
-# calls these scripts directly
-isRDKFWUpgraderEnabled=`dmcli eRT getv Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.RDKFirmwareUpgrader.Enable | grep value | cut -d ":" -f 3 | tr -d ' ' `
-if [ "x$isRDKFWUpgraderEnabled" == "xtrue" ]; then
-    log_line1="Deprecation Warning: RDKFirmwareUpgrader daemon is enabled, usage of old scripts not allowed"
-    log_line2="Deprecation Warning: use rdkfwupgrader_check_now.sh if you need to force an upgrade"
-    echo_t "$log_line1"
-    echo_t "$log_line2"
-    echo_t "$log_line1" >> $XCONF_LOG_FILE
-    echo_t "$log_line2" >> $XCONF_LOG_FILE
-    exit 1
-fi
 
 # Get currrent firmware in th eunit
 getCurrentFw()
