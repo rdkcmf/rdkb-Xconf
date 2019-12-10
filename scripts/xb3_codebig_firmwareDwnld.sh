@@ -56,20 +56,6 @@ firmwareName_configured=""
 FW_START="/nvram/.FirmwareUpgradeStartTime"
 FW_END="/nvram/.FirmwareUpgradeEndTime"
 
-# NOTE:: RDKB-20262: if rdkfwupgrader daemon is enabled, don't do anything in these scripts.
-# this is to safeguard against future mistakes or corner cases where someone 
-# calls these scripts directly
-isRDKFWUpgraderEnabled=`dmcli eRT getv Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.RDKFirmwareUpgrader.Enable | grep value | cut -d ":" -f 3 | tr -d ' ' `
-if [ "x$isRDKFWUpgraderEnabled" == "xtrue" ]; then
-    log_line1="Deprecation Warning: RDKFirmwareUpgrader daemon is enabled, usage of old scripts not allowed"
-    log_line2="Deprecation Warning: use rdkfwupgrader_check_now.sh if you need to force an upgrade"
-    echo_t "$log_line1"
-    echo_t "$log_line2"
-    echo_t "$log_line1" >> $XCONF_LOG_FILE
-    echo_t "$log_line2" >> $XCONF_LOG_FILE
-    exit 1
-fi
-
 isPeriodicFWCheckEnabled=`syscfg get PeriodicFWCheck_Enable`
 
 #if [ $# -ne 1 ]; then

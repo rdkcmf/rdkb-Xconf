@@ -28,20 +28,6 @@ OUTFILE='/tmp/DCMSettings.conf'
 OUTFILEOPT='/tmp/.DCMSettings.conf'
 CRON_FILE_BK="/tmp/cron_tab.txt"
 REBOOT_WAIT="/tmp/.waitingreboot"
-DMCLI_CHECKNOW="dmcli eRT setv Device.X_COMCAST-COM_Xcalibur.Client.xconfCheckNow bool true"
-
-
-# TODO:: We no longer use these files but it will take some time before all
-# cron files are free of these files. Once RDKB-20262 has been delivered in
-# the field and sufficient time has passed these names and their usage should
-# be completely removed.
-
-# NOTE:: we removed direct invokation of $DOWNLOAD_SCRIPT script from here or from cron command. 
-# we only call xconfCheckNow TR181 endpoint as single point of entry for firmwareware 
-# downloads. This allows us simple control over download implimentation. Only side effect :
-# script will not know whether it was a scheduled invokation or at boot invokation, 
-# it uses first argument's value as 1 for boot and 2 for cron. Its only usage in target scripts 
-# is to print log and we didn't find a corrseponding test case. So shouldn't break anything as such.
 
 BOX=`grep BOX_TYPE /etc/device.properties | cut -d "=" -f2 | tr 'A-Z' 'a-z'`
 
@@ -116,8 +102,7 @@ updateCron()
     cronPattern="$rand_min $rand_hr * * *"
     crontab -l -c $CRONTAB_DIR > $CRON_FILE_BK
     sed -i "/$SCRIPT_NAME/d" $CRON_FILE_BK
-    sed -i "/$DMCLI_CHECKNOW/d" $CRON_FILE_BK
-    echo "$cronPattern  $DMCLI_CHECKNOW " >> $CRON_FILE_BK
+    echo "$cronPattern  $DOWNLOAD_SCRIPT 2" >> $CRON_FILE_BK
     crontab $CRON_FILE_BK -c $CRONTAB_DIR
     rm -rf $CRON_FILE_BK
 
@@ -138,12 +123,11 @@ then
    echo_t "XCONF SCRIPT: Removing the firmwareDwnld crontab"
    crontab -l -c $CRONTAB_DIR > $CRON_FILE_BK
    sed -i "/$SCRIPT_NAME/d" $CRON_FILE_BK
-   sed -i "/$DMCLI_CHECKNOW/d" $CRON_FILE_BK
    crontab $CRON_FILE_BK -c $CRONTAB_DIR
    rm -rf $CRON_FILE_BK
    
    echo_t "XCONF SCRIPT: Starting the Download Script"
-   $DMCLI_CHECKNOW
+   $DOWNLOAD_SCRIPT 1 &
    
    echo_t "XCONF SCRIPT: Removed firmwareDwnld crontab entry, exiting... "
    exit
@@ -167,6 +151,11 @@ then
    done
 fi
 
+if [ ! -f $REBOOT_WAIT ]
+then
+    killall $DOWNLOAD_SCRIPT
+fi
+
 if [ -f $DCMRESPONSE ]; then
         processJsonResponse
 	cronPattern=""
@@ -179,26 +168,37 @@ if [ -f $DCMRESPONSE ]; then
 	      echo_t "XCONF SCRIPT: Firmware scheduler cron schedule time is $cronPattern"
               crontab -l -c $CRONTAB_DIR > $CRON_FILE_BK
               sed -i "/$SCRIPT_NAME/d" $CRON_FILE_BK
-              sed -i "/$DMCLI_CHECKNOW/d" $CRON_FILE_BK
-              echo "$cronPattern  $DMCLI_CHECKNOW " >> $CRON_FILE_BK
+              echo "$cronPattern  $DOWNLOAD_SCRIPT 2" >> $CRON_FILE_BK
               crontab $CRON_FILE_BK -c $CRONTAB_DIR
               rm -rf $CRON_FILE_BK
               
-              echo_t "XCONF SCRIPT: Cron scheduling done, now call download script during bootup"
-              $DMCLI_CHECKNOW
+              if [ ! -f $REBOOT_WAIT ]
+	      then
+              	  echo_t "XCONF SCRIPT: Cron scheduling done, now call download script during bootup"
+                  $DOWNLOAD_SCRIPT 1 &
+              fi
            else 
              #Cron pattern not found for Xconf firmware download.
              echo_t "Cron pattern not found for firmware downlaod, call firmware download script"
              updateCron
-             $DMCLI_CHECKNOW
+             if [ ! -f $REBOOT_WAIT ]
+	     then
+              	$DOWNLOAD_SCRIPT 1 &           
+             fi
            fi
        else
            echo_t "XCONF SCRIPT: File->/tmp/DCMSettings.conf not available, call firmware download script"            
            updateCron
-    	   $DMCLI_CHECKNOW
+    	   if [ ! -f $REBOOT_WAIT ]
+	   then
+            	$DOWNLOAD_SCRIPT 1 &     
+           fi
        fi
 else
        echo_t "XCONF SCRIPT: DCMresponse.txt file not present, call firmware download script"
        updateCron
-       $DMCLI_CHECKNOW
+       if [ ! -f $REBOOT_WAIT ]
+       then
+          $DOWNLOAD_SCRIPT 1 &
+       fi
 fi
