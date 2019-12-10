@@ -553,11 +553,11 @@ getFirmwareUpgDetail()
             # If image_upg_avl = 1, download new firmware
 			# if CDL_SERVER_OVERRIDE = 1, considering as ci-xconf communication. Will call checkFirmwareUpgCriteria_temp() and not checking PROD imagename conventions
                
-			 	if [ $CDL_SERVER_OVERRIDE -eq 0 ];then  
+			 	#if [ $CDL_SERVER_OVERRIDE -eq 0 ];then  
 					checkFirmwareUpgCriteria  
-				else
-					checkFirmwareUpgCriteria_temp
-				fi
+				#else
+				#	checkFirmwareUpgCriteria_temp
+				#fi
 
 			fi
 		
