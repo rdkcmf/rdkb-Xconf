@@ -1395,7 +1395,8 @@ while [ $reboot_device_success -eq 0 ]; do
         touch /nvram/reboot_due_to_sw_upgrade
         echo_t "XCONF SCRIPT : REBOOTING DEVICE"
         echo_t "RDKB_REBOOT : Rebooting device due to software upgrade"
-
+	
+	sh /rdklogger/backupLogs.sh false
         $BIN_PATH/XconfHttpDl http_reboot 
         reboot_device=$?
 		       
