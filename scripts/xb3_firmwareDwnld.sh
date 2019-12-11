@@ -809,6 +809,19 @@ checkMaintenanceWindow()
 removeLegacyResources
 getBuildType
 
+# If unit is waiting for reboot after image download,we need not have to download image again.
+if [ -f $REBOOT_WAIT ]
+then
+    echo "XCONF SCRIPT : Waiting reboot after download, so exit" >> $XCONF_LOG_FILE
+    exit
+fi
+
+if [ -f $DOWNLOAD_INPROGRESS ]
+then
+    echo "XCONF SCRIPT : Download is in progress, exit" >> $XCONF_LOG_FILE
+    exit
+fi
+
 echo_t XCONF SCRIPT : MODEL IS $type
 
 #Default xconf url
