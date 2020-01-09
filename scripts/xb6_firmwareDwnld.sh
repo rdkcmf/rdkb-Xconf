@@ -1017,7 +1017,7 @@ do
 				echo_t "XCONF SCRIPT : Reboot Immediately : FALSE. Downloading image now"
 				echo_t "XCONF SCRIPT : Reboot Immediately : FALSE. Downloading image now" >> $XCONF_LOG_FILE
 			# TCXB6 deferred reboot functionality implementation is not yet available, making change ArriXB6 specific
-			if  [ $is_already_flash_led_disable -eq 0 ] && [ "$MODEL_NUM" = "TG3482G" ] ;
+			if  [ $is_already_flash_led_disable -eq 0 ] && [ "$BOX_TYPE" = "XB6" -a "$MANUFACTURE" = "Arris" ] ;
 			then
 				echo_t "XCONF SCRIPT	: ### Disabling httpdownload LED flash ###" >> $XCONF_LOG_FILE
 				XconfHttpDl http_flash_led $http_flash_led_disable  >> $XCONF_LOG_FILE
@@ -1032,7 +1032,7 @@ do
                 echo_t  "XCONF SCRIPT : Reboot Immediately : TRUE : Downloading image now"
                 echo_t  "XCONF SCRIPT : Reboot Immediately : TRUE : Downloading image now" >> $XCONF_LOG_FILE
 			# TCXB6 deferred reboot functionality implementation is not yet available, making change ArriXB6 specific
-			if  [ $is_already_flash_led_disable -eq 1 ] && [ "$MODEL_NUM" = "TG3482G" ]  ;
+			if  [ $is_already_flash_led_disable -eq 1 ] && [ "$BOX_TYPE" = "XB6" -a "$MANUFACTURE" = "Arris" ]  ;
 			then
 				echo_t "XCONF SCRIPT	: ### Enabling httpdownload LED flash ###" >> $XCONF_LOG_FILE
 				XconfHttpDl http_flash_led $http_flash_led_enable  >> $XCONF_LOG_FILE
