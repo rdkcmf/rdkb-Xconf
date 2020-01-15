@@ -875,11 +875,19 @@ if [ "$type" != "PROD" ] && [ "$type" != "prod" ]; then
         echo "XCONF SCRIPT : URL taken from /nvram/swupdate.conf override. URL=$url"
         echo "XCONF SCRIPT : URL taken from /nvram/swupdate.conf override. URL=$url"  >> $XCONF_LOG_FILE
         CDL_SERVER_OVERRIDE=1
+    else
+        # RFC override should work only for non-production build
+        url_override=`syscfg get AutoExcludedURL`
+        if [ "$url_override" ] ; then
+           url=$url_override
+        fi
     fi
 else
     echo_t "XCONF SCRIPT : Build type is PROD. Ignoring /nvram/swupdate.conf override. URL=$url" >> $XCONF_LOG_FILE
     echo_t "XCONF SCRIPT : Build type is PROD. Ignoring /nvram/swupdate.conf override. URL=$url"
 fi
+
+echo_t "XCONF SCRIPT : Device retrieves firmware update from url=$url"
 
 #s16 echo_t "$type=$url" > /tmp/Xconf
 echo "URL=$url" > /tmp/Xconf
@@ -908,6 +916,10 @@ echo_t "XCONF SCRIPT : $interface has an ipv4 address of $estbIp or an ipv6 addr
     ######################
     # QUERY & DL MANAGER #
     ######################
+
+# Checking Autoupdate exclusion
+FWUPGRADE_EXCLUDE=`syscfg get AutoExcludedEnabled`
+echo "FWExclusion status is : $FWUPGRADE_EXCLUDE"
 
 # Check if new image is available
 echo_t "XCONF SCRIPT : Checking image availability at boot up" >> $XCONF_LOG_FILE	
