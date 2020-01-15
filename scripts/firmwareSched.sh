@@ -32,6 +32,12 @@ DCM_FILE_DOWNLOADED="/tmp/dcmFileDownloaded"
 MAX_RETRY=10
 file_check_count=0
 
+FWUPGRADE_EXCLUDE=`syscfg get AutoExcludedEnabled`
+
+if [ "$FWUPGRADE_EXCLUDE" = "true" ] && [ "$type" != "PROD" ] && [ $BUILD_TYPE != "prod" ] && [ ! -f /nvram/swupdate.conf ] ; then
+    echo "Device excluded from FW Upgrade!! Exiting"
+    exit
+fi
 
 BOX=`grep BOX_TYPE /etc/device.properties | cut -d "=" -f2 | tr 'A-Z' 'a-z'`
 
