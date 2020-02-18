@@ -67,6 +67,7 @@ FW_END="/nvram/.FirmwareUpgradeEndTime"
 #GLOBAL DECLARATIONS
 image_upg_avl=0
 isPeriodicFWCheckEnabled=`syscfg get PeriodicFWCheck_Enable`
+isWanLinkHealEnabled=`syscfg get wanlinkheal`
 reb_window=0
 
 #
@@ -1106,7 +1107,10 @@ while [ $reboot_device_success -eq 0 ]; do
         #Abort Reboot
 	if [ ! -e "$ABORT_REBOOT" ]
 	then
+
+	if [ "x$isWanLinkHealEnabled" == "xtrue" ];then
 	    /usr/ccsp/tad/check_gw_health.sh store-health
+	fi
         #Reboot the device
 	    echo_t "XCONF SCRIPT : Reboot possible. Issuing reboot command"
 	    echo_t "RDKB_REBOOT : Reboot command issued from XCONF"

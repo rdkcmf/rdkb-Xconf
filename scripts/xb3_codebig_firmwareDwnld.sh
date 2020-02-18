@@ -57,6 +57,7 @@ FW_START="/nvram/.FirmwareUpgradeStartTime"
 FW_END="/nvram/.FirmwareUpgradeEndTime"
 
 isPeriodicFWCheckEnabled=`syscfg get PeriodicFWCheck_Enable`
+isWanLinkHealEnabled=`syscfg get wanlinkheal`
 
 #if [ $# -ne 1 ]; then
         #echo "USAGE: $0 <TFTP Server IP> <UploadProtocol> <UploadHttpLink> <uploadOnReboot>"
@@ -1270,7 +1271,10 @@ while [ $reboot_device_success -eq 0 ]; do
         #Abort Reboot
         if [ ! -e "$ABORT_REBOOT" ]
 	then
+
+	if [ "x$isWanLinkHealEnabled" == "xtrue" ];then
 	    /usr/ccsp/tad/check_gw_health.sh store-health
+	fi
         #Reboot the device
             echo_t "XCONF SCRIPT : Reboot possible. Issuing reboot command"
             echo_t "RDKB_REBOOT : Reboot command issued from XCONF"

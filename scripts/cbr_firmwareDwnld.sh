@@ -64,6 +64,7 @@ image_upg_avl=0
 reb_window=0
 
 isPeriodicFWCheckEnabled=`syscfg get PeriodicFWCheck_Enable`
+isWanLinkHealEnabled=`syscfg get wanlinkheal`
 
 #
 # release numbering system rules
@@ -1086,7 +1087,9 @@ while [ $reboot_device_success -eq 0 ]; do
 
     # The reboot ready status changed to OK within the maintenance window,proceed
     if [ $http_reboot_ready_stat -eq 0 ];then
-		        
+	if [ "x$isWanLinkHealEnabled" == "xtrue" ];then
+	/usr/ccsp/tad/check_gw_health.sh store-health
+	fi
         #Reboot the device
         echo_t "XCONF SCRIPT : Reboot possible. Issuing reboot command"
         echo_t "RDKB_REBOOT : Reboot command issued from XCONF"
