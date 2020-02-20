@@ -28,6 +28,10 @@ OUTFILE='/tmp/DCMSettings.conf'
 OUTFILEOPT='/tmp/.DCMSettings.conf'
 CRON_FILE_BK="/tmp/cron_tab.txt"
 REBOOT_WAIT="/tmp/.waitingreboot"
+DCM_FILE_DOWNLOADED="/tmp/dcmFileDownloaded"
+MAX_RETRY=10
+file_check_count=0
+
 
 BOX=`grep BOX_TYPE /etc/device.properties | cut -d "=" -f2 | tr 'A-Z' 'a-z'`
 
@@ -156,9 +160,23 @@ then
     killall $DOWNLOAD_SCRIPT
 fi
 
-if [ -f $DCMRESPONSE ]; then
+
+while [ $file_check_count -lt $MAX_RETRY ]
+do
+  if [ -f "$DCM_FILE_DOWNLOADED" ];then
+       echo "$DCM_FILE_DOWNLOADED file available , breaking the loop "
+       break
+  else
+      echo "DCM settings download is not complete."
+      sleep 30
+  fi
+  file_check_count=$((file_check_count + 1))
+done
+
+if [ -f "$DCMRESPONSE" ] && [ -f "$DCM_FILE_DOWNLOADED" ]; then
+        echo "calling processJsonResponse"
         processJsonResponse
-	cronPattern=""
+	      cronPattern=""
         if [ -f "$OUTFILE" ]
         then
            cronPattern=`grep "urn:settings:CheckSchedule:cron" $OUTFILE | cut -f2 -d=`
@@ -182,7 +200,7 @@ if [ -f $DCMRESPONSE ]; then
              echo_t "Cron pattern not found for firmware downlaod, call firmware download script"
              updateCron
              if [ ! -f $REBOOT_WAIT ]
-	     then
+	           then
               	$DOWNLOAD_SCRIPT 1 &           
              fi
            fi
@@ -194,8 +212,9 @@ if [ -f $DCMRESPONSE ]; then
             	$DOWNLOAD_SCRIPT 1 &     
            fi
        fi
+
 else
-       echo_t "XCONF SCRIPT: DCMresponse.txt file not present, call firmware download script"
+       echo_t "XCONF SCRIPT: DCMresponse.txt file or $DCM_FILE_DOWNLOADED not present, call firmware download script"
        updateCron
        if [ ! -f $REBOOT_WAIT ]
        then
