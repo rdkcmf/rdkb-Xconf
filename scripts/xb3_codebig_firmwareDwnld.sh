@@ -22,6 +22,7 @@ source /etc/utopia/service.d/log_capture_path.sh
 source /fss/gw/etc/utopia/service.d/log_env_var.sh
 source /lib/rdk/getpartnerid.sh
 source /lib/rdk/getaccountid.sh
+source /lib/rdk/t2Shared_api.sh
 
 if [ -f /etc/device.properties ]
 then
@@ -895,6 +896,7 @@ calcRandTime()
     if [ "$start_time" = "$end_time" ]
     then
         echo_t "XCONF SCRIPT : Start time can not be equal to end time" >> $XCONF_LOG_FILE
+	t2CountNotify "Test_StartEndEqual"
         echo_t "XCONF SCRIPT : Resetting values to default" >> $XCONF_LOG_FILE
 	if [ "$MODEL_NUM" = "DPC3939B" ] || [ "$MODEL_NUM" = "DPC3941B" ]; then
           start_time=0
@@ -1083,6 +1085,7 @@ checkMaintenanceWindow()
     if [ "$start_time" -eq "$end_time" ]
     then
         echo_t "XCONF SCRIPT : Start time can not be equal to end time" >> $XCONF_LOG_FILE
+	t2CountNotify "Test_StartEndEqual"
         echo_t "XCONF SCRIPT : Resetting values to default" >> $XCONF_LOG_FILE
 	if [ "$MODEL_NUM" = "DPC3939B" ] || [ "$MODEL_NUM" = "DPC3941B" ]; then
           start_time=0
@@ -1355,12 +1358,14 @@ do
 
             if [ $http_dl_stat -eq 0 ];then
                 echo_t "XCONF SCRIPT : HTTP download Successful" >> $XCONF_LOG_FILE
+		t2CountNotify "XCONF_Dwld_success"
                 # Indicate succesful download
                 download_image_success=1
                 rm -rf $DOWNLOAD_INPROGRESS
             else
                 # Indicate an unsuccesful download
                 echo_t "XCONF SCRIPT : HTTP download NOT Successful" >> $XCONF_LOG_FILE
+		t2CountNotify "XCONF_Dwld_failed"
                 rm -rf $DOWNLOAD_INPROGRESS
                 download_image_success=0
                 # Set the flag to 0 to force a requery

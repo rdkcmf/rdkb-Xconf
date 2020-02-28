@@ -20,6 +20,9 @@
 #include <unistd.h>
 #include <string.h>
 
+#include <telemetry_busmessage_sender.h>
+
+
 #include "cm_hal.h"
 
 #if defined(_ENABLE_EPON_SUPPORT_)
@@ -31,7 +34,6 @@
 #define LONG long
 #define CM_HTTPURL_LEN 1024
 #define CM_FILENAME_LEN 200
-
 /*Typedefs Declared*/
 
 /*Global Definitions*/
@@ -160,13 +162,19 @@ INT HTTP_Download ()
                     /* If an error is received, fail the HTTP download
                      * It will be retried in the next window
                      */
-                    else if (http_dl_status > 400)
-                    {
-                        printf("\nXCONF BIN : HTTP download ERROR with status : %d. Exiting.",http_dl_status);
-                        retry_http_dl=0;
-                        retry_http_status=0;
-                        
-                    }
+		    else if (http_dl_status > 400)
+		    {
+			    printf("\nXCONF BIN : HTTP DOWNLOAD ERROR with status : %d. Exiting.",http_dl_status);
+			    retry_http_dl=0;
+			    retry_http_status=0;
+			    if(http_dl_status == 500)
+			    {
+				//"header": "SYS_INFO_FW_Dwld_500Error", "content": "HTTP download ERROR with status : 500", "type": "ArmConsolelog.txt.0"
+				 t2_event_d("SYS_INFO_FW_Dwld_500Error",1);
+			    }
+			    //"header": ""XCONF_Dwnld_error"", "content": "HTTP download ERROR with status :", "type": "ArmConsolelog.txt.0"
+			    t2_event_d("XCONF_Dwnld_error",1);
+		    }
                             
                 }
                           
