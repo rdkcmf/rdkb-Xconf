@@ -18,7 +18,7 @@
 # limitations under the License.
 ##########################################################################
 source /etc/utopia/service.d/log_capture_path.sh
-source /fss/gw/etc/utopia/service.d/log_env_var.sh
+source /etc/utopia/service.d/log_env_var.sh
 
 DCMRESPONSE="/nvram/DCMresponse.txt"
 CRONINTERVAL="/nvram/cron_update.txt"
