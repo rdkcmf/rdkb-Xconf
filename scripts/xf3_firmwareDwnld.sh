@@ -45,20 +45,18 @@ abortReboot_count=0
 
 FWDL_JSON=/tmp/response.txt
 SIGN_FILE="/tmp/.signedRequest_$$_`date +'%s'`"
-DIRECT_BLOCK_TIME=86400
-DIRECT_BLOCK_FILENAME="/tmp/.lastdirectfail_cdl"
 
-CONN_RETRIES=3
+CODEBIG_BLOCK_TIME=1800
+CODEBIG_BLOCK_FILENAME="/tmp/.lastcodebigfail_cdl"
+FORCE_DIRECT_ONCE="/tmp/.forcedirectonce_cdl"
+
+CONN_TRIES=3
 curr_conn_type=""
-use_first_conn=1
 conn_str="Direct"
-first_conn=useDirectRequest
-sec_conn=useCodebigRequest
 CodebigAvailable=0
+UseCodebig=0
 
 CURL_CMD_SSR=""
-#codebig_enabled=$CODEBIG_ENABLE
-#codebig=`dmcli eRT getv Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.CodebigSupport | grep value | cut -d ":" -f 3 | tr -d ' ' `
         
 CRONTAB_DIR="/var/spool/cron/crontabs/"
 CRON_FILE_BK="/tmp/cron_tab$$.txt"
@@ -198,19 +196,17 @@ checkFirmwareUpgCriteria()
 	fi
 }
 
-IsDirectBlocked()
+IsCodebigBlocked()
 {
     ret=0
-    if [ -f $DIRECT_BLOCK_FILENAME ]; then
-        modtime=$(($(date +%s) - $(date +%s -r $DIRECT_BLOCK_FILENAME)))
-        if [ "$modtime" -le "$DIRECT_BLOCK_TIME" ]; then
-            echo "XCONF SCRIPT: Last direct failed blocking is still valid, preventing direct" 
-            echo "XCONF SCRIPT: Last direct failed blocking is still valid, preventing direct" >> $XCONF_LOG_FILE
+    if [ -f $CODEBIG_BLOCK_FILENAME ]; then
+        modtime=$(($(date +%s) - $(date +%s -r $CODEBIG_BLOCK_FILENAME)))
+        if [ "$modtime" -le "$CODEBIG_BLOCK_TIME" ]; then
+            echo "XCONF SCRIPT: Last Codebig failed blocking is still valid, preventing Codebig" >>  $DCM_LOG_FILE
             ret=1
         else
-            echo "XCONF SCRIPT: Last direct failed blocking has expired, removing $DIRECT_BLOCK_FILENAME, allowing direct" 
-            echo "XCONF SCRIPT: Last direct failed blocking has expired, removing $DIRECT_BLOCK_FILENAME, allowing direct" >> $XCONF_LOG_FILE
-            rm -f $DIRECT_BLOCK_FILENAME
+            echo "XCONF SCRIPT: Last Codebig failed blocking has expired, removing $CODEBIG_BLOCK_FILENAME, allowing Codebig" >> $DCM_LOG_FILE
+            rm -f $CODEBIG_BLOCK_FILENAME
             ret=0
         fi
     fi
@@ -227,10 +223,12 @@ get_Codebigconfig()
    if [ "$CodebigAvailable" -eq "1" ]; then 
        CodeBigEnable=`dmcli eRT getv Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.CodeBigFirst.Enable | grep true 2>/dev/null`
    fi
-   if [ "$CodebigAvailable" -eq "1" ] && [ "x$CodeBigEnable" != "x" ] ; then 
+   if [ -f $FORCE_DIRECT_ONCE ]; then
+      rm -f $FORCE_DIRECT_ONCE
+      echo_t "XCONF SCRIPT : Last Codebig attempt failed, forcing direct once" >> $XCONF_LOG_FILE
+   elif [ "$CodebigAvailable" -eq "1" ] && [ "x$CodeBigEnable" != "x" ] ; then 
+      UseCodebig=1
       conn_str="Codebig" 
-      first_conn=useCodebigRequest 
-      sec_conn=useDirectRequest
    fi
 
    if [ "$CodebigAvailable" -eq "1" ]; then
@@ -273,11 +271,6 @@ do_Codebig_signing()
 useDirectRequest()
 {
             curr_conn_type="direct"
-            # Direct connection will not be tried if .lastdirectfail exists
-            IsDirectBlocked
-            if [ "$?" -eq "1" ]; then
-                 return 1
-            fi
             echo_t "Trying Direct Communication"
             echo_t "Trying Direct Communication" >> $XCONF_LOG_FILE
             CURL_CMD="$CURL_PATH/curl --interface $interface $addr_type -w '%{http_code}\n' --tlsv1.2 -d \"$JSONSTR\" -o \"$FWDL_JSON\" \"$xconf_url\" --connect-timeout 30 -m 30"
@@ -294,12 +287,6 @@ useDirectRequest()
                 ;;
             esac
             [ "x$HTTP_RESPONSE_CODE" != "x" ] || HTTP_RESPONSE_CODE=0
-            if [ "$ret" -ne  "0" ] && [ "x$HTTP_RESPONSE_CODE" != "x200" ] && [ "x$HTTP_RESPONSE_CODE" != "x404" ] ; then
-                 directconn_count=$(( directconn_count + 1 ))
-                 if [ "$directconn_count" -gt "$CONN_RETRIES" ] ; then
-                     [ "$CodebigAvailable" -ne "1" ] || [ -f $DIRECT_BLOCK_FILENAME ] || touch $DIRECT_BLOCK_FILENAME
-                 fi
-            fi
 }
 
 # Codebig connection Download function
@@ -310,6 +297,11 @@ useCodebigRequest()
             if [ "$CodebigAvailable" -eq "0" ] ; then
                   echo_t "XCONF SCRIPT: Only direct connection Available" >> $XCONF_LOG_FILE
                   return 1
+            fi
+
+            IsCodebigBlocked
+            if [ "$?" -eq "1" ]; then
+                return 1
             fi
             do_Codebig_signing "Xconf"
             CURL_CMD="$CURL_PATH/curl --interface $interface $addr_type -w '%{http_code}\n' --tlsv1.2 -o \"$FWDL_JSON\" \"$CB_SIGNED_REQUEST\" --connect-timeout 30 -m 30"
@@ -335,7 +327,7 @@ getFirmwareUpgDetail()
     # The retry count and flag are used to resend a 
     # query to the XCONF server if issues with the 
     # respose or the URL received
-    xconf_retry_count=1
+    xconf_retry_count=0
     retry_flag=1
     directconn_count=1
     isIPv6=`ifconfig $interface | grep inet6 | grep -i 'Global'`
@@ -382,10 +374,10 @@ getFirmwareUpgDetail()
     get_Codebigconfig
 
     # Check with the XCONF server if an update is available 
-    while [ $xconf_retry_count -le $CONN_RETRIES ] && [ $retry_flag -eq 1 ]
+    while [ $xconf_retry_count -lt $CONN_TRIES ] && [ $retry_flag -eq 1 ]
     do
 
-        echo_t "**RETRY is $xconf_retry_count and RETRY_FLAG is $retry_flag**" >> $XCONF_LOG_FILE
+        echo_t "**RETRY is $((xconf_retry_count + 1)) and RETRY_FLAG is $retry_flag**" >> $XCONF_LOG_FILE
         
         # White list the Xconf server url
         #echo "XCONF SCRIPT : Whitelisting Xconf Server url : $xconf_url"
@@ -437,10 +429,10 @@ getFirmwareUpgDetail()
 
         JSONSTR='eStbMac='${MAC}'&firmwareVersion='${currentVersion}'&serial='${serialNumber}'&env='${env}'&model='${modelName}'&partnerId='${partnerId}'&activationInProgress='${activationInProgress}'&accountId='${accountId}'&localtime='${date}'&timezone=EST05&capabilities=rebootDecoupled&capabilities=RCDL&capabilities=supportsFullHttpUrl'
 
-        if [ $use_first_conn = "1" ]; then
-           $first_conn
+        if [ "$UseCodebig" = "1" ]; then
+           useCodebigRequest
         else
-           $sec_conn
+           useDirectRequest
         fi
         [ "x$HTTP_RESPONSE_CODE" != "x" ] || HTTP_RESPONSE_CODE=0
         echo_t "XCONF SCRIPT : HTTP RESPONSE CODE is $HTTP_RESPONSE_CODE"
@@ -472,21 +464,19 @@ getFirmwareUpgDetail()
                 retry_flag=1
                 image_upg_avl=0
 
+                if [ $xconf_retry_count -lt $((CONN_TRIES - 1)) ]; then
+                    if [ "$curr_conn_type" = "direct" ]; then
+                        sleep_time=120
+                    elif [ "$xconf_retry_count" -eq "0" ]; then
+                        sleep_time=10
+                    else
+                        sleep_time=30
+                    fi
+                    echo_t "XCONF SCRIPT : Retrying query in $sleep_time seconds" >> $XCONF_LOG_FILE
+                       sleep $sleep_time
+                fi
                 #Increment the retry count
                 xconf_retry_count=$((xconf_retry_count+1))
-                if [ "$CodebigAvailable" -eq 1 ] && [ $use_first_conn = "1" ] && [ $xconf_retry_count -gt $CONN_RETRIES ]; then
-                    use_first_conn=0
-                    xconf_retry_count=1
-                fi
-                # sleep for 2 minutes and retry
-                if [ "$curr_conn_type" = "direct" ] && [ -f $DIRECT_BLOCK_FILENAME ]; then
-                   echo_t "XCONF SCRIPT : Ignore tring to do direct connection " >> $XCONF_LOG_FILE
-                else
-                   if  [ $xconf_retry_count -le $CONN_RETRIES ]; then
-                       echo_t "XCONF SCRIPT : Retrying query in 2 minutes" >> $XCONF_LOG_FILE
-                       sleep 120;
-                   fi
-                fi
                 continue
             fi
 
@@ -504,12 +494,17 @@ getFirmwareUpgDetail()
                 retry_flag=1
                 image_upg_avl=0
 
+                if [ $xconf_retry_count -lt $((CONN_TRIES - 1)) ]; then
+                    if [ "$xconf_retry_count" -eq "0" ]; then
+                        sleep_time=10
+                    else
+                        sleep_time=30
+                    fi
+                    echo_t "XCONF SCRIPT : Retrying query in $sleep_time seconds" >> $XCONF_LOG_FILE
+                    sleep $sleep_time
+                fi
                 #Increment the retry count
                 xconf_retry_count=$((xconf_retry_count+1))
-                if [ "$CodebigAvailable" -eq 1 ] && [ $use_first_conn = "1" ] && [ $xconf_retry_count -gt $CONN_RETRIES ]; then
-                    use_first_conn=0
-                    xconf_retry_count=1
-                fi
 
             else
                 # Will only entry here is last connection was success with 200 & http. So use the last succesful conn type.
@@ -613,30 +608,31 @@ getFirmwareUpgDetail()
             retry_flag=1
             image_upg_avl=0
 
+            if [ $xconf_retry_count -lt $((CONN_TRIES - 1)) ]; then
+                if [ "$curr_conn_type" = "direct" ]; then
+                    sleep_time=120
+                elif [ "$xconf_retry_count" -eq "0" ]; then
+                    sleep_time=10
+                else
+                    sleep_time=30
+                fi
+                echo_t "XCONF SCRIPT : Retrying query in $sleep_time seconds" >> $XCONF_LOG_FILE
+                   sleep $sleep_time
+            fi
             #Increment the retry count
             xconf_retry_count=$((xconf_retry_count+1))
-            if [ "$CodebigAvailable" -eq 1 ] && [ $use_first_conn = "1" ] && [ $xconf_retry_count -gt $CONN_RETRIES ]; then
-                 use_first_conn=0
-                 xconf_retry_count=1
-            fi
-           # sleep for 2 minutes and retry
-           if [ "$curr_conn_type" = "direct" ] && [ -f $DIRECT_BLOCK_FILENAME ]; then
-                   echo_t "XCONF SCRIPT : Ignore tring to do direct connection " >> $XCONF_LOG_FILE
-           else
-                 if [ $xconf_retry_count -le $CONN_RETRIES ]; then
-                   echo_t "XCONF SCRIPT : Response code is $HTTP_RESPONSE_CODE, sleeping for 2 minutes and retrying" >> $XCONF_LOG_FILE
-                   sleep 120;
-                 fi
-           fi
-
         fi
 
     done
 
-    # If retry for 3 times done and image is not available, then exit
+    # If try for CONN_TRIES times done and image is not available, then exit
     # Cron scheduled job will be triggered later
-    if [ $xconf_retry_count -eq 4 ] && [ $image_upg_avl -eq 0 ]
+    if [ $xconf_retry_count -ge $CONN_TRIES ] && [ $image_upg_avl -eq 0 ]
     then
+        if [ "$curr_conn_type" != "direct" ]; then
+            [ -f $CODEBIG_BLOCK_FILENAME ] || touch $CODEBIG_BLOCK_FILENAME
+            touch $FORCE_DIRECT_ONCE
+        fi
         echo_t "XCONF SCRIPT : Retry limit to connect with XCONF server reached, so exit" 
         if [ "$isPeriodicFWCheckEnabled" == "true" ]; then
 	   exit
