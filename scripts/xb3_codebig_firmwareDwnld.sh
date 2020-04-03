@@ -63,6 +63,16 @@ FW_END="/nvram/.FirmwareUpgradeEndTime"
 isPeriodicFWCheckEnabled=`syscfg get PeriodicFWCheck_Enable`
 isWanLinkHealEnabled=`syscfg get wanlinkheal`
 
+CONN_TRIES=3
+CODEBIG_BLOCK_TIME=1800
+CODEBIG_BLOCK_FILENAME="/tmp/.lastcodebigfail_cdl"
+FORCE_DIRECT_ONCE="/tmp/.forcedirectonce_cdl"
+
+conn_str="Direct"
+CodebigAvailable=0
+UseCodebig=0
+
+
 #if [ $# -ne 1 ]; then
         #echo "USAGE: $0 <TFTP Server IP> <UploadProtocol> <UploadHttpLink> <uploadOnReboot>"
 #    echo "USAGE: $0 <firmwareName>"
@@ -99,6 +109,48 @@ isWanLinkHealEnabled=`syscfg get wanlinkheal`
 #       cur and upg firmware version are validated against release numbering system rules
 #       no assumption is made about the length of the fields
 # spin_on : 1 spin_on_patch 2 spin_on_internal 3 spin_on_minor
+
+
+IsCodebigBlocked()
+{
+    ret=0
+    if [ -f $CODEBIG_BLOCK_FILENAME ]; then
+        modtime=$(($(date +%s) - $(date +%s -r $CODEBIG_BLOCK_FILENAME)))
+        if [ "$modtime" -le "$CODEBIG_BLOCK_TIME" ]; then
+            echo "XCONF SCRIPT: Last Codebig failed blocking is still valid, preventing Codebig" >>  $DCM_LOG_FILE
+            ret=1
+        else
+            echo "XCONF SCRIPT: Last Codebig failed blocking has expired, removing $CODEBIG_BLOCK_FILENAME, allowing Codebig" >> $DCM_LOG_FILE
+            rm -f $CODEBIG_BLOCK_FILENAME
+            ret=0
+        fi
+    fi
+    return $ret
+}
+
+# Get the configuration of codebig settings
+get_Codebigconfig()
+{
+   UseCodebig=0
+   # If /usr/bin/GetServiceUrl not available, then only direct connection available and no fallback mechanism
+   if [ -f /usr/bin/GetServiceUrl ]; then
+      CodebigAvailable=1
+   fi
+   if [ "$CodebigAvailable" -eq "1" ]; then
+       CodeBigEnable=`dmcli eRT getv Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.CodeBigFirst.Enable | grep value | cut -f3 -d : | cut -f2 -d " "`
+   fi
+
+   if [ -f $FORCE_DIRECT_ONCE ]; then
+      rm -f $FORCE_DIRECT_ONCE
+      echo_t "XCONF SCRIPT : Last Codebig attempt failed, forcing direct once" >> $XCONF_LOG_FILE
+   elif [ "$CodebigAvailable" -eq "1" ] && [ "x$CodeBigEnable" == "xtrue" ] ; then
+      UseCodebig=1
+      conn_str="Codebig" 
+   fi
+
+   echo_t "XCONF SCRIPT : Using $conn_str connection as the Primary"
+   echo_t "XCONF SCRIPT : Using $conn_str connection as the Primary" >> $XCONF_LOG_FILE
+}
 
 checkFirmwareUpgCriteria()
 {
@@ -383,7 +435,7 @@ getFirmwareUpgDetail()
     # The retry count and flag are used to resend a
     # query to the XCONF server if issues with the
     # respose or the URL received
-    xconf_retry_count=1
+    xconf_retry_count=0
     retry_flag=1
     isIPv6=`ifconfig erouter0 | grep inet6 | grep -i 'Global'`
 
@@ -416,11 +468,12 @@ getFirmwareUpgDetail()
             ;;
     esac
 
+    get_Codebigconfig
     # Check with the XCONF server if an update is available
-    while [ $xconf_retry_count -le 3 ] && [ $retry_flag -eq 1 ]
+    while [ $xconf_retry_count -lt $CONN_TRIES ] && [ $retry_flag -eq 1 ]
     do
 
-        echo_t "**RETRY is $xconf_retry_count and RETRY_FLAG is $retry_flag**" >> $XCONF_LOG_FILE
+        echo_t "**RETRY is $((xconf_retry_count + 1)) and RETRY_FLAG is $retry_flag**" >> $XCONF_LOG_FILE
 
         # White list the Xconf server url
         #echo "XCONF SCRIPT : Whitelisting Xconf Server url : $xconf_url"
@@ -432,27 +485,27 @@ getFirmwareUpgDetail()
         rm -f $HTTP_CODE
         rm -f $OUTPUT
 
-            firmwareDownloadProtocol=""
-            firmwareFilename=""
-            firmwareLocation=""
-            firmwareVersion=""
-            rebootImmediately=""
+        firmwareDownloadProtocol=""
+        firmwareFilename=""
+        firmwareLocation=""
+        firmwareVersion=""
+        rebootImmediately=""
         ipv6FirmwareLocation=""
         upgradeDelay=""
         delayDownload=""
 
-                currentVersion=$IMAGENAME
-                devicemodel=$modelName
+        currentVersion=$IMAGENAME
+        devicemodel=$modelName
 
-                # Retry if $devicemodel is NULL
-                if [ -z "$devicemodel" ];then
-                    devicemodel=`dmcli eRT getv Device.DeviceInfo.ModelName | grep value | cut -d ":" -f 3 | tr -d ' ' `
-                fi
+        # Retry if $devicemodel is NULL
+        if [ -z "$devicemodel" ];then
+            devicemodel=`dmcli eRT getv Device.DeviceInfo.ModelName | grep value | cut -d ":" -f 3 | tr -d ' ' `
+        fi
 
-		if [ "$devicemodel" == "" ];then
-			echo_t "XCONF SCRIPT : Device model returned NULL from DeviceInfo.ModelName . Reading it from /etc/device.properties " >> $XCONF_LOG_FILE
-			devicemodel=$MODEL_NUM
-		fi
+	if [ "$devicemodel" == "" ];then
+            echo_t "XCONF SCRIPT : Device model returned NULL from DeviceInfo.ModelName . Reading it from /etc/device.properties " >> $XCONF_LOG_FILE
+            devicemodel=$MODEL_NUM
+        fi
 
         MAC=`ifconfig  | grep $interface |  grep -v $interface:0 | tr -s ' ' | cut -d ' ' -f5`
                 date=`date`
@@ -460,19 +513,19 @@ getFirmwareUpgDetail()
         echo_t "XCONF SCRIPT : CURRENT VERSION : $currentVersion"
         echo_t "XCONF SCRIPT : CURRENT MAC  : $MAC"
         echo_t "XCONF SCRIPT : CURRENT DATE : $date"
-        if [ $CDL_SERVER_OVERRIDE -eq 0 ];then
+        if [ "$UseCodebig" -eq "1" ] && [ $CDL_SERVER_OVERRIDE -eq 0 ];then
             SECONDV=`dmcli eRT getv Device.X_CISCO_COM_CableModem.TimeOffset | grep value | cut -d ":" -f 3 | tr -d ' ' `
             serial=`dmcli eRT getv Device.DeviceInfo.SerialNumber | grep value | cut -d ":" -f 3 | tr -d ' ' `
             CB_CAPABILITIES='&capabilities=rebootDecoupled&capabilities="RCDL"&capabilities="supportsFullHttpUrl"'
             request_type=2
 
-                echo_t "XCONF SCRIPT : OFFSET TIME : $SECONDV" >> $XCONF_LOG_FIL
-                echo_t "XCONF SCRIPT : SERIAL : $serial" >> $XCONF_LOG_FILE
+            echo_t "XCONF SCRIPT : OFFSET TIME : $SECONDV" >> $XCONF_LOG_FIL
+            echo_t "XCONF SCRIPT : SERIAL : $serial" >> $XCONF_LOG_FILE
 
-        echo_t "XCONF SCRIPT : Adjusting date"
+            echo_t "XCONF SCRIPT : Adjusting date"
 
-	adjustDate                
-		fi
+	    adjustDate                
+        fi
 
 		if [ "$firmwareName_configured" != "" ]; then
                     currentVersion=$firmwareName_configured
@@ -487,7 +540,7 @@ getFirmwareUpgDetail()
                     activationInProgress="false"
                 fi
 
-		if [ $CDL_SERVER_OVERRIDE -eq 1 ];then
+		if [ "$UseCodebig" -eq "0" ] || [ $CDL_SERVER_OVERRIDE -eq 1 ];then
                         echo_t "Trying Direct Communication" >> $XCONF_LOG_FILE
 			echo_t "XCONF SCRIPT : Post string creation"
 			POSTSTR="eStbMac=$MAC&firmwareVersion=$currentVersion&env=$env&model=$devicemodel&partnerId=$partnerId&activationInProgress=${activationInProgress}&accountId=${accountId}&localtime=$date&timezone=EST05&capabilities=\"rebootDecoupled\"&capabilities=\"RCDL\"&capabilities=\"supportsFullHttpUrl\""
@@ -569,11 +622,21 @@ getFirmwareUpgDetail()
                 echo_t "XCONF SCRIPT : Download from $firmwareDownloadProtocol server not supported, check XCONF server configurations" >> $XCONF_LOG_FILE
                 echo_t "XCONF SCRIPT : Retrying query in 2 minutes" >> $XCONF_LOG_FILE
 
-                # sleep for 2 minutes and retry
-                sleep 120;
 
                 retry_flag=1
                 image_upg_avl=0
+
+                if [ $xconf_retry_count -lt $((CONN_TRIES - 1)) ]; then
+                    if [ "$UseCodebig" -eq "0" ]; then
+                        sleep_time=120
+                    elif [ "$xconf_retry_count" -eq "0" ]; then
+                        sleep_time=10
+                    else
+                        sleep_time=30
+                    fi
+                    echo_t "XCONF SCRIPT : Retrying query in $sleep_time seconds" >> $XCONF_LOG_FILE
+                    sleep $sleep_time
+                fi
 
                 #Increment the retry count
                 xconf_retry_count=$((xconf_retry_count+1))
@@ -604,17 +667,27 @@ getFirmwareUpgDetail()
                      delayDownload=0
                      echo_t "XCONF SCRIPT : Resetting the download delay to 0 minutes" >> $XCONF_LOG_FILE
                  fi
-
-                        if [ "X"$firmwareLocation = "X" ];then
+            if [ "X"$firmwareLocation = "X" ];then
                 echo_t "XCONF SCRIPT : No URL received in $FILENAME" >> $XCONF_LOG_FILE
                 retry_flag=1
                 image_upg_avl=0
 
+                if [ $xconf_retry_count -lt $((CONN_TRIES - 1)) ]; then
+                    if [ "$UseCodebig" -eq "0" ]; then
+                        sleep_time=120
+                    elif [ "$xconf_retry_count" -eq "0" ]; then
+                        sleep_time=10
+                    else
+                        sleep_time=30
+                    fi
+                    echo_t "XCONF SCRIPT : Retrying query in $sleep_time seconds" >> $XCONF_LOG_FILE
+                    sleep $sleep_time
+                fi
                 #Increment the retry count
                 xconf_retry_count=$((xconf_retry_count+1))
 
             else
-				if [ $CDL_SERVER_OVERRIDE -eq 0 ];then
+                if [ "$UseCodebig" -eq "1" ] && [ $CDL_SERVER_OVERRIDE -eq 0 ];then
 
                         imageHTTPURL="$firmwareLocation/$firmwareFilename"
                         domainName=`echo $imageHTTPURL | awk -F/ '{print $3}'`
@@ -723,21 +796,33 @@ getFirmwareUpgDetail()
         # If a response code of 0 was received, the server is unreachable
         # Try reconnecting
         else
-            echo_t "XCONF SCRIPT : Response code is $HTTP_RESPONSE_CODE, sleeping for 2 minutes and retrying" >> $XCONF_LOG_FILE
-            # sleep for 2 minutes and retry
-            sleep 120;
 
             retry_flag=1
             image_upg_avl=0
 
-                #Increment the retry count
-                xconf_retry_count=$((xconf_retry_count+1))
+            if [ $xconf_retry_count -lt $((CONN_TRIES - 1)) ]; then
+                if [ "$UseCodebig" -eq "0" ]; then
+                    sleep_time=120
+                elif [ "$xconf_retry_count" -eq "0" ]; then
+                    sleep_time=10
+                else
+                    sleep_time=30
+                fi
+                echo_t "XCONF SCRIPT : Retrying query in $sleep_time seconds" >> $XCONF_LOG_FILE
+                sleep $sleep_time
+            fi
+            #Increment the retry count
+            xconf_retry_count=$((xconf_retry_count+1))
 
         fi
 
     done
 
-    if [ $xconf_retry_count -eq 4 ] && [ $image_upg_avl -eq 0 ];then
+    if [ $xconf_retry_count -ge $CONN_TRIES ] && [ $image_upg_avl -eq 0 ]; then
+        if [ "$UseCodebig" -eq "1" ]; then
+            [ -f $CODEBIG_BLOCK_FILENAME ] || touch $CODEBIG_BLOCK_FILENAME
+            touch $FORCE_DIRECT_ONCE
+        fi
         echo_t "XCONF SCRIPT : Retry limit to connect with XCONF server reached"
         if [ "$isPeriodicFWCheckEnabled" == "true" ]; then
 	   exit
@@ -1210,7 +1295,7 @@ do
         echo "$firmwareLocation" > /tmp/xconfdownloadurl
 
         # Set the url and filename
-		if [ $CDL_SERVER_OVERRIDE -eq 1 ];then
+		if [ "$UseCodebig" -eq "0" ] || [ $CDL_SERVER_OVERRIDE -eq 1 ];then
 			echo_t "XCONF SCRIPT : URL --- $firmwareLocation and NAME --- $firmwareFilename"
 			echo_t "XCONF SCRIPT : URL --- $firmwareLocation and NAME --- $firmwareFilename" >> $XCONF_LOG_FILE
 			echo \"\" > /tmp/authHeader
