@@ -60,6 +60,10 @@ CURL_CMD_SSR=""
 #codebig_enabled=$CODEBIG_ENABLE
 #codebig=`dmcli eRT getv Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.CodebigSupport | grep value | cut -d ":" -f 3 | tr -d ' ' `
         
+CRONTAB_DIR="/var/spool/cron/crontabs/"
+CRON_FILE_BK="/tmp/cron_tab$$.txt"
+LAST_HTTP_RESPONSE="/tmp/XconfSavedOutput"
+
 #GLOBAL DECLARATIONS
 image_upg_avl=0
 reb_window=0
@@ -397,6 +401,7 @@ getFirmwareUpgDetail()
         rebootImmediately=""
         ipv6FirmwareLocation=""
         upgradeDelay=""
+        delayDownload=""
        
         currentVersion=`getCurrentFw`
 		
@@ -422,7 +427,15 @@ getFirmwareUpgDetail()
         echo_t "Attempting TLS1.2 connection to $xconf_url " >> $XCONF_LOG_FILE
         partnerId=$(getPartnerId)
         accountId=$(getAccountId)
-        JSONSTR='eStbMac='${MAC}'&firmwareVersion='${currentVersion}'&serial='${serialNumber}'&env='${env}'&model='${modelName}'&partnerId='${partnerId}'&accountId='${accountId}'&localtime='${date}'&timezone=EST05&capabilities=rebootDecoupled&capabilities=RCDL&capabilities=supportsFullHttpUrl'
+        unitActivationStatus=`syscfg get unit_activated`
+
+        if [ -z "$unitActivationStatus" ] || [ $unitActivationStatus -eq 0 ]; then
+            activationInProgress="true"
+        else
+            activationInProgress="false"
+        fi
+
+        JSONSTR='eStbMac='${MAC}'&firmwareVersion='${currentVersion}'&serial='${serialNumber}'&env='${env}'&model='${modelName}'&partnerId='${partnerId}'&activationInProgress='${activationInProgress}'&accountId='${accountId}'&localtime='${date}'&timezone=EST05&capabilities=rebootDecoupled&capabilities=RCDL&capabilities=supportsFullHttpUrl'
 
         if [ $use_first_conn = "1" ]; then
            $first_conn
@@ -481,6 +494,7 @@ getFirmwareUpgDetail()
     	    firmwareVersion=`grep firmwareVersion $OUTPUT | cut -d \| -f2 | sed 's/-signed.*//'`
 	    ipv6FirmwareLocation=`grep ipv6FirmwareLocation  $OUTPUT | cut -d \| -f2 | tr -d ' '`
 	    upgradeDelay=`grep upgradeDelay $OUTPUT | cut -d \| -f2`
+	    delayDownload=`grep delayDownload $OUTPUT | cut -d \| -f2`
             rebootImmediately=`grep rebootImmediately $OUTPUT | cut -d \| -f2`    
                                     
 	
@@ -523,11 +537,59 @@ getFirmwareUpgDetail()
                     echo_t "XCONF SCRIPT : Version  :"$firmwareVersion
                     echo_t "XCONF SCRIPT : Reboot   :"$rebootImmediately
                 fi
+
+                if [ -z "$delayDownload" ] || [ "$rebootImmediately" = "true" ];then
+                    delayDownload=0
+                fi
            	# Check if a newer version was returned in the response
                 # If image_upg_avl = 0, retry reconnecting with XCONf in next window
                 # If image_upg_avl = 1, download new firmware 
                 checkFirmwareUpgCriteria   
                 echo "$firmwareLocation" > /tmp/.xconfssrdownloadurl
+
+                if [ $image_upg_avl -eq 1 ] && [ $delayDownload -ne 0 ] && [ "$triggeredFrom" != "delayedDownload" ];
+                then
+                    cp $OUTPUT $LAST_HTTP_RESPONSE
+                    echo "curr_conn_type|$curr_conn_type" >> $LAST_HTTP_RESPONSE
+
+                    echo_t "XCONF SCRIPT : Device configured with download delay of $delayDownload minutes"
+                    echo_t "XCONF SCRIPT : Device configured with download delay of $delayDownload minutes" >> $XCONF_LOG_FILE
+
+                    now=$(date +"%T")
+                    SchedAtHr=$(echo $now | cut -d':' -f1)
+                    SchedAtMin=$(echo $now | cut -d':' -f2)
+                    Sec=$(echo $now | cut -d':' -f3)
+
+                    if [ $Sec -gt 29 ]; then
+                        SchedAtMin=`expr $SchedAtMin + 1`
+                    fi
+
+                    SchedAtMin=`expr $SchedAtMin + $delayDownload`
+                    while [ $SchedAtMin -gt 59 ]
+                    do
+                        SchedAtMin=`expr $SchedAtMin - 60`
+                        SchedAtHr=`expr $SchedAtHr + 1`
+                        if [ $SchedAtHr -gt 23 ]; then
+                            SchedAtHr=0
+                        fi
+                    done
+
+                    echo_t "XCONF SCRIPT : current Time: $now, download scheduled at $SchedAtHr:$SchedAtMin" >> $XCONF_LOG_FILE
+
+                    if [ "$isPeriodicFWCheckEnabled" == "true" ]; then
+                        crontab -l -c $CRONTAB_DIR > $CRON_FILE_BK
+                        SCRIPT_NAME=${0##*/}
+                        sed -i "/[A-Za-z0-9]*$SCRIPT_NAME 5 */d" $CRON_FILE_BK
+                        echo "$SchedAtMin $SchedAtHr * * * /etc/$SCRIPT_NAME 5" >> $CRON_FILE_BK
+                        crontab $CRON_FILE_BK -c $CRONTAB_DIR
+                        rm -rf $CRON_FILE_BK
+
+                        exit
+                    else
+                        delayDownloadSec=$((delayDownload*60))
+                        sleep $delayDownloadSec
+                    fi
+                fi
             fi
 		
 
@@ -575,6 +637,50 @@ getFirmwareUpgDetail()
         if [ "$isPeriodicFWCheckEnabled" == "true" ]; then
 	   exit
 	fi
+    fi
+}
+
+#Fetch firmware name and location from last saved response.
+fetchFirmwareDetail()
+{
+    #Firmware download delay timer expired. Remove it from cron.
+    SCRIPT_NAME=${0##*/}
+    crontab -l -c $CRONTAB_DIR > $CRON_FILE_BK
+    sed -i "/[A-Za-z0-9]*$SCRIPT_NAME 5 */d" $CRON_FILE_BK
+    crontab $CRON_FILE_BK -c $CRONTAB_DIR
+    rm -rf $CRON_FILE_BK
+
+    if [ ! -e $LAST_HTTP_RESPONSE ]; then
+        echo_t "XCONF SCRIPT : Last saved file not available" >> $XCONF_LOG_FILE
+        return
+    fi
+
+    echo_t "XCONF SCRIPT : Fetching firmware details from last saved response" >> $XCONF_LOG_FILE
+
+    firmwareDownloadProtocol=`grep firmwareDownloadProtocol $LAST_HTTP_RESPONSE  | cut -d \| -f2`
+    firmwareLocation=`grep firmwareLocation $LAST_HTTP_RESPONSE | cut -d \| -f2 | tr -d ' '`
+    firmwareFilename=`grep firmwareFilename $LAST_HTTP_RESPONSE | cut -d \| -f2`
+
+    if [ -z "$firmwareLocation" ] || [ -z "$firmwareFilename" ]; then
+        echo_t "XCONF SCRIPT : Fetch firmware upgrade details from Xconf" >> $XCONF_LOG_FILE
+        return
+    fi
+
+    firmwareVersion=`grep firmwareVersion $LAST_HTTP_RESPONSE | cut -d \| -f2`
+    ipv6FirmwareLocation=`grep ipv6FirmwareLocation $LAST_HTTP_RESPONSE | cut -d \| -f2 | tr -d ' '`
+    delayDownload=`grep delayDownload $LAST_HTTP_RESPONSE | cut -d \| -f2`
+    rebootImmediately=`grep rebootImmediately $LAST_HTTP_RESPONSE | cut -d \| -f2`
+    curr_conn_type=`grep curr_conn_type $LAST_HTTP_RESPONSE | cut -d \| -f2`
+
+    image_upg_avl=1;
+
+    if [ "$curr_conn_type" != "direct" ]; then
+        serverUrl=""
+        authorizationHeader=""
+        imageHTTPURL="$firmwareLocation/$firmwareFilename"
+        domainName=`echo $imageHTTPURL | awk -F/ '{print $3}'`
+        imageHTTPURL=`echo $imageHTTPURL | sed -e "s|.*$domainName||g"`
+        do_Codebig_signing "SSR"
     fi
 }
 
@@ -692,6 +798,50 @@ calcRandTime()
 
     sleep $sec_to_sleep
     echo "XCONF script : got up after $sec_to_sleep seconds"
+}
+
+#Fetch firmware name and location from last saved response.
+fetchFirmwareDetail()
+{
+    #Firmware download delay timer expired. Remove it from cron.
+    SCRIPT_NAME=${0##*/}
+    crontab -l -c $CRONTAB_DIR > $CRON_FILE_BK
+    sed -i "/[A-Za-z0-9]*$SCRIPT_NAME 5 */d" $CRON_FILE_BK
+    crontab $CRON_FILE_BK -c $CRONTAB_DIR
+    rm -rf $CRON_FILE_BK
+
+    if [ ! -e $LAST_HTTP_RESPONSE ]; then
+        echo_t "XCONF SCRIPT : Last saved file not available" >> $XCONF_LOG_FILE
+        return
+    fi
+
+    echo_t "XCONF SCRIPT : Fetching firmware details from last saved response" >> $XCONF_LOG_FILE
+
+    firmwareDownloadProtocol=`grep firmwareDownloadProtocol $LAST_HTTP_RESPONSE  | cut -d \| -f2`
+    firmwareLocation=`grep firmwareLocation $LAST_HTTP_RESPONSE | cut -d \| -f2 | tr -d ' '`
+    firmwareFilename=`grep firmwareFilename $LAST_HTTP_RESPONSE | cut -d \| -f2`
+
+    if [ -z "$firmwareLocation" ] || [ -z "$firmwareFilename" ]; then
+        echo_t "XCONF SCRIPT : Fetch firmware upgrade details from Xconf" >> $XCONF_LOG_FILE
+        return
+    fi
+
+    firmwareVersion=`grep firmwareVersion $LAST_HTTP_RESPONSE | cut -d \| -f2`
+    ipv6FirmwareLocation=`grep ipv6FirmwareLocation $LAST_HTTP_RESPONSE | cut -d \| -f2 | tr -d ' '`
+    delayDownload=`grep delayDownload $LAST_HTTP_RESPONSE | cut -d \| -f2`
+    rebootImmediately=`grep rebootImmediately $LAST_HTTP_RESPONSE | cut -d \| -f2`
+    curr_conn_type=`grep curr_conn_type $LAST_HTTP_RESPONSE | cut -d \| -f2`
+
+    image_upg_avl=1;
+
+    if [ "$curr_conn_type" != "direct" ]; then
+        serverUrl=""
+        authorizationHeader=""
+        imageHTTPURL="$firmwareLocation/$firmwareFilename"
+        domainName=`echo $imageHTTPURL | awk -F/ '{print $3}'`
+        imageHTTPURL=`echo $imageHTTPURL | sed -e "s|.*$domainName||g"`
+        do_Codebig_signing "SSR"
+    fi
 }
 
 calcRandTimeBCI()
@@ -967,6 +1117,10 @@ elif [[ $1 -eq 2 ]]
 then
    echo_t "XCONF SCRIPT : Trigger is from cron" >> $XCONF_LOG_FILE
    triggeredFrom="cron"
+elif [[ $1 -eq 5 ]]
+then
+   echo_t "XCONF SCRIPT : Trigger from delayDownload Timer" >> $XCONF_LOG_FILE
+   triggeredFrom="delayedDownload"
 else
    echo_t "XCONF SCRIPT : Trigger is Unknown. Set it to boot" >> $XCONF_LOG_FILE
    triggeredFrom="boot"
@@ -1047,9 +1201,15 @@ echo_t "XCONF SCRIPT : $interface has an ipv4 address of $estbIp or an ipv6 addr
 FWUPGRADE_EXCLUDE=`syscfg get AutoExcludedEnabled`
 echo "FWExclusion status is : $FWUPGRADE_EXCLUDE"
 
+# Triggered after delayedDownload timer expired
+if [ "$triggeredFrom" = "delayedDownload" ];
+then
+   fetchFirmwareDetail
+fi
+
 # Check if new image is available
 echo_t "XCONF SCRIPT : Checking image availability at boot up" >> $XCONF_LOG_FILE	
-if [ ! -e $NO_DOWNLOAD ]
+if [ ! -e $NO_DOWNLOAD ] && [ $image_upg_avl -eq 0 ];
 then	
 getFirmwareUpgDetail
 fi
