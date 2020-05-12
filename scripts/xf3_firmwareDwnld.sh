@@ -544,8 +544,8 @@ getFirmwareUpgDetail()
            	# Check if a newer version was returned in the response
                 # If image_upg_avl = 0, retry reconnecting with XCONf in next window
                 # If image_upg_avl = 1, download new firmware 
-                checkFirmwareUpgCriteria   
                 echo "$firmwareLocation" > /tmp/.xconfssrdownloadurl
+                checkFirmwareUpgCriteria
 
                 if [ $image_upg_avl -eq 1 ] && [ $delayDownload -ne 0 ] && [ "$triggeredFrom" != "delayedDownload" ];
                 then
