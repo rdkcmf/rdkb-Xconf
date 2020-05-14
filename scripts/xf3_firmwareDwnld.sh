@@ -456,7 +456,7 @@ getFirmwareUpgDetail()
             retry_flag=0
 			
 	    OUTPUT="/tmp/XconfOutput.txt" 
-            cat $FWDL_JSON | tr -d '\n' | sed 's/[{}]//g' | awk  '{n=split($0,a,","); for (i=1; i<=n; i++) print a[i]}' | sed 's/\"\:\"/\|/g' | sed -r 's/\"\:(true)($)/\|true/gI' | sed -r 's/\"\:(false)($)/\|false/gI' | sed -r 's/\"\:(null)($)/\|\1/gI' | sed -r 's/\"\:([0-9]+)($)/\|\1/g' | sed 's/[\,]/ /g' | sed 's/\"//g' > $OUTPUT
+            cat $FWDL_JSON | tr -d '\n' | sed 's/[{}]//g' | awk  '{n=split($0,a,","); for (i=1; i<=n; i++) print a[i]}' | sed 's/\"\:\"/\|/g' | sed -r 's/\"\:(true)($)/\|true/gI' | sed -r 's/\"\:(false)($)/\|false/gI' | sed -r 's/\"\:(null)($)/\|\1/gI' | sed -r 's/\"\:(-?[0-9]+)($)/\|\1/g' | sed 's/[\,]/ /g' | sed 's/\"//g' > $OUTPUT
             
 	    firmwareDownloadProtocol=`grep firmwareDownloadProtocol $OUTPUT  | cut -d \| -f2`
             echo_t "XCONF SCRIPT : firmwareDownloadProtocol [$firmwareDownloadProtocol]"
@@ -538,9 +538,16 @@ getFirmwareUpgDetail()
                     echo_t "XCONF SCRIPT : Reboot   :"$rebootImmediately
                 fi
 
-                if [ -z "$delayDownload" ] || [ "$rebootImmediately" = "true" ];then
-                    delayDownload=0
+                if [ -n "$delayDownload" ]; then
+                    echo_t "XCONF SCRIPT : Device configured with download delay of $delayDownload minutes"
+                    echo_t "XCONF SCRIPT : Device configured with download delay of $delayDownload minutes" >> $XCONF_LOG_FILE
                 fi
+
+                if [ -z "$delayDownload" ] || [ "$rebootImmediately" = "true" ] || [ $delayDownload -lt 0 ];then
+                    delayDownload=0
+                    echo_t "XCONF SCRIPT : Resetting the download delay to 0 minutes" >> $XCONF_LOG_FILE
+                fi
+
            	# Check if a newer version was returned in the response
                 # If image_upg_avl = 0, retry reconnecting with XCONf in next window
                 # If image_upg_avl = 1, download new firmware 
@@ -551,9 +558,6 @@ getFirmwareUpgDetail()
                 then
                     cp $OUTPUT $LAST_HTTP_RESPONSE
                     echo "curr_conn_type|$curr_conn_type" >> $LAST_HTTP_RESPONSE
-
-                    echo_t "XCONF SCRIPT : Device configured with download delay of $delayDownload minutes"
-                    echo_t "XCONF SCRIPT : Device configured with download delay of $delayDownload minutes" >> $XCONF_LOG_FILE
 
                     now=$(date +"%T")
                     SchedAtHr=$(echo $now | cut -d':' -f1)

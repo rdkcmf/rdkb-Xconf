@@ -475,9 +475,9 @@ getFirmwareUpgDetail()
 			
 	    OUTPUT="/tmp/XconfOutput.txt" 
 	    if [ "$BOX_TYPE" = "HUB4" ]; then #case insensitive option is not working for sed version available in hub4
-	        cat $FWDL_JSON | tr -d '\n' | sed 's/[{}]//g' | awk  '{n=split($0,a,","); for (i=1; i<=n; i++) print a[i]}' | sed 's/\"\:\"/\|/g' | sed -r 's/\"\:(true)($)/\|true/g' | sed -r 's/\"\:(false)($)/\|false/g' | sed -r 's/\"\:(null)($)/\|\1/g' | sed -r 's/\"\:([0-9]+)($)/\|\1/g' | sed 's/[\,]/ /g' | sed 's/\"//g' > $OUTPUT
+	        cat $FWDL_JSON | tr -d '\n' | sed 's/[{}]//g' | awk  '{n=split($0,a,","); for (i=1; i<=n; i++) print a[i]}' | sed 's/\"\:\"/\|/g' | sed -r 's/\"\:(true)($)/\|true/g' | sed -r 's/\"\:(false)($)/\|false/g' | sed -r 's/\"\:(null)($)/\|\1/g' | sed -r 's/\"\:(-?[0-9]+)($)/\|\1/g' | sed 's/[\,]/ /g' | sed 's/\"//g' > $OUTPUT
 	    else
-                cat $FWDL_JSON | tr -d '\n' | sed 's/[{}]//g' | awk  '{n=split($0,a,","); for (i=1; i<=n; i++) print a[i]}' | sed 's/\"\:\"/\|/g' | sed -r 's/\"\:(true)($)/\|true/gI' | sed -r 's/\"\:(false)($)/\|false/gI' | sed -r 's/\"\:(null)($)/\|\1/gI' | sed -r 's/\"\:([0-9]+)($)/\|\1/g' | sed 's/[\,]/ /g' | sed 's/\"//g' > $OUTPUT
+                cat $FWDL_JSON | tr -d '\n' | sed 's/[{}]//g' | awk  '{n=split($0,a,","); for (i=1; i<=n; i++) print a[i]}' | sed 's/\"\:\"/\|/g' | sed -r 's/\"\:(true)($)/\|true/gI' | sed -r 's/\"\:(false)($)/\|false/gI' | sed -r 's/\"\:(null)($)/\|\1/gI' | sed -r 's/\"\:(-?[0-9]+)($)/\|\1/g' | sed 's/[\,]/ /g' | sed 's/\"//g' > $OUTPUT
 	    fi
 
 	    firmwareDownloadProtocol=`grep firmwareDownloadProtocol $OUTPUT  | cut -d \| -f2`
@@ -526,8 +526,14 @@ getFirmwareUpgDetail()
     	    echo_t "XCONF SCRIPT : Reboot   :"$rebootImmediately
     	    echo_t "XCONF SCRIPT : Delay Time :"$delayDownload
                                     
-            if [ -z "$delayDownload" ] || [ "$rebootImmediately" = "true" ];then
+            if [ -n "$delayDownload" ]; then
+                echo_t "XCONF SCRIPT : Device configured with download delay of $delayDownload minutes"
+                echo_t "XCONF SCRIPT : Device configured with download delay of $delayDownload minutes" >> $XCONF_LOG_FILE
+            fi
+
+            if [ -z "$delayDownload" ] || [ "$rebootImmediately" = "true" ] || [ $delayDownload -lt 0 ];then
                 delayDownload=0
+                echo_t "XCONF SCRIPT : Resetting the download delay to 0 minutes" >> $XCONF_LOG_FILE
             fi
 	
             if [ "X"$firmwareLocation = "X" ];then
@@ -568,9 +574,6 @@ getFirmwareUpgDetail()
 					then
 						cp $OUTPUT $LAST_HTTP_RESPONSE
 						echo "curr_conn_type|$curr_conn_type" >> $LAST_HTTP_RESPONSE
-
-						echo_t "XCONF SCRIPT : Device configured with download delay of $delayDownload minutes"
-						echo_t "XCONF SCRIPT : Device configured with download delay of $delayDownload minutes" >> $XCONF_LOG_FILE
 
 						now=$(date +"%T")
 						SchedAtHr=$(echo $now | cut -d':' -f1)
