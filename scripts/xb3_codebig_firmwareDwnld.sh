@@ -61,6 +61,14 @@ firmwareName_configured=""
 FW_START="/nvram/.FirmwareUpgradeStartTime"
 FW_END="/nvram/.FirmwareUpgradeEndTime"
 
+#to support ocsp
+EnableOCSPStapling="/tmp/.EnableOCSPStapling"
+EnableOCSP="/tmp/.EnableOCSPCA"
+
+if [ -f $EnableOCSPStapling ] || [ -f $EnableOCSP ]; then
+    CERT_STATUS="--cert-status"
+fi
+
 isPeriodicFWCheckEnabled=`syscfg get PeriodicFWCheck_Enable`
 isWanLinkHealEnabled=`syscfg get wanlinkheal`
 
@@ -549,7 +557,7 @@ getFirmwareUpgDetail()
 
 			# Query the  XCONF Server, using TLS 1.2
 			echo_t "Attempting TLS1.2 connection to $xconf_url " >> $XCONF_LOG_FILE
-			CURL_CMD="curl --connect-timeout 30 --interface $interface $addr_type -w '%{http_code}\n' --tlsv1.2 -d \"$POSTSTR\" -o \"$FILENAME\" $xconf_url -m 30"
+			CURL_CMD="curl $CERT_STATUS --connect-timeout 30 --interface $interface $addr_type -w '%{http_code}\n' --tlsv1.2 -d \"$POSTSTR\" -o \"$FILENAME\" $xconf_url -m 30"
 			echo_t "CURL_CMD: $CURL_CMD" >> $XCONF_LOG_FILE
 			result= eval "$CURL_CMD" > $HTTP_CODE
 			ret=$?
@@ -583,7 +591,7 @@ getFirmwareUpgDetail()
 
             # Query the  XCONF Server, using TLS 1.2
             echo_t "Attempting TLS1.2 connection to $xconf_url " >> $XCONF_LOG_FILE
-            CURL_CMD="curl --connect-timeout 30 --interface $interface $addr_type -w '%{http_code}\n' --tlsv1.2 -o \"$FILENAME\" \"$CB_SIGNED_REQUEST\" -m 30"
+            CURL_CMD="curl $CERT_STATUS --connect-timeout 30 --interface $interface $addr_type -w '%{http_code}\n' --tlsv1.2 -o \"$FILENAME\" \"$CB_SIGNED_REQUEST\" -m 30"
             CURL_CMD_LOG=`echo $CURL_CMD | sed -ne 's#oauth_consumer_key=.*oauth_signature.*#-- <hidden> --#p'`
             echo_t "CURL_CMD:$CURL_CMD_LOG"
             echo_t "CURL_CMD:$CURL_CMD_LOG" >> $XCONF_LOG_FILE
@@ -722,7 +730,7 @@ getFirmwareUpgDetail()
                         echo $authorizationHeader > /tmp/authHeader
                         echo_t "authorizationHeader written to /tmp/authHeader"
 
-                   CURL_CMD="curl --connect-timeout 30 --tlsv1.2 --interface $interface -H '$authorizationHeader' $addr_type -w '%{http_code}\n' -fgLo /var/$firmwareFilename '$serverUrl'"
+                   CURL_CMD="curl $CERT_STATUS --connect-timeout 30 --tlsv1.2 --interface $interface -H '$authorizationHeader' $addr_type -w '%{http_code}\n' -fgLo /var/$firmwareFilename '$serverUrl'"
                         CURL_CMD_LOG=`echo $CURL_CMD | sed -ne 's#oauth_consumer_key=.*oauth_signature.*#-- <hidden> --#p'`
                         echo CURL_CMD_CDL : $CURL_CMD_LOG
                         echo CURL_CMD_CDL : $CURL_CMD_LOG >>$XCONF_LOG_FILE

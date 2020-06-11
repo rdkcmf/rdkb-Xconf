@@ -64,6 +64,17 @@ CODEBIG_BLOCK_TIME=1800
 CODEBIG_BLOCK_FILENAME="/tmp/.lastcodebigfail_cdl"
 FORCE_DIRECT_ONCE="/tmp/.forcedirectonce_cdl"
 CONN_TRIES=3
+
+#to support ocsp
+EnableOCSPStapling="/tmp/.EnableOCSPStapling"
+EnableOCSP="/tmp/.EnableOCSPCA"
+
+if [ -f $EnableOCSPStapling ] || [ -f $EnableOCSP ]; then
+    CERT_STATUS="--cert-status"
+fi
+
+CONN_RETRIES=3
+>>>>>>> 02b424a... RDKB-29710: Add --cert-status option to existing CURL commands RDKV.
 curr_conn_type=""
 conn_str="Direct"
 CodebigAvailable=0
@@ -254,7 +265,7 @@ useDirectRequest()
             curr_conn_type="direct"
             echo_t "Trying Direct Communication"
             echo_t "Trying Direct Communication" >> $XCONF_LOG_FILE
-            CURL_CMD="$CURL_PATH/curl --interface $interface $addr_type -w '%{http_code}\n' --tlsv1.2 -d \"$JSONSTR\" -o \"$FWDL_JSON\" \"$xconf_url\" --connect-timeout 30 -m 30"
+            CURL_CMD="$CURL_PATH/curl --interface $interface $addr_type -w '%{http_code}\n' --tlsv1.2 -d \"$JSONSTR\" -o \"$FWDL_JSON\" \"$xconf_url\" $CERT_STATUS --connect-timeout 30 -m 30"
             echo_t "CURL_CMD:$CURL_CMD"
             echo_t "CURL_CMD:$CURL_CMD" >> $XCONF_LOG_FILE
             HTTP_CODE=`result= eval $CURL_CMD`
@@ -285,7 +296,7 @@ useCodebigRequest()
                 return 1
             fi
             do_Codebig_signing "Xconf"
-            CURL_CMD="$CURL_PATH/curl --interface $interface $addr_type -w '%{http_code}\n' --tlsv1.2 -o \"$FWDL_JSON\" \"$CB_SIGNED_REQUEST\" --connect-timeout 30 -m 30"
+            CURL_CMD="$CURL_PATH/curl --interface $interface $addr_type -w '%{http_code}\n' --tlsv1.2 -o \"$FWDL_JSON\" \"$CB_SIGNED_REQUEST\" $CERT_STATUS --connect-timeout 30 -m 30"
             echo_t "Trying Codebig Communication at `echo "$CURL_CMD" | sed -ne 's#.*\(https:.*\)?.*#\1#p'`"
             echo_t "Trying Codebig Communication at `echo "$CURL_CMD" | sed -ne 's#.*\(https:.*\)?.*#\1#p'`" >> $XCONF_LOG_FILE
             echo_t "CURL_CMD: `echo "$CURL_CMD" | sed -ne 's#oauth_consumer_key=.*oauth_signature.* --#<hidden> --#p'`" 
