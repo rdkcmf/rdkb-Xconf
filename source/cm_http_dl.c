@@ -270,6 +270,8 @@ int main(int argc,char *argv[])
     int http_status,reboot_status;
     int reset_device;
 
+    t2_init("ccsp-xconf");
+
 	if(strcmp(argv[1],"set_http_url") == 0)
 	{
             /*
