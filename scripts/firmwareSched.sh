@@ -32,6 +32,10 @@ DCM_FILE_DOWNLOADED="/tmp/dcmFileDownloaded"
 MAX_RETRY=10
 file_check_count=0
 
+XCONF_LOG_FILE_NAME=xconf.txt.0
+XCONF_LOG_FILE_PATHNAME=${LOG_PATH}/${XCONF_LOG_FILE_NAME}
+XCONF_LOG_FILE=${XCONF_LOG_FILE_PATHNAME}
+
 FWUPGRADE_EXCLUDE=`syscfg get AutoExcludedEnabled`
 
 if [ "$FWUPGRADE_EXCLUDE" = "true" ] && [ "$type" != "PROD" ] && [ $BUILD_TYPE != "prod" ] && [ ! -f /nvram/swupdate.conf ] ; then
