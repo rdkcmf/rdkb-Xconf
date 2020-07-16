@@ -363,8 +363,21 @@ getFirmwareUpgDetail()
     # respose or the URL received
     xconf_retry_count=0
     retry_flag=1
-    isIPv6=`ifconfig erouter0 | grep inet6 | grep -i 'Global'`
-
+    if [ "x$BOX_TYPE" = "xHUB4" ]; then
+       CURRENT_WAN_IPV6_STATUS=`sysevent get ipv6_connection_state`
+       GLOBAL_IPV6=`syscfg get "ipv6_prefix_address"`
+       if [ "xup" = "x$CURRENT_WAN_IPV6_STATUS" ] ; then
+          if [ -z "$GLOBAL_IPV6" ]; then
+             isIPv6=""
+          else
+             isIPv6=$GLOBAL_IPV6
+          fi
+       else
+             isIPv6=`ifconfig $interface | grep inet6 | grep -i 'Global'`
+       fi
+    else
+       isIPv6=`ifconfig erouter0 | grep inet6 | grep -i 'Global'`
+    fi
     # Set the XCONF server url read from /tmp/Xconf 
     # Determine the env from $type
 
@@ -1035,18 +1048,43 @@ echo_t "XCONF SCRIPT : Values written to /tmp/Xconf are URL=$url" >> $XCONF_LOG_
 
 # Check if the WAN interface has an ip address, if not , wait for it to receive one
 estbIp=`ifconfig $interface | grep "inet addr" | tr -s " " | cut -d ":" -f2 | cut -d " " -f1`
-estbIp6=`ifconfig $interface | grep "inet6 addr" | grep "Global" | tr -s " " | cut -d ":" -f2- | cut -d "/" -f1 | tr -d " "`
-
+if [ "x$BOX_TYPE" = "xHUB4" ]; then
+   CURRENT_WAN_IPV6_STATUS=`sysevent get ipv6_connection_state`
+   GLOBAL_IPV6=`syscfg get "ipv6_prefix_address"`
+   if [ "xup" = "x$CURRENT_WAN_IPV6_STATUS" ] ; then
+      if [ -z "$GLOBAL_IPV6" ]; then
+         estbIp6=""
+      else
+         estbIp6=$GLOBAL_IPV6
+      fi
+   else
+      estbIp6=`ifconfig $interface | grep "inet6 addr" | grep "Global" | tr -s " " | cut -d ":" -f2- | cut -d "/" -f1 | tr -d " "`
+   fi
+else
+   estbIp6=`ifconfig $interface | grep "inet6 addr" | grep "Global" | tr -s " " | cut -d ":" -f2- | cut -d "/" -f1 | tr -d " "`
+fi
 echo_t "[ $(date) ] XCONF SCRIPT - Check if the WAN interface has an ip address" >> $XCONF_LOG_FILE
 
 while [ "$estbIp" = "" ] && [ "$estbIp6" = "" ]
 do
     echo_t "[ $(date) ] XCONF SCRIPT - No IP yet! sleep(5)" >> $XCONF_LOG_FILE
     sleep 5
-
     estbIp=`ifconfig $interface | grep "inet addr" | tr -s " " | cut -d ":" -f2 | cut -d " " -f1`
-    estbIp6=`ifconfig $interface | grep "inet6 addr" | grep "Global" | tr -s " " | cut -d ":" -f2- | cut -d "/" -f1 | tr -d " "`
-
+    if [ "x$BOX_TYPE" = "xHUB4" ]; then
+       CURRENT_WAN_IPV6_STATUS=`sysevent get ipv6_connection_state`
+       GLOBAL_IPV6=`syscfg get "ipv6_prefix_address"`
+       if [ "xup" = "x$CURRENT_WAN_IPV6_STATUS" ] ; then
+          if [ -z "$GLOBAL_IPV6" ]; then
+             estbIp6=""
+          else
+             estbIp6=$GLOBAL_IPV6
+          fi
+       else
+          estbIp6=`ifconfig $interface | grep "inet6 addr" | grep "Global" | tr -s " " | cut -d ":" -f2- | cut -d "/" -f1 | tr -d " "`
+       fi
+    else
+       estbIp6=`ifconfig $interface | grep "inet6 addr" | grep "Global" | tr -s " " | cut -d ":" -f2- | cut -d "/" -f1 | tr -d " "`
+    fi
     echo_t "XCONF SCRIPT : Sleeping for an ipv4 or an ipv6 address on the $interface interface "
 done
 
