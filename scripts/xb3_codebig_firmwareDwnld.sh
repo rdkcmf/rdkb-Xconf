@@ -163,7 +163,9 @@ get_Codebigconfig()
       echo_t "XCONF SCRIPT : Last Codebig attempt failed, forcing direct once" >> $XCONF_LOG_FILE
    elif [ "$CodebigAvailable" -eq "1" ] && [ "x$CodeBigEnable" == "xtrue" ] ; then
       UseCodebig=1
-      conn_str="Codebig" 
+      conn_str="Codebig"
+      # no override when using Codebig
+      CDL_SERVER_OVERRIDE=0
    fi
 
    echo_t "XCONF SCRIPT : Using $conn_str connection as the Primary"
@@ -1208,6 +1210,7 @@ if [ "$type" != "PROD" ] && [ "$type" != "prod" ]; then
       url_override=`syscfg get AutoExcludedURL`
       if [ "$url_override" ] ; then
          url=$url_override
+         CDL_SERVER_OVERRIDE=1
       fi
   fi
 fi
