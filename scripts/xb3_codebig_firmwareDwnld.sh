@@ -528,7 +528,7 @@ getFirmwareUpgDetail()
             CB_CAPABILITIES='&capabilities=rebootDecoupled&capabilities="RCDL"&capabilities="supportsFullHttpUrl"'
             request_type=2
 
-            echo_t "XCONF SCRIPT : OFFSET TIME : $SECONDV" >> $XCONF_LOG_FIL
+            echo_t "XCONF SCRIPT : OFFSET TIME : $SECONDV" >> $XCONF_LOG_FILE
             echo_t "XCONF SCRIPT : SERIAL : $serial" >> $XCONF_LOG_FILE
 
             echo_t "XCONF SCRIPT : Adjusting date"
