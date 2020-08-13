@@ -365,13 +365,8 @@ getFirmwareUpgDetail()
     retry_flag=1
     if [ "x$BOX_TYPE" = "xHUB4" ]; then
        CURRENT_WAN_IPV6_STATUS=`sysevent get ipv6_connection_state`
-       GLOBAL_IPV6=`syscfg get "ipv6_prefix_address"`
        if [ "xup" = "x$CURRENT_WAN_IPV6_STATUS" ] ; then
-          if [ -z "$GLOBAL_IPV6" ]; then
-             isIPv6=""
-          else
-             isIPv6=$GLOBAL_IPV6
-          fi
+             isIPv6=`ifconfig $HUB4_IPV6_INTERFACE | grep Global |  awk '/inet6/{print $3}' | cut -d '/' -f1 | head -n1`
        else
              isIPv6=`ifconfig $interface | grep inet6 | grep -i 'Global'`
        fi
@@ -1050,13 +1045,8 @@ echo_t "XCONF SCRIPT : Values written to /tmp/Xconf are URL=$url" >> $XCONF_LOG_
 estbIp=`ifconfig $interface | grep "inet addr" | tr -s " " | cut -d ":" -f2 | cut -d " " -f1`
 if [ "x$BOX_TYPE" = "xHUB4" ]; then
    CURRENT_WAN_IPV6_STATUS=`sysevent get ipv6_connection_state`
-   GLOBAL_IPV6=`syscfg get "ipv6_prefix_address"`
    if [ "xup" = "x$CURRENT_WAN_IPV6_STATUS" ] ; then
-      if [ -z "$GLOBAL_IPV6" ]; then
-         estbIp6=""
-      else
-         estbIp6=$GLOBAL_IPV6
-      fi
+         estbIp6=`ifconfig $HUB4_IPV6_INTERFACE | grep Global |  awk '/inet6/{print $3}' | cut -d '/' -f1 | head -n1`
    else
       estbIp6=`ifconfig $interface | grep "inet6 addr" | grep "Global" | tr -s " " | cut -d ":" -f2- | cut -d "/" -f1 | tr -d " "`
    fi
@@ -1072,13 +1062,8 @@ do
     estbIp=`ifconfig $interface | grep "inet addr" | tr -s " " | cut -d ":" -f2 | cut -d " " -f1`
     if [ "x$BOX_TYPE" = "xHUB4" ]; then
        CURRENT_WAN_IPV6_STATUS=`sysevent get ipv6_connection_state`
-       GLOBAL_IPV6=`syscfg get "ipv6_prefix_address"`
        if [ "xup" = "x$CURRENT_WAN_IPV6_STATUS" ] ; then
-          if [ -z "$GLOBAL_IPV6" ]; then
-             estbIp6=""
-          else
-             estbIp6=$GLOBAL_IPV6
-          fi
+             estbIp6=`ifconfig $HUB4_IPV6_INTERFACE | grep Global |  awk '/inet6/{print $3}' | cut -d '/' -f1 | head -n1`
        else
           estbIp6=`ifconfig $interface | grep "inet6 addr" | grep "Global" | tr -s " " | cut -d ":" -f2- | cut -d "/" -f1 | tr -d " "`
        fi
