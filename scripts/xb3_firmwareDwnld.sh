@@ -63,7 +63,6 @@ if [ -f $EnableOCSPStapling ] || [ -f $EnableOCSP ]; then
 fi
 
 CONN_RETRIES=3
->>>>>>> 02b424a... RDKB-29710: Add --cert-status option to existing CURL commands RDKV.
 curr_conn_type=""
 conn_str="Direct"
 CodebigAvailable=0
