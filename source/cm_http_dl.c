@@ -164,16 +164,8 @@ INT HTTP_Download ()
                      */
 		    else if (http_dl_status > 400)
 		    {
-			    printf("\nXCONF BIN : HTTP DOWNLOAD ERROR with status : %d. Exiting.",http_dl_status);
 			    retry_http_dl=0;
 			    retry_http_status=0;
-			    if(http_dl_status == 500)
-			    {
-				//"header": "SYS_INFO_FW_Dwld_500Error", "content": "HTTP download ERROR with status : 500", "type": "ArmConsolelog.txt.0"
-				 t2_event_d("SYS_INFO_FW_Dwld_500Error",1);
-			    }
-			    //"header": ""XCONF_Dwnld_error"", "content": "HTTP download ERROR with status :", "type": "ArmConsolelog.txt.0"
-			    t2_event_d("XCONF_Dwnld_error",1);
 		    }
                             
                 }
@@ -206,6 +198,17 @@ INT HTTP_Download ()
      * >400 : An error was encountered . Retry in the next HTTP download window.
      * -1   : The actual http dl never started due to a secondary dl in progress or the primary dl not starting
      */
+    if ((http_dl_status > 400) || (http_dl_status == -1))
+    {
+	    printf("\nXCONF BIN : HTTP DOWNLOAD ERROR with status : %d. Exiting.",http_dl_status);
+	    if(http_dl_status == 500)
+	    {
+		    //"header": "SYS_INFO_FW_Dwld_500Error", "content": "HTTP download ERROR with status : 500", "type": "ArmConsolelog.txt.0"
+		    t2_event_d("SYS_INFO_FW_Dwld_500Error",1);
+	    }
+	    t2_event_d("XCONF_Dwnld_error",1);
+    }
+
     return http_dl_status;  
     
 }
