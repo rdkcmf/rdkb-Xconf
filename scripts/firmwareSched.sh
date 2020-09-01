@@ -20,6 +20,7 @@
 source /etc/utopia/service.d/log_capture_path.sh
 source /etc/utopia/service.d/log_env_var.sh
 
+ALT_DCMRESPONSE="/tmp/DCMresponse_alt.txt"
 DCMRESPONSE="/nvram/DCMresponse.txt"
 CRONINTERVAL="/nvram/cron_update.txt"
 CRONTAB_DIR="/var/spool/cron/crontabs/"
@@ -67,14 +68,16 @@ then
   exit
 fi
 
+#RDKB-30998, removing dependency for parsing from nvram.
 processJsonResponse()
-{   
+{
     if [ -f "$DCMRESPONSE" ]
     then
-        sed -i 's/,"urn:/\n"urn:/g' $DCMRESPONSE            # Updating the file by replacing all ',"urn:' with '\n"urn:'
-        sed -i 's/^{//g' $DCMRESPONSE                       # Delete first character from file '{'
-        sed -i 's/}$//g' $DCMRESPONSE                       # Delete first character from file '}'
-        echo "" >> $DCMRESPONSE                             # Adding a new line to the file 
+        cp $DCMRESPONSE $ALT_DCMRESPONSE
+        sed -i 's/,"urn:/\n"urn:/g' $ALT_DCMRESPONSE            # Updating the file by replacing all ',"urn:' with '\n"urn:'
+        sed -i 's/^{//g' $ALT_DCMRESPONSE                       # Delete first character from file '{'
+        sed -i 's/}$//g' $ALT_DCMRESPONSE                       # Delete first character from file '}'
+        echo "" >> $ALT_DCMRESPONSE                             # Adding a new line to the file 
         cat /dev/null > $OUTFILE                            #empty old file
         cat /dev/null > $OUTFILEOPT
         while read line
@@ -91,16 +94,18 @@ processJsonResponse()
             else
                 echo "$line" | sed 's/":/=/g' | sed 's/"//g' >> $OUTFILE 
             fi            
-        done < $DCMRESPONSE
+        done < $ALT_DCMRESPONSE
         
         #rm -rf $DCMRESPONSE #Delete the /opt/DCMresponse.txt
          rm -rf $OUTFILEOPT
+         mv $ALT_DCMRESPONSE $DCMRESPONSE
     else
         echo "$DCMRESPONSE not found." >> $LOG_PATH/dcmscript.log
         return 1
     fi
+    
 }
-
+#RDKB-30998 changes end.
 
 updateCron()
 {
