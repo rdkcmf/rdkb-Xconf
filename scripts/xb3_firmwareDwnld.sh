@@ -131,12 +131,12 @@ getCurrentFw()
  # Check the location of version.txt file
  if [ -f "/fss/gw/version.txt" ]
  then
-    currentfw=`grep image /fss/gw/version.txt | cut -f2 -d=`
+    currentfw=`grep image /fss/gw/version.txt | cut -f2 -d:`
  elif [ -f "/version.txt" ]
  then
     if [ "$currentfw" = "" ]
 	then
-        currentfw=`grep image /version.txt | cut -f2 -d=`
+        currentfw=`grep image /version.txt | cut -f2 -d:`
 	fi
  fi
  echo $currentfw
@@ -826,7 +826,7 @@ getMacAddress()
 
 getBuildType()
 {
-   IMAGENAME=`grep imagename= /fss/gw/version.txt | cut -d "=" -f 2`
+   IMAGENAME=`grep imagename= /fss/gw/version.txt | cut -d ":" -f 2`
 
    TEMPDEV=`echo $IMAGENAME | grep DEV`
    if [ "$TEMPDEV" != "" ]
