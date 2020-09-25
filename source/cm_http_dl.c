@@ -269,6 +269,9 @@ int main(int argc,char *argv[])
     int ret_code = 0;
     int http_status,reboot_status;
     int reset_device;
+#if defined (_COSA_BCM_ARM_)
+    int dl_status = 0;
+#endif
 
     t2_init("ccsp-xconf");
 
@@ -359,6 +362,43 @@ int main(int argc,char *argv[])
 					ret_code= 1;
 		}
 	}
+    else if(strcmp(argv[1],"upgrade_factoryreset")==0)
+    {
+        if (((argv[2]) != NULL) && ((argv[3]) != NULL))
+        {
+            strncpy(pfilename, argv[3], CM_FILENAME_LEN - 1);
+            strncpy(pHttpUrl, argv[2], CM_HTTPURL_LEN - 1);
+        }
+        printf("XCONF BIN : upgrade_factoryreset calling cm_hal_FWupdateAndFactoryReset \n" );
+        printf("XCONF BIN : URL: %s FileName %s \n", pHttpUrl, pfilename );
+        reset_device = cm_hal_FWupdateAndFactoryReset( pHttpUrl, pfilename );
+        printf("XCONF BIN : hal return value %d\n", reset_device);
+        if(reset_device == RETURN_OK)
+        {
+            ret_code = 0;
+#if defined (_COSA_BCM_ARM_)
+            while(1)
+            {
+                dl_status = cm_hal_Get_HTTP_Download_Status();
 
+                if(dl_status >= 0 && dl_status <= 100)
+                    sleep(2);
+                else if(dl_status == 200)
+                    sleep(10);
+                else if(dl_status >= 400)
+                {
+                    printf(" FW DL is failed with status %d \n", dl_status);
+                    ret_code= 1;
+                    break;
+                }
+            }
+#endif
+        }
+        else
+        {
+            ret_code= 1;
+        }
+
+    }
     return ret_code;
 }
