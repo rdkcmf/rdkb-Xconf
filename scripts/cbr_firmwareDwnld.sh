@@ -388,6 +388,7 @@ getFirmwareUpgDetail()
         ipv6FirmwareLocation=""
         upgradeDelay=""
         delayDownload=""
+        factoryResetImmediately=""
        
         currentVersion=`getCurrentFw`
 		
@@ -468,7 +469,8 @@ getFirmwareUpgDetail()
 	    ipv6FirmwareLocation=`grep ipv6FirmwareLocation  $OUTPUT | cut -d \| -f2 | tr -d ' '`
 	    upgradeDelay=`grep upgradeDelay $OUTPUT | cut -d \| -f2`
             delayDownload=`grep delayDownload $OUTPUT | cut -d \| -f2`
-            rebootImmediately=`grep rebootImmediately $OUTPUT | cut -d \| -f2`    
+            rebootImmediately=`grep rebootImmediately $OUTPUT | cut -d \| -f2`
+            factoryResetImmediately=`grep factoryResetImmediately $OUTPUT | cut -d \| -f2`    
 
             echo_t "XCONF SCRIPT : Protocol :"$firmwareDownloadProtocol
             echo_t "XCONF SCRIPT : Filename :"$firmwareFilename
@@ -476,13 +478,14 @@ getFirmwareUpgDetail()
             echo_t "XCONF SCRIPT : Version  :"$firmwareVersion
             echo_t "XCONF SCRIPT : Reboot   :"$rebootImmediately
             echo_t "XCONF SCRIPT : Delay Time :"$delayDownload
+            echo_t "XCONF SCRIPT : factoryResetImmediately :"$factoryResetImmediately
                                     
             if [ -n "$delayDownload" ]; then
                 echo_t "XCONF SCRIPT : Device configured with download delay of $delayDownload minutes"
                 echo_t "XCONF SCRIPT : Device configured with download delay of $delayDownload minutes" >> $XCONF_LOG_FILE
             fi
 
-            if [ -z "$delayDownload" ] || [ "$rebootImmediately" = "true" ] || [ $delayDownload -lt 0 ];then
+            if [ -z "$delayDownload" ] || [ "$rebootImmediately" = "true" ] || [ "$factoryResetImmediately" = "true" ] || [ $delayDownload -lt 0 ];then
                 delayDownload=0
                 echo_t "XCONF SCRIPT : Resetting the download delay to 0 minutes" >> $XCONF_LOG_FILE
             fi
@@ -645,6 +648,7 @@ fetchFirmwareDetail()
     delayDownload=`grep delayDownload $LAST_HTTP_RESPONSE | cut -d \| -f2`
     rebootImmediately=`grep rebootImmediately $LAST_HTTP_RESPONSE | cut -d \| -f2`
     curr_conn_type=`grep curr_conn_type $LAST_HTTP_RESPONSE | cut -d \| -f2`
+    factoryResetImmediately=`grep factoryResetImmediately $LAST_HTTP_RESPONSE | cut -d \| -f2`
 
     image_upg_avl=1;
 
@@ -1037,6 +1041,27 @@ echo_t "XCONF SCRIPT : Checking image availability at boot up" >> $XCONF_LOG_FIL
 if [ $image_upg_avl -eq 0 ];
 then
     getFirmwareUpgDetail
+fi
+
+Retry_Reboot_count=0
+if [ "$factoryResetImmediately" == "true" ];then
+    echo_t "XCONF SCRIPT : factoryResetImmediately : TRUE!!" >> $XCONF_LOG_FILE
+    echo_t "XCONF SCRIPT : firmwareLocation: $firmwareLocation firmwareFilename : $firmwareFilename" >> $XCONF_LOG_FILE
+    while [ $Retry_Reboot_count -lt 3 ]; do
+        $BIN_PATH/XconfHttpDl upgrade_factoryreset "$firmwareLocation" "$firmwareFilename" >> $XCONF_LOG_FILE
+        reboot_device=$?
+        if [ $reboot_device -eq 0 ];then
+    	    echo_t "XCONF SCRIPT : factory resetting and upgrading the image" >> $XCONF_LOG_FILE
+            break
+        else
+            echo_t "XCONF SCRIPT : Failed to upgrade and factory reset retrying...$Retry_Reboot_count" >> $XCONF_LOG_FILE
+            Retry_Reboot_count=$((Retry_Reboot_count+1))
+        fi
+    done
+    if [ $Retry_Reboot_count -eq 3 ];then
+        echo_t "XCONF SCRIPT : Failed to upgrade after max 3 retires.. exiting !!!" >> $XCONF_LOG_FILE
+    fi
+    exit
 fi
 
 if [ "$rebootImmediately" == "true" ];then
