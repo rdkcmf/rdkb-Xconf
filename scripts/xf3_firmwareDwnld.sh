@@ -179,7 +179,8 @@ checkFirmwareUpgCriteria()
 
     # Retrieve current firmware version
     currentVersion=`getCurrentFw`
-
+    current_FW_Version=$currentVersion
+    update_FW_Version=$firmwareVersion
     #Comcast signed firmware images are represented in lower case and vendor signed images are represented in upper case.
     #In order to avoid confusion in string comparison, converting both currentVersion and firmwareVersion to lower case.
     currentVersion=`echo $currentVersion | tr '[A-Z]' '[a-z]'`
@@ -1327,9 +1328,17 @@ do
             sleep 5
 
 		#Trigger FirmwareDownloadStartedNotification before commencement of firmware download
+
 		current_time=`date +%s`
 		echo_t "current_time calculated as $current_time" >> $XCONF_LOG_FILE
-		dmcli eRT setv Device.DeviceInfo.X_RDKCENTRAL-COM_xOpsDeviceMgmt.RPC.FirmwareDownloadStartedNotification string $current_time
+		if [ "$rebootImmediately" == "true" ];then
+			reboot_flag="forced"
+		else
+			reboot_flag="deferred"
+		fi
+		FW_DWLD_NOTIFICATION_STRING="$current_time,$reboot_flag,$current_FW_Version,$update_FW_Version"
+		echo_t "XCONF SCRIPT : FirmwareDownloadStartedNotification parameters are $FW_DWLD_NOTIFICATION_STRING" >> $XCONF_LOG_FILE
+		dmcli eRT setv Device.DeviceInfo.X_RDKCENTRAL-COM_xOpsDeviceMgmt.RPC.FirmwareDownloadStartedNotification string $FW_DWLD_NOTIFICATION_STRING
 		echo_t "XCONF SCRIPT : FirmwareDownloadStartedNotification SET is triggered" >> $XCONF_LOG_FILE
 
            # Start the image download

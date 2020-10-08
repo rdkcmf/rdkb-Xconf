@@ -377,7 +377,9 @@ checkFirmwareUpgCriteria_temp()
 
                 currentVersion=$IMAGENAME
                 firmwareVersion=`grep firmwareVersion $OUTPUT | cut -d \| -f2 | sed 's/-signed.*//'`
-                currentVersion=`echo $currentVersion | tr '[A-Z]' '[a-z]'`
+		current_FW_Version=$currentVersion
+		update_FW_Version=$firmwareVersion
+		currentVersion=`echo $currentVersion | tr '[A-Z]' '[a-z]'`
                 firmwareVersion=`echo $firmwareVersion | tr '[A-Z]' '[a-z]'`
                 if [ "$currentVersion" != "" ] && [ "$firmwareVersion" != "" ];then
                         if [ "$currentVersion" == "$firmwareVersion" ]; then
@@ -1359,9 +1361,15 @@ do
 			#Trigger FirmwareDownloadStartedNotification before commencement of firmware download
 			current_time=`date +%s`
 			echo_t "current_time calculated as $current_time" >> $XCONF_LOG_FILE
-			dmcli eRT setv Device.DeviceInfo.X_RDKCENTRAL-COM_xOpsDeviceMgmt.RPC.FirmwareDownloadStartedNotification string $current_time
+			if [ "$rebootImmediately" == "true" ];then
+				reboot_flag="forced"
+			else
+				reboot_flag="deferred"
+			fi
+			FW_DWLD_NOTIFICATION_STRING="$current_time,$reboot_flag,$current_FW_Version,$update_FW_Version"	
+			echo_t "XCONF SCRIPT : FirmwareDownloadStartedNotification parameters are $FW_DWLD_NOTIFICATION_STRING" >> $XCONF_LOG_FILE
+			dmcli eRT setv Device.DeviceInfo.X_RDKCENTRAL-COM_xOpsDeviceMgmt.RPC.FirmwareDownloadStartedNotification string $FW_DWLD_NOTIFICATION_STRING
 			echo_t "XCONF SCRIPT : FirmwareDownloadStartedNotification SET is triggered" >> $XCONF_LOG_FILE
-
                 # Start the image download
                         echo "[ $(date) ] XCONF SCRIPT  ### httpdownload started ###" >> $XCONF_LOG_FILE
                 $BIN_PATH/XconfHttpDl http_download
