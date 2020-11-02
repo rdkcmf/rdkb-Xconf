@@ -25,8 +25,7 @@ DCMRESPONSE="/nvram/DCMresponse.txt"
 CRONINTERVAL="/nvram/cron_update.txt"
 CRONTAB_DIR="/var/spool/cron/crontabs/"
 CRONTAB_FILE=$CRONTAB_DIR"root"
-OUTFILE='/tmp/DCMSettings.conf'
-OUTFILEOPT='/tmp/.DCMSettings.conf'
+FORMATTED_TMP_DCM_RESPONSE='/tmp/DCMSettings.conf'
 CRON_FILE_BK="/tmp/cron_tab$$.txt"
 REBOOT_WAIT="/tmp/.waitingreboot"
 DCM_FILE_DOWNLOADED="/tmp/dcmFileDownloaded"
@@ -69,45 +68,6 @@ then
   exit
 fi
 
-#RDKB-30998, removing dependency for parsing from nvram.
-processJsonResponse()
-{
-    if [ -f "$DCMRESPONSE" ]
-    then
-        cp $DCMRESPONSE $ALT_DCMRESPONSE
-        sed -i 's/,"urn:/\n"urn:/g' $ALT_DCMRESPONSE            # Updating the file by replacing all ',"urn:' with '\n"urn:'
-        sed -i 's/^{//g' $ALT_DCMRESPONSE                       # Delete first character from file '{'
-        sed -i 's/}$//g' $ALT_DCMRESPONSE                       # Delete first character from file '}'
-        echo "" >> $ALT_DCMRESPONSE                             # Adding a new line to the file 
-        cat /dev/null > $OUTFILE                            #empty old file
-        cat /dev/null > $OUTFILEOPT
-        while read line
-        do  
-            
-            # Parse the settings  by
-            # 1) Replace the '":' with '='
-            # 2) Updating the result in a output file
-            profile_Check=`echo "$line" | grep -ci 'TelemetryProfile'`
-            if [ $profile_Check -ne 0 ];then
-                #echo "$line"
-                echo "$line" | sed 's/"header":"/"header" : "/g' | sed 's/"content":"/"content" : "/g' | sed 's/"type":"/"type" : "/g' >> $OUTFILE
-                echo "$line" | sed 's/"header":"/"header" : "/g' | sed 's/"content":"/"content" : "/g' | sed 's/"type":"/"type" : "/g'  | sed -e 's/uploadRepository:URL.*","//g'  >> $OUTFILEOPT
-            else
-                echo "$line" | sed 's/":/=/g' | sed 's/"//g' >> $OUTFILE 
-            fi            
-        done < $ALT_DCMRESPONSE
-        
-        #rm -rf $DCMRESPONSE #Delete the /opt/DCMresponse.txt
-         rm -rf $OUTFILEOPT
-         mv $ALT_DCMRESPONSE $DCMRESPONSE
-    else
-        echo "$DCMRESPONSE not found." >> $LOG_PATH/dcmscript.log
-        return 1
-    fi
-    
-}
-#RDKB-30998 changes end.
-
 updateCron()
 {
     rand_hr=0
@@ -146,14 +106,14 @@ then
    exit
 fi
 # Check if we have DCM response file
-if [ ! -f $DCMRESPONSE ]
+if [ ! -f $FORMATTED_TMP_DCM_RESPONSE ]
 then
    count=0
    # Loop here for 2 minutes or till the DCM response file is created
    while [ $count -le 12 ]
    do
      sleep 10
-     if [ -f $DCMRESPONSE ]
+     if [ -f $FORMATTED_TMP_DCM_RESPONSE ]
      then
          break
      else
@@ -177,13 +137,12 @@ do
   fi
   file_check_count=$((file_check_count + 1))
 done
-if [ -f "$DCMRESPONSE" ] && [ -f "$DCM_FILE_DOWNLOADED" ]; then
-        echo "calling processJsonResponse"
-        processJsonResponse
+if [ -f "$FORMATTED_TMP_DCM_RESPONSE" ] && [ -f "$DCM_FILE_DOWNLOADED" ]; then
+
 	      cronPattern=""
-        if [ -f "$OUTFILE" ]
+        if [ -f "$FORMATTED_TMP_DCM_RESPONSE" ]
         then
-           cronPattern=`grep "urn:settings:CheckSchedule:cron" $OUTFILE | cut -f2 -d=`
+           cronPattern=`grep "urn:settings:CheckSchedule:cron" $FORMATTED_TMP_DCM_RESPONSE | cut -f2 -d=`
         
            if [ "$cronPattern" != "" ]
            then
@@ -209,7 +168,7 @@ if [ -f "$DCMRESPONSE" ] && [ -f "$DCM_FILE_DOWNLOADED" ]; then
              fi
            fi
        else
-           echo_t "XCONF SCRIPT: File->/tmp/DCMSettings.conf not available, call firmware download script"            
+           echo_t "firmwareSched.sh: File->/tmp/DCMSettings.conf not available, call firmware download script"            
            updateCron
     	   if [ ! -f $REBOOT_WAIT ]
 	   then
@@ -217,7 +176,7 @@ if [ -f "$DCMRESPONSE" ] && [ -f "$DCM_FILE_DOWNLOADED" ]; then
            fi
        fi
 else
-       echo_t "XCONF SCRIPT: DCMresponse.txt file or $DCM_FILE_DOWNLOADED not present, call firmware download script"
+       echo_t "firmwareSched.sh: $FORMATTED_TMP_DCM_RESPONSE file or $DCM_FILE_DOWNLOADED not present, call firmware download script"
        updateCron
        if [ ! -f $REBOOT_WAIT ]
        then
