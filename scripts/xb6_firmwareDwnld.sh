@@ -931,7 +931,7 @@ checkMaintenanceWindow()
       end_time=`cat $FW_END`
     fi
 
-    if [ "$start_time" -eq "$end_time" ]
+    if [ "$start_time" = "$end_time" ]
     then
         echo_t "XCONF SCRIPT : Start time can not be equal to end time" >> $XCONF_LOG_FILE
 	t2CountNotify "Test_StartEndEqual"
