@@ -1058,7 +1058,9 @@ echo_t "XCONF SCRIPT : $interface has an ipv4 address of $estbIp or an ipv6 addr
 
 # Checking Autoupdate exclusion
 FWUPGRADE_EXCLUDE=`syscfg get AutoExcludedEnabled`
-echo "FWExclusion status is : $FWUPGRADE_EXCLUDE"
+if [ x$FWUPGRADE_EXCLUDE != "x" ];then
+    echo_t "FWExclusion status is : $FWUPGRADE_EXCLUDE"
+fi
 
 # Triggered after delayedDownload timer expired
 if [ "$triggeredFrom" = "delayedDownload" ];
