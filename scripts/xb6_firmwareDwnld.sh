@@ -452,7 +452,14 @@ getFirmwareUpgDetail()
            echo_t "XCONF SCRIPT : Device model taken from /etc/device.properties "
         fi
 
-        MAC=`ifconfig $interface  | grep HWaddr | cut -d' ' -f7`
+        PARTER_ID=`syscfg get PartnerID`
+        if [ "$PARTER_ID" = "sky-italia" ] || [ "$PARTER_ID" = "sky-uk" ]; then
+            #FEATURE_RDKB_WAN_MANAGER
+            wan_if=`syscfg get wan_physical_ifname`
+            MAC=`cat /sys/class/net/$wan_if/address | tr '[a-f]' '[A-F]' `
+        else	
+            MAC=`ifconfig $interface  | grep HWaddr | cut -d' ' -f7`
+	fi
         date=`date`
         partnerId=$(getPartnerId)
         accountId=$(getAccountId)
@@ -880,7 +887,15 @@ calcRandTime()
 # Get the MAC address of the WAN interface
 getMacAddress()
 {
+    PARTER_ID=`syscfg get PartnerID`
+    if [ "$PARTER_ID" = "sky-italia" ] || [ "$PARTER_ID" = "sky-uk" ]; then
+        #FEATURE_RDKB_WAN_MANAGER
+        wan_if=`syscfg get wan_physical_ifname`
+        mac=`cat /sys/class/net/$wan_if/address | tr '[a-f]' '[A-F]' `
+        echo $mac
+    else	
 	ifconfig  | grep $interface |  grep -v $interface:0 | tr -s ' ' | cut -d ' ' -f5
+    fi
 }
 
 getBuildType()

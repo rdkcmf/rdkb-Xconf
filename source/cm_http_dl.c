@@ -46,13 +46,21 @@ INT Set_HTTP_Download_Url(char *pHttpUrl, char *pfilename) {
         char pGetFilename[CM_FILENAME_LEN] = {'0'};
 
         /*Set the HTTP download URL*/
-        ret_stat = cm_hal_Set_HTTP_Download_Url(pHttpUrl, pfilename);
+#ifdef FEATURE_FWUPGRADE_MANAGER
+        ret_stat = fwupgrade_hal_set_download_url(pHttpUrl, pfilename);
+#else
+	ret_stat = cm_hal_Set_HTTP_Download_Url(pHttpUrl, pfilename);
+#endif
         if (ret_stat == RETURN_OK) {
-                // zero out pGetHttpUril and pGetFilename before calling cm_hal_Get_HTTP_Download_Url()
+                // zero out pGetHttpUril and pGetFilename before calling fwupgrade_hal_get_download_Url()
                 memset(pGetHttpUrl, 0, CM_HTTPURL_LEN);
                 memset(pGetFilename, 0, CM_FILENAME_LEN);
                 /*Get the status of the set above*/
+#ifdef FEATURE_FWUPGRADE_MANAGER
+                ret_stat = fwupgrade_hal_get_download_url(pGetHttpUrl, pGetFilename);
+#else
                 ret_stat = cm_hal_Get_HTTP_Download_Url(pGetHttpUrl, pGetFilename);
+#endif
                 if (ret_stat == RETURN_OK)
                     printf("\nXCONF BIN : URL has successfully been set\n");
                 else
@@ -78,12 +86,18 @@ INT HTTP_Download ()
 
     /*Set the download interface*/
     printf("\nXCONF BIN : Setting download interface to %d",interface);
+#ifdef FEATURE_FWUPGRADE_MANAGER
+    fwupgrade_hal_set_download_interface(interface);
+#else
     cm_hal_Set_HTTP_Download_Interface(interface);
-
+#endif
     while((retry_limit < RETRY_HTTP_DOWNLOAD_LIMIT) && (retry_http_dl==1))
     {
+#ifdef FEATURE_FWUPGRADE_MANAGER
+            ret_stat = fwupgrade_hal_download ();
+#else
             ret_stat = cm_hal_HTTP_Download ();
-
+#endif
             /*If the HTTP download started succesfully*/
             if(ret_stat == RETURN_OK)
             {
@@ -123,8 +137,11 @@ INT HTTP_Download ()
                 while(retry_http_status ==1)
                 {    
                     /*Get the download status till SUCCESS*/
+#ifdef FEATURE_FWUPGRADE_MANAGER
+                    http_dl_status = fwupgrade_hal_get_download_status();
+#else
                     http_dl_status = cm_hal_Get_HTTP_Download_Status();
-            
+#endif
                     /*Download completed succesfully*/
                     if(http_dl_status ==200)
                     {
@@ -220,7 +237,11 @@ INT Reboot_Ready(LONG *pValue)
 #if defined(_ENABLE_EPON_SUPPORT_)
     reboot_ready_status = dpoe_hal_Reboot_Ready(pValue);
 #else
+#ifdef FEATURE_FWUPGRADE_MANAGER
+    reboot_ready_status = fwupgrade_hal_reboot_ready(pValue);
+#else
     reboot_ready_status = cm_hal_Reboot_Ready(pValue);
+#endif
 #endif
     return reboot_ready_status;    
 }
@@ -228,9 +249,11 @@ INT Reboot_Ready(LONG *pValue)
 INT HTTP_Download_Reboot_Now ()
 {
 int http_reboot_stat; 
-
+#ifdef FEATURE_FWUPGRADE_MANAGER
+http_reboot_stat= fwupgrade_hal_download_reboot_now();
+#else
 http_reboot_stat= cm_hal_HTTP_Download_Reboot_Now();
-
+#endif
 if(http_reboot_stat == RETURN_OK)
     printf("\nXCONF BIN : Rebooting the device now!\n");
 
@@ -245,8 +268,11 @@ INT HTTP_LED_Flash ( int LEDFlashState )
 	int http_led_flash_stat = -1; 
 
 #ifdef HTTP_LED_FLASH_FEATURE
-	http_led_flash_stat= cm_hal_HTTP_LED_Flash( LEDFlashState );
-
+#ifdef FEATURE_FWUPGRADE_MANAGER
+	http_led_flash_stat= fwupgrade_hal_led_flash( LEDFlashState );
+#else
+        http_led_flash_stat= cm_hal_HTTP_LED_Flash( LEDFlashState );
+#endif
 	if(http_led_flash_stat == RETURN_OK)
 	{
 	    printf("\nXCONF BIN : setting LED flashing completed! %d\n", LEDFlashState);
