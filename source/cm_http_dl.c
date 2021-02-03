@@ -304,6 +304,15 @@ int main(int argc,char *argv[])
 
     t2_init("ccsp-xconf");
 
+
+        if (argv[1] == NULL)
+        {
+                printf("NULL arguments, returning\n");
+                ret_code = 1;
+                return ret_code;
+        }
+
+
 	if(strcmp(argv[1],"set_http_url") == 0)
 	{
             /*
