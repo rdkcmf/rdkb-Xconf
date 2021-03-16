@@ -831,7 +831,7 @@ getMacAddress()
 
 getBuildType()
 {
-   IMAGENAME=`grep imagename= /fss/gw/version.txt | cut -d ":" -f 2`
+   IMAGENAME=`grep imagename /fss/gw/version.txt | cut -d ":" -f 2`
 
    TEMPDEV=`echo $IMAGENAME | grep DEV`
    if [ "$TEMPDEV" != "" ]
