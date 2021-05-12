@@ -28,9 +28,6 @@ CRONTAB_FILE=$CRONTAB_DIR"root"
 FORMATTED_TMP_DCM_RESPONSE='/tmp/DCMSettings.conf'
 CRON_FILE_BK="/tmp/cron_tab$$.txt"
 REBOOT_WAIT="/tmp/.waitingreboot"
-DCM_FILE_DOWNLOADED="/tmp/dcmFileDownloaded"
-MAX_RETRY=10
-file_check_count=0
 XCONF_LOG_FILE_NAME=xconf.txt.0
 XCONF_LOG_FILE_PATHNAME=${LOG_PATH}/${XCONF_LOG_FILE_NAME}
 XCONF_LOG_FILE=${XCONF_LOG_FILE_PATHNAME}
@@ -126,18 +123,6 @@ if [ ! -f $REBOOT_WAIT ]
 then
     killall $DOWNLOAD_SCRIPT
 fi
-while [ $file_check_count -lt $MAX_RETRY ]
-do
-  if [ -f "$DCM_FILE_DOWNLOADED" ];then
-       echo "$DCM_FILE_DOWNLOADED file available , breaking the loop "
-       break
-  else
-      echo "DCM settings download is not complete."
-      sleep 30
-  fi
-  file_check_count=$((file_check_count + 1))
-done
-if [ -f "$FORMATTED_TMP_DCM_RESPONSE" ] && [ -f "$DCM_FILE_DOWNLOADED" ]; then
 
 	      cronPattern=""
         if [ -f "$FORMATTED_TMP_DCM_RESPONSE" ]
@@ -175,11 +160,3 @@ if [ -f "$FORMATTED_TMP_DCM_RESPONSE" ] && [ -f "$DCM_FILE_DOWNLOADED" ]; then
             	$DOWNLOAD_SCRIPT 1 &     
            fi
        fi
-else
-       echo_t "firmwareSched.sh: $FORMATTED_TMP_DCM_RESPONSE file or $DCM_FILE_DOWNLOADED not present, call firmware download script"
-       updateCron
-       if [ ! -f $REBOOT_WAIT ]
-       then
-          $DOWNLOAD_SCRIPT 1 &
-       fi
-fi
