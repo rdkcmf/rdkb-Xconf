@@ -52,6 +52,8 @@ CONN_TRIES=3
 EnableOCSPStapling="/tmp/.EnableOCSPStapling"
 EnableOCSP="/tmp/.EnableOCSPCA"
 
+DAC15_DOMAIN="dac15cdlserver.ae.ccp.xcal.tv"
+
 if [ -f $EnableOCSPStapling ] || [ -f $EnableOCSP ]; then
     CERT_STATUS="--cert-status"
 fi
@@ -245,7 +247,12 @@ do_Codebig_signing()
             CB_SIGNED_REQUEST=`cat $SIGN_FILE`
             rm -f $SIGN_FILE
       else
-            SIGN_CMD="configparamgen 1 \"$imageHTTPURL\""
+            request_type=1
+            domainName=`echo $imageHTTPURL | awk -F/ '{print $3}'`
+            if [ "$domainName" == "$DAC15_DOMAIN" ]; then
+                request_type=14
+            fi
+            SIGN_CMD="configparamgen $request_type \"$imageHTTPURL\""
             echo $SIGN_CMD >>$XCONF_LOG_FILE
             echo -e "\n"
             eval $SIGN_CMD > $SIGN_FILE
@@ -253,7 +260,7 @@ do_Codebig_signing()
             rm -f $SIGN_FILE
 #            echo $cbSignedimageHTTPURL >>$XCONF_LOG_FILE
             cbSignedimageHTTPURL=`echo $cbSignedimageHTTPURL | sed 's|stb_cdl%2F|stb_cdl/|g'`
-            serverUrl=`echo $cbSignedimageHTTPURL | sed -e "s|&oauth_consumer_key.*||g"`
+            serverUrl=`echo $cbSignedimageHTTPURL | sed -e "s|[?&]oauth_consumer_key.*||g"`
             authorizationHeader=`echo $cbSignedimageHTTPURL | sed -e "s|&|\", |g" -e "s|=|=\"|g" -e "s|.*oauth_consumer_key|oauth_consumer_key|g"`
             authorizationHeader="Authorization: OAuth realm=\"\", $authorizationHeader\""
             CURL_SSR_PARAM="-H '$authorizationHeader' '$serverUrl'"

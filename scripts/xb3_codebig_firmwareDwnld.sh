@@ -65,6 +65,8 @@ FW_END="/nvram/.FirmwareUpgradeEndTime"
 EnableOCSPStapling="/tmp/.EnableOCSPStapling"
 EnableOCSP="/tmp/.EnableOCSPCA"
 
+DAC15_DOMAIN="dac15cdlserver.ae.ccp.xcal.tv"
+
 if [ -f $EnableOCSPStapling ] || [ -f $EnableOCSP ]; then
     CERT_STATUS="--cert-status"
 fi
@@ -723,10 +725,16 @@ getFirmwareUpgDetail()
 			
 						adjustDate
 
-                        echo_t "XCONF SCRIPT : Get Signed URL from configparamgen for ssr respose"
 
                         ########Get Signed URL from configparamgen.################
-                        SIGN_CMD="configparamgen 1 \"$imageHTTPURL\""
+                        if [ "$domainName" == "$DAC15_DOMAIN" ]; then
+                            echo_t "XCONF SCRIPT : Get Signed URL from configparamgen for dac15 cdl response"
+                            request_type=14
+                        else
+                            echo_t "XCONF SCRIPT : Get Signed URL from configparamgen for ssr response"
+                            request_type=1
+                        fi
+                        SIGN_CMD="configparamgen $request_type \"$imageHTTPURL\""
                         echo $SIGN_CMD >>$XCONF_LOG_FILE
                         echo -e "\n"
                         eval $SIGN_CMD > /nvram/.signedRequest
@@ -739,7 +747,7 @@ getFirmwareUpgDetail()
                         rm -f /nvram/adjdate.txt
 
                         cbSignedimageHTTPURL=`echo $cbSignedimageHTTPURL1 | sed 's|stb_cdl%2F|stb_cdl/|g'`
-                        serverUrl=`echo $cbSignedimageHTTPURL | sed -e "s|&oauth_consumer_key.*||g"`
+                        serverUrl=`echo $cbSignedimageHTTPURL | sed -e "s|[&?]oauth_consumer_key.*||g"`
                         authorizationHeader=`echo $cbSignedimageHTTPURL | sed -e "s|&|\", |g" -e "s|=|=\"|g" -e "s|.*oauth_consumer_key|oauth_consumer_key|g"`
                         authorizationHeader="Authorization: OAuth realm=\"\", $authorizationHeader\""
 
@@ -1347,7 +1355,7 @@ do
         echo "$firmwareLocation" > /tmp/xconfdownloadurl
 
         # Set the url and filename
-		if [ "$UseCodebig" -eq "0" ] || [ $CDL_SERVER_OVERRIDE -eq 1 ];then
+		if [ "$UseCodebig" -eq "0" ];then
 			echo_t "XCONF SCRIPT : URL --- $firmwareLocation and NAME --- $firmwareFilename"
 			echo_t "XCONF SCRIPT : URL --- $firmwareLocation and NAME --- $firmwareFilename" >> $XCONF_LOG_FILE
 			echo \"\" > /tmp/authHeader
