@@ -37,10 +37,12 @@ if [ "$FWUPGRADE_EXCLUDE" = "true" ] && [ "$type" != "PROD" ] && [ $BUILD_TYPE !
     exit
 fi
 BOX=`grep BOX_TYPE /etc/device.properties | cut -d "=" -f2 | tr 'A-Z' 'a-z'`
-RDKFWUpgrader_PID=`pidof rdkfwupgrader`
+
 #check if RDKFirmwareUpgrader is enabled if true send dbus trigger to the rdkfwupgrader daemon uing check_now()
 isRDKFWUpgraderEnabled=`syscfg get RDKFirmwareUpgraderEnabled`
-if [ "x$isRDKFWUpgraderEnabled" = "xtrue" ] && [ -n "$RDKFWUpgrader_PID" ] ; then
+
+
+if [ "x$isRDKFWUpgraderEnabled" = "xtrue" ] ; then
     echo "isRDKFWUpgraderEnabled = $isRDKFWUpgraderEnabled"
     DOWNLOAD_SCRIPT="/lib/rdk/rdkfwupgrader_check_now.sh"
     SCRIPT_NAME="rdkfwupgrader_check_now.sh"
@@ -65,22 +67,28 @@ then
   exit
 fi
 
+DOWNLOAD_SCRIPT_PRESENT=`crontab -l | grep -i firmwareDwnld.sh`
+RDKFWUPGRADER_PRESENT=`crontab -l | grep -i rdkfwupgrader_check_now.sh`
+
 updateCron()
 {
     rand_hr=0
     rand_min=0
-    # Calculate random time for cron pattern
-    # The max random time can be 23:59:59
-    echo_t "XCONF SCRIPT: Check Update time being calculated within 24 hrs." >> $XCONF_LOG_FILE
-    rand_hr=`awk -v min=0 -v max=23 -v seed="$(date +%N)" 'BEGIN{srand(seed);print int(min+rand()*(max-min+1))}'`
-    rand_min=`awk -v min=0 -v max=59 -v seed="$(date +%N)" 'BEGIN{srand(seed);print int(min+rand()*(max-min+1))}'`
-    cronPattern="$rand_min $rand_hr * * *"
-    crontab -l -c $CRONTAB_DIR > $CRON_FILE_BK
-    sed -i "/$SCRIPT_NAME/d" $CRON_FILE_BK
-    echo "$cronPattern  $DOWNLOAD_SCRIPT 2" >> $CRON_FILE_BK
-    crontab $CRON_FILE_BK -c $CRONTAB_DIR
-    rm -rf $CRON_FILE_BK
-    echo_t "XCONF SCRIPT: Time Generated : $rand_hr hr $rand_min min"
+    # Changes are due to RDKB-36384
+    if [ -z "$DOWNLOAD_SCRIPT_PRESENT" ] && [ -z "$RDKFWUPGRADER_PRESENT" ] ; then
+        # Calculate random time for cron pattern
+        # The max random time can be 23:59:59
+        echo_t "XCONF SCRIPT: Check Update time being calculated within 24 hrs." >> $XCONF_LOG_FILE
+        rand_hr=`awk -v min=0 -v max=23 -v seed="$(date +%N)" 'BEGIN{srand(seed);print int(min+rand()*(max-min+1))}'`
+        rand_min=`awk -v min=0 -v max=59 -v seed="$(date +%N)" 'BEGIN{srand(seed);print int(min+rand()*(max-min+1))}'`
+        cronPattern="$rand_min $rand_hr * * *"
+        crontab -l -c $CRONTAB_DIR > $CRON_FILE_BK
+        sed -i "/$SCRIPT_NAME/d" $CRON_FILE_BK
+        echo "$cronPattern  $DOWNLOAD_SCRIPT 2" >> $CRON_FILE_BK
+        crontab $CRON_FILE_BK -c $CRONTAB_DIR
+        rm -rf $CRON_FILE_BK
+        echo_t "XCONF SCRIPT: Time Generated : $rand_hr hr $rand_min min"
+    fi
 }
 ##############################################################
 #                                                            #
@@ -132,11 +140,13 @@ fi
            if [ "$cronPattern" != "" ]
            then
 	      echo_t "XCONF SCRIPT: Firmware scheduler cron schedule time is $cronPattern"
-              crontab -l -c $CRONTAB_DIR > $CRON_FILE_BK
-              sed -i "/$SCRIPT_NAME/d" $CRON_FILE_BK
-              echo "$cronPattern  $DOWNLOAD_SCRIPT 2" >> $CRON_FILE_BK
-              crontab $CRON_FILE_BK -c $CRONTAB_DIR
-              rm -rf $CRON_FILE_BK
+	      if [ -z "$DOWNLOAD_SCRIPT_PRESENT" ] && [ -z "$RDKFWUPGRADER_PRESENT" ] ; then
+                  crontab -l -c $CRONTAB_DIR > $CRON_FILE_BK
+                  sed -i "/$SCRIPT_NAME/d" $CRON_FILE_BK
+                  echo "$cronPattern  $DOWNLOAD_SCRIPT 2" >> $CRON_FILE_BK
+                  crontab $CRON_FILE_BK -c $CRONTAB_DIR
+                  rm -rf $CRON_FILE_BK
+	      fi
               
               if [ ! -f $REBOOT_WAIT ]
 	      then
