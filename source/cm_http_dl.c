@@ -24,6 +24,7 @@
 
 
 #include "cm_hal.h"
+#include "safec_lib_common.h"
 
 #if defined(_ENABLE_EPON_SUPPORT_)
 #include "dpoe_hal.h"
@@ -34,6 +35,56 @@
 #define LONG long
 #define CM_HTTPURL_LEN 1024
 #define CM_FILENAME_LEN 200
+#define NUM_OF_ARGUMENT_TYPES (sizeof(argument_type_xconf_table)/sizeof(argument_type_xconf_table[0]))
+
+enum ArgumentType_Xconf_e {
+    SET_HTTP_URL,
+    HTTP_DOWNLOAD,
+    HTTP_REBOOT_STATUS,
+    HTTP_REBOOT,
+    HTTP_FLASH_LED,
+    UPGRADE_FACTORYRESET
+};
+
+typedef struct ArgumentType_Pair_For_Xconf{
+  char                 *name;
+  enum ArgumentType_Xconf_e  type;
+} ARGUMENT_TYPE_PAIR_FOR_XCONF;
+
+ARGUMENT_TYPE_PAIR_FOR_XCONF argument_type_xconf_table[] = {
+  {"set_http_url",          SET_HTTP_URL        },
+  {"http_download",         HTTP_DOWNLOAD       },
+  {"http_reboot_status",    HTTP_REBOOT_STATUS  },
+  {"http_reboot",           HTTP_REBOOT         },
+  {"http_flash_led",        HTTP_FLASH_LED      },
+  {"upgrade_factoryreset",  UPGRADE_FACTORYRESET}
+};
+
+static int get_argument_type_from_argv(char *name, enum ArgumentType_Xconf_e *type_ptr)
+{
+  errno_t rc = -1;
+  int ind = -1;
+  int i = 0;
+  size_t strsize = 0;
+
+  if((name == NULL) || (type_ptr == NULL))
+     return 0;
+
+  strsize = strlen(name);
+
+  for (i = 0 ; i < NUM_OF_ARGUMENT_TYPES ; ++i)
+  {
+      rc = strcmp_s(name, strsize, argument_type_xconf_table[i].name, &ind);
+      ERR_CHK(rc);
+      if((rc == EOK) && (!ind))
+      {
+          *type_ptr = argument_type_xconf_table[i].type;
+          return 1;
+      }
+  }
+  return 0;
+}
+
 /*Typedefs Declared*/
 
 /*Global Definitions*/
@@ -44,6 +95,7 @@ INT Set_HTTP_Download_Url(char *pHttpUrl, char *pfilename) {
         int ret_stat = 0;
         char pGetHttpUrl[CM_HTTPURL_LEN] = {'0'};
         char pGetFilename[CM_FILENAME_LEN] = {'0'};
+        errno_t rc = -1;
 
         /*Set the HTTP download URL*/
 #ifdef FEATURE_FWUPGRADE_MANAGER
@@ -53,8 +105,10 @@ INT Set_HTTP_Download_Url(char *pHttpUrl, char *pfilename) {
 #endif
         if (ret_stat == RETURN_OK) {
                 // zero out pGetHttpUril and pGetFilename before calling fwupgrade_hal_get_download_Url()
-                memset(pGetHttpUrl, 0, CM_HTTPURL_LEN);
-                memset(pGetFilename, 0, CM_FILENAME_LEN);
+                rc = memset_s(pGetHttpUrl,sizeof(pGetHttpUrl), 0, sizeof(pGetHttpUrl));
+                ERR_CHK(rc);
+                rc = memset_s(pGetFilename,sizeof(pGetFilename), 0, sizeof(pGetFilename));
+                ERR_CHK(rc);
                 /*Get the status of the set above*/
 #ifdef FEATURE_FWUPGRADE_MANAGER
                 ret_stat = fwupgrade_hal_get_download_url(pGetHttpUrl, pGetFilename);
@@ -290,14 +344,16 @@ INT HTTP_LED_Flash ( int LEDFlashState )
 
 int main(int argc,char *argv[])
 {
-
+    char *pfilename = NULL;
     char pHttpUrl[CM_HTTPURL_LEN] = {'0'};
-    char pfilename[CM_FILENAME_LEN] = {'0'};
 
     LONG value = 0;
     int ret_code = 0;
     int http_status,reboot_status;
     int reset_device;
+    errno_t rc = -1;
+    int ind = -1;
+    enum ArgumentType_Xconf_e   type;
 #if defined (_COSA_BCM_ARM_)
     int dl_status = 0;
 #endif
@@ -312,9 +368,9 @@ int main(int argc,char *argv[])
                 return ret_code;
         }
 
-
-	if(strcmp(argv[1],"set_http_url") == 0)
-	{
+    if(get_argument_type_from_argv(argv[1], &type)){
+    if(type == SET_HTTP_URL)
+    {
             /*
              * End users of XconfHttpDl should not be impacted due to update in HAL api changes
              * New HAL apis using CURL needs exact location. Eg.:
@@ -323,11 +379,15 @@ int main(int argc,char *argv[])
 
              if (((argv[2]) != NULL) && ((argv[3]) != NULL)) {
 
-                  strncpy(pfilename, argv[3], CM_FILENAME_LEN - 1);
+                  pfilename = argv[3];
+
                   if ((argv[4]) != NULL) {
-                      if (strcmp(argv[4], "complete_url") == 0) {
+                      rc = strcmp_s("complete_url",strlen("complete_url"),argv[4],&ind);
+                      ERR_CHK(rc);
+                      if((ind == 0) && (rc == EOK)) {
                           // Exact download location passed by caller.
-                          strncpy(pHttpUrl, argv[2], CM_HTTPURL_LEN - 1);
+                          rc = strcpy_s(pHttpUrl,sizeof(pHttpUrl), argv[2]);
+                          ERR_CHK(rc);
                           ret_code = Set_HTTP_Download_Url(pHttpUrl, pfilename);
                        } else {
                             printf("XCONF BIN : Unknown 3rd argument %s . Failed to complete set_http_url operation.\n", argv[4]);
@@ -336,76 +396,71 @@ int main(int argc,char *argv[])
                       // TBD - Evaluate impact on all other platforms which doesn't have changes in oem HAL api
                       // Form complete download URL from args passed by caller including the quotes
                       // "'" + pHttpUrl + "/" + "pfilename" + "'"
-                      strcpy(pHttpUrl, "'");
-                      strncat(pHttpUrl, argv[2], CM_HTTPURL_LEN - 1);
-                      strcat(pHttpUrl, "/");
-                      strncat(pHttpUrl, pfilename, CM_HTTPURL_LEN - 1);
-                      strcat(pHttpUrl, "'");
+                      rc = sprintf_s(pHttpUrl, sizeof(pHttpUrl), "'%s/%s'", argv[2], pfilename);
+                      if(rc < EOK ) {
+                         ERR_CHK(rc);
+                      }
                       ret_code = Set_HTTP_Download_Url(pHttpUrl, pfilename);
                   }
 
             }
 
-	}
+    }
+    else if (type == HTTP_DOWNLOAD)
+    {
+        http_status = HTTP_Download();
 
-	else if (strcmp(argv[1],"http_download")==0)
-	{
-		http_status = HTTP_Download();
-
-	    // The return code is after RETRY_HTTP_DOWNLOAD_LIMIT has been reached
+        // The return code is after RETRY_HTTP_DOWNLOAD_LIMIT has been reached
         // For 200, return SUCCESS, else FAILURE and retry in the next window
-		if(http_status == 200)
-			ret_code = 0;
+        if(http_status == 200)
+            ret_code = 0;
 
-		else
-			ret_code = 1;
+        else
+            ret_code = 1;
 
-	}
+    }
 
-	else if (strcmp(argv[1],"http_reboot_status")==0)
-	{
+    else if (type == HTTP_REBOOT_STATUS)
+    {
 
-		reboot_status = Reboot_Ready(&value);
-		printf("XCONF BIN : Reboot_Ready status %ld \n", value);
-		if(reboot_status == RETURN_OK && value == 1)
-			ret_code = 0;
+        reboot_status = Reboot_Ready(&value);
+        printf("XCONF BIN : Reboot_Ready status %ld \n", value);
+        if(reboot_status == RETURN_OK && value == 1)
+            ret_code = 0;
 
-		else
-			ret_code= 1;
-	}
+        else
+            ret_code= 1;
+    }
 
-	else if(strcmp(argv[1],"http_reboot")==0)
-	{
-		reset_device = HTTP_Download_Reboot_Now();
+    else if(type == HTTP_REBOOT)
+    {
+        reset_device = HTTP_Download_Reboot_Now();
 
-			if(reset_device == RETURN_OK)
-				ret_code = 0;
+            if(reset_device == RETURN_OK)
+                ret_code = 0;
 
-			else
-				ret_code= 1;
-	}
-	else if(strcmp(argv[1],"http_flash_led")==0)
-	{
-		if( argv[2] != NULL )
-		{
-			char LEDFlashState[ 24 ] = { 0 };
-
-			strncpy( LEDFlashState, argv[2], sizeof( LEDFlashState ) - 1 );
-			
-			reset_device = HTTP_LED_Flash( atoi( LEDFlashState ) );
-			
-				if(reset_device == RETURN_OK)
-					ret_code = 0;
-				else
-					ret_code= 1;
-		}
-	}
-    else if(strcmp(argv[1],"upgrade_factoryreset")==0)
+            else
+                ret_code= 1;
+    }
+    else if(type == HTTP_FLASH_LED)
+    {
+        if( argv[2] != NULL )
+        {
+            reset_device = HTTP_LED_Flash( atoi(argv[2]) );
+            
+                if(reset_device == RETURN_OK)
+                    ret_code = 0;
+                else
+                    ret_code= 1;
+        }
+    }
+    else if(type == UPGRADE_FACTORYRESET)
     {
         if (((argv[2]) != NULL) && ((argv[3]) != NULL))
         {
-            strncpy(pfilename, argv[3], CM_FILENAME_LEN - 1);
-            strncpy(pHttpUrl, argv[2], CM_HTTPURL_LEN - 1);
+            pfilename = argv[3];
+            rc = strcpy_s(pHttpUrl,sizeof(pHttpUrl), argv[2]);
+            ERR_CHK(rc);
         }
         printf("XCONF BIN : upgrade_factoryreset calling cm_hal_FWupdateAndFactoryReset \n" );
         printf("XCONF BIN : URL: %s FileName %s \n", pHttpUrl, pfilename );
@@ -437,6 +492,7 @@ int main(int argc,char *argv[])
             ret_code= 1;
         }
 
+     }
     }
     return ret_code;
 }
