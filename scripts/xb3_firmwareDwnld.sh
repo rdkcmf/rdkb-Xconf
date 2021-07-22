@@ -29,6 +29,11 @@ then
     source /etc/device.properties
 fi
 
+if [ -f /etc/bundleUtils.sh ]
+then
+    source /etc/bundleUtils.sh
+fi
+
 XCONF_LOG_FILE_NAME=xconf.txt.0
 XCONF_LOG_FILE_PATHNAME=${LOG_PATH}/${XCONF_LOG_FILE_NAME}
 XCONF_LOG_FILE=${XCONF_LOG_FILE_PATHNAME}
@@ -424,7 +429,9 @@ getFirmwareUpgDetail()
             activationInProgress="false"
         fi
 
-        JSONSTR='eStbMac='${MAC}'&firmwareVersion='${currentVersion}'&env='${env}'&model='${modelName}'&partnerId='${partnerId}'&activationInProgress='${activationInProgress}'&accountId='${accountId}'&localtime='${date}'&timezone=EST05&capabilities=rebootDecoupled&capabilities=RCDL&capabilities=supportsFullHttpUrl'
+		instBundles=$(getInstalledBundleList)
+
+        JSONSTR='eStbMac='${MAC}'&firmwareVersion='${currentVersion}'&env='${env}'&model='${modelName}'&partnerId='${partnerId}'&activationInProgress='${activationInProgress}'&accountId='${accountId}'&localtime='${date}'&dlCertBundle='${instBundles}'&timezone=EST05&capabilities=rebootDecoupled&capabilities=RCDL&capabilities=supportsFullHttpUrl'
         if [ "$UseCodebig" = "1" ]; then
            useCodebigRequest
         else
@@ -483,6 +490,7 @@ getFirmwareUpgDetail()
             delayDownload=`grep delayDownload $OUTPUT | cut -d \| -f2`
             rebootImmediately=`grep rebootImmediately $OUTPUT | cut -d \| -f2`    
             factoryResetImmediately=`grep factoryResetImmediately $OUTPUT | cut -d \| -f2`
+            dlCertBundle=$($JSONQUERY -f $FWDL_JSON -p dlCertBundle)
                                     
             echo_t "XCONF SCRIPT : Protocol :"$firmwareDownloadProtocol
             echo_t "XCONF SCRIPT : Filename :"$firmwareFilename
@@ -491,6 +499,7 @@ getFirmwareUpgDetail()
             echo_t "XCONF SCRIPT : Reboot   :"$rebootImmediately
             echo_t "XCONF SCRIPT : Delay Time :"$delayDownload
             echo_t "XCONF SCRIPT : factoryResetImmediately :"$factoryResetImmediately
+            echo_t "XCONF SCRIPT : dlCertBundle :"$dlCertBundle
 	
 
             if [ -n "$delayDownload" ]; then
@@ -537,6 +546,15 @@ getFirmwareUpgDetail()
                     echo_t "XCONF SCRIPT : Reboot   :"$rebootImmediately
                 fi
                 echo "$firmwareLocation" > /tmp/.xconfssrdownloadurl
+
+                # Check if xconf returned any bundles to update
+                # If so, trigger /etc/rdm/rdmBundleMgr.sh to process it
+                if [ -n "$dlCertBundle" ]; then
+                    echo_t "XCONF SCRIPT : Calling /etc/rdm/rdmBundleMgr.sh to process bundle update" >> $XCONF_LOG_FILE
+                    (sh /etc/rdm/rdmBundleMgr.sh "$dlCertBundle" "$firmwareLocation" >> ${LOG_PATH}/rdm_status.log 2>&1) &
+                    echo_t "XCONF SCRIPT : /etc/rdm/rdmBundleMgr.sh started in background" >> $XCONF_LOG_FILE
+                fi
+
            	# Check if a newer version was returned in the response
             # If image_upg_avl = 0, retry reconnecting with XCONf in next window
             # If image_upg_avl = 1, download new firmware 

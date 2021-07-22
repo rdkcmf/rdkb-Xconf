@@ -29,6 +29,11 @@ then
     source /etc/device.properties
 fi
 
+if [ -f /etc/bundleUtils.sh ]
+then
+    source /etc/bundleUtils.sh
+fi
+
 XCONF_LOG_FILE_NAME=xconf.txt.0
 XCONF_LOG_FILE_PATHNAME=${LOG_PATH}/${XCONF_LOG_FILE_NAME}
 XCONF_LOG_FILE=${XCONF_LOG_FILE_PATHNAME}
@@ -565,10 +570,12 @@ getFirmwareUpgDetail()
                     activationInProgress="false"
                 fi
 
+                instBundles=$(getInstalledBundleList)
+
 		if [ "$UseCodebig" -eq "0" ] || [ $CDL_SERVER_OVERRIDE -eq 1 ];then
                         echo_t "Trying Direct Communication" >> $XCONF_LOG_FILE
 			echo_t "XCONF SCRIPT : Post string creation"
-			POSTSTR="eStbMac=$MAC&firmwareVersion=$currentVersion&env=$env&model=$devicemodel&partnerId=$partnerId&activationInProgress=${activationInProgress}&accountId=${accountId}&localtime=$date&timezone=EST05&capabilities=\"rebootDecoupled\"&capabilities=\"RCDL\"&capabilities=\"supportsFullHttpUrl\""
+			POSTSTR="eStbMac=$MAC&firmwareVersion=$currentVersion&env=$env&model=$devicemodel&partnerId=$partnerId&activationInProgress=${activationInProgress}&accountId=${accountId}&localtime=$date&dlCertBundle=${instBundles}&timezone=EST05&capabilities=\"rebootDecoupled\"&capabilities=\"RCDL\"&capabilities=\"supportsFullHttpUrl\""
 			echo_t "XCONF SCRIPT : POSTSTR : $POSTSTR" >> $XCONF_LOG_FILE
 
 			# Query the  XCONF Server, using TLS 1.2
@@ -585,7 +592,7 @@ getFirmwareUpgDetail()
                 echo_t "Trying Codebig Communication" >> $XCONF_LOG_FILE
                 ###############Jason string creation##########
                 echo_t "XCONF SCRIPT : Jason string creation"
-                JSONSTR="&eStbMac=${MAC}&firmwareVersion=${currentVersion}&env=${env}&model=${devicemodel}&partnerId=${partnerId}&activationInProgress=${activationInProgress}&accountId=${accountId}&serial=$serial&localtime=${date}&timezone=US/Eastern${CB_CAPABILITIES}"
+                JSONSTR="&eStbMac=${MAC}&firmwareVersion=${currentVersion}&env=${env}&model=${devicemodel}&partnerId=${partnerId}&activationInProgress=${activationInProgress}&accountId=${accountId}&serial=$serial&localtime=${date}&dlCertBundle=${instBundles}&timezone=US/Eastern${CB_CAPABILITIES}"
                 echo_t "XCONF SCRIPT : JSONSTR : $JSONSTR" >> $XCONF_LOG_FILE
                 echo_t "XCONF SCRIPT : Get Signed URL"
 
@@ -677,6 +684,7 @@ getFirmwareUpgDetail()
 
 		rebootImmediately=`grep rebootImmediately $OUTPUT | cut -d \| -f2`
         factoryResetImmediately=`grep factoryResetImmediately $OUTPUT | cut -d \| -f2`
+            dlCertBundle=$($JSONQUERY -f $FILENAME -p dlCertBundle)
 
                  echo_t "XCONF SCRIPT : Protocol :"$firmwareDownloadProtocol
                  echo_t "XCONF SCRIPT : Filename :"$firmwareFilename
@@ -684,6 +692,7 @@ getFirmwareUpgDetail()
                  echo_t "XCONF SCRIPT : Version  :"$firmwareVersion
                  echo_t "XCONF SCRIPT : Reboot   :"$rebootImmediately
                  echo_t "XCONF SCRIPT : factoryResetImmediately :"$factoryResetImmediately
+                 echo_t "XCONF SCRIPT : dlCertBundle :"$dlCertBundle
 
                  if [ -n "$delayDownload" ]; then
                      echo_t "XCONF SCRIPT : Device configured with download delay of $delayDownload minutes"
@@ -760,6 +769,14 @@ getFirmwareUpgDetail()
                         echo CURL_CMD_CDL : $CURL_CMD_LOG >>$XCONF_LOG_FILE
                     echo_t "Execute above curl command to start code download (if you want to try manually)"
 				fi	
+
+                # Check if xconf returned any bundles to update
+                # If so, trigger /etc/rdm/rdmBundleMgr.sh to process it
+                if [ -n "$dlCertBundle" ]; then
+                    echo_t "XCONF SCRIPT : Calling /etc/rdm/rdmBundleMgr.sh to process bundle update" >> $XCONF_LOG_FILE
+                    (sh /etc/rdm/rdmBundleMgr.sh "$dlCertBundle" "$firmwareLocation" >> ${LOG_PATH}/rdm_status.log 2>&1) &
+                    echo_t "XCONF SCRIPT : /etc/rdm/rdmBundleMgr.sh started in background" >> $XCONF_LOG_FILE
+                fi
 
                 # Check if a newer version was returned in the response
             # If image_upg_avl = 0, retry reconnecting with XCONf in next window
