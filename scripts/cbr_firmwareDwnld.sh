@@ -79,9 +79,37 @@ LAST_HTTP_RESPONSE="/tmp/XconfSavedOutput"
 #GLOBAL DECLARATIONS
 image_upg_avl=0
 reb_window=0
+useStaticXpkiMtlsFWDownload="false"
 
 isPeriodicFWCheckEnabled=`syscfg get PeriodicFWCheck_Enable`
 isWanLinkHealEnabled=`syscfg get wanlinkheal`
+
+checkXpkiMtlsBasedFWDownload()
+{
+    if [ -f /usr/bin/rdkssacli ] && [ -f /nvram/certs/devicecert_1.pk12 ]; then
+        useXpkiMtlsFWDownload="true"
+    else
+        useXpkiMtlsFWDownload="false"
+    fi
+}
+
+checkStaticXpkiMtlsBasedFWDownload()
+{
+    if [ -f /etc/ssl/certs/staticXpkiCrt.pk12 ] && [ -x /usr/bin/GetConfigFile ]; then
+        ID="/tmp/.cfgStaticxpki"
+        if [ ! -f "$ID" ]; then
+            GetConfigFile $ID
+	    if [ ! -f "$ID" ]; then
+                echo_t "Getconfig file fails , use standard TLS"
+                useStaticXpkiMtlsFWDownload="false"
+            else
+		useStaticXpkiMtlsFWDownload="true"
+            fi
+        else
+            useStaticXpkiMtlsFWDownload="true"
+        fi
+    fi
+}
 
 # NOTE:: RDKB-20262 if rdkfwupgrader daemon is enabled, don't do anything in these scripts.
 if [ "$isPeriodicFWCheckEnabled" == "true" ] ;then
@@ -277,14 +305,26 @@ do_Codebig_signing()
 # Direct connection Download function
 useDirectRequest()
 {
+	    checkXpkiMtlsBasedFWDownload
+            checkStaticXpkiMtlsBasedFWDownload
             curr_conn_type="direct"
             echo_t "Trying Direct Communication"
             echo_t "Trying Direct Communication" >> $XCONF_LOG_FILE
-            CURL_CMD="$CURL_PATH/curl --interface $interface $addr_type -w '%{http_code}\n' --tlsv1.2 -d \"$JSONSTR\" -o \"$FWDL_JSON\" \"$xconf_url\" $CERT_STATUS --connect-timeout 30 -m 30"
-            echo_t "CURL_CMD:$CURL_CMD"
-            echo_t "CURL_CMD:$CURL_CMD" >> $XCONF_LOG_FILE
+	    if [ $useXpkiMtlsFWDownload == "true" ]; then
+		    echo_t "XpkiMtlsBasedFWDownload true for xconf" >> $XCONF_LOG_FILE
+		    CURL_CMD="$CURL_PATH/curl --interface $interface $addr_type -w '%{http_code}\n' --tlsv1.2 --cert-type P12 --cert /nvram/certs/devicecert_1.pk12:$(/usr/bin/rdkssacli "{STOR=GET,SRC=kquhqtoczcbx,DST=/dev/stdout}") -d \"$JSONSTR\" -o \"$FWDL_JSON\" \"$xconf_url\" $CERT_STATUS --connect-timeout 30 -m 30"
+            elif [ "$useStaticXpkiMtlsFWDownload" == "true" ]; then
+                    echo_t "StaticXpkiMtlsBasedFWDownload true for xconf" >> $XCONF_LOG_FILE
+		    CURL_CMD="$CURL_PATH/curl --interface $interface $addr_type -w '%{http_code}\n' --tlsv1.2 --cert-type P12 --cert /etc/ssl/certs/staticXpkiCrt.pk12:$(cat $ID) -d \"$JSONSTR\" -o \"$FWDL_JSON\" \"$xconf_url\" $CERT_STATUS --connect-timeout 30 -m 30"
+            else
+                    echo_t "no xpki used for xconf" >> $XCONF_LOG_FILE
+                    CURL_CMD="$CURL_PATH/curl --interface $interface $addr_type -w '%{http_code}\n' --tlsv1.2 -d \"$JSONSTR\" -o \"$FWDL_JSON\" \"$xconf_url\" $CERT_STATUS --connect-timeout 30 -m 30"
+            fi		    
             HTTP_CODE=`result= eval $CURL_CMD`
             ret=$?
+	    CURL_CMD=`echo "$CURL_CMD" | sed 's/devicecert_1.* -d/devicecert_1.pk12<hidden key>/' | sed 's/staticXpkiCr.* -d/staticXpkiCrt.pk12<hidden key>/'`
+            echo_t "CURL_CMD:$CURL_CMD"
+            echo_t "CURL_CMD:$CURL_CMD" >> $XCONF_LOG_FILE
             HTTP_RESPONSE_CODE=$(echo "$HTTP_CODE" | awk -F\" '{print $1}' )
             echo_t "Direct Communication - ret:$ret, http_code:$HTTP_RESPONSE_CODE" | tee -a $XCONF_LOG_FILE ${LOG_PATH}/TlsVerify.txt
             # log security failure
