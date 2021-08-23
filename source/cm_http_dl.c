@@ -36,6 +36,16 @@
 #define CM_HTTPURL_LEN 1024
 #define CM_FILENAME_LEN 200
 #define NUM_OF_ARGUMENT_TYPES (sizeof(argument_type_xconf_table)/sizeof(argument_type_xconf_table[0]))
+#ifdef FEATURE_RDKB_LED_MANAGER
+#include <sysevent/sysevent.h>
+#define SYS_IP_ADDR    "127.0.0.1"
+#define SYSEVENT_LED_STATE    "led_event"
+#define FW_UPDATE_START_EVENT "rdkb_fwupdate_start"
+#define FW_UPDATE_STOP_EVENT "rdkb_fwupdate_stop"
+#define FW_UPDATE_COMPLETE_EVENT "rdkb_fwupdate_complete"
+int sysevent_led_fd = -1;
+token_t sysevent_led_token;
+#endif
 
 enum ArgumentType_Xconf_e {
     SET_HTTP_URL,
@@ -138,6 +148,9 @@ INT HTTP_Download ()
     /* interface=0 for wan0, interface=1 for erouter0 */
     unsigned int interface=1;
 
+#ifdef FEATURE_RDKB_LED_MANAGER
+    sysevent_led_fd =  sysevent_open(SYS_IP_ADDR, SE_SERVER_WELL_KNOWN_PORT, SE_VERSION, "xconf_upgrade", &sysevent_led_token);
+#endif
     /*Set the download interface*/
     printf("\nXCONF BIN : Setting download interface to %d",interface);
 #ifdef FEATURE_FWUPGRADE_MANAGER
@@ -147,6 +160,12 @@ INT HTTP_Download ()
 #endif
     while((retry_limit < RETRY_HTTP_DOWNLOAD_LIMIT) && (retry_http_dl==1))
     {
+#ifdef FEATURE_RDKB_LED_MANAGER
+            if(sysevent_led_fd != -1)
+            {
+                sysevent_set(sysevent_led_fd, sysevent_led_token, SYSEVENT_LED_STATE, FW_UPDATE_START_EVENT, 0);
+            }
+#endif
 #ifdef FEATURE_FWUPGRADE_MANAGER
             ret_stat = fwupgrade_hal_download ();
 #else
@@ -205,7 +224,12 @@ INT HTTP_Download ()
 
                         //printf("\nBIN : retry_http_status : %d",retry_http_status);
                         //printf("\nBIN : retry_dl_status : %d",retry_http_dl);
-
+#ifdef FEATURE_RDKB_LED_MANAGER
+                        if(sysevent_led_fd != -1)
+                        {
+                            sysevent_set(sysevent_led_fd, sysevent_led_token, SYSEVENT_LED_STATE, FW_UPDATE_COMPLETE_EVENT, 0);
+                        }
+#endif
                     }
                     
                     else if (http_dl_status == 0)
@@ -271,6 +295,13 @@ INT HTTP_Download ()
      */
     if ((http_dl_status > 400) || (http_dl_status == -1))
     {
+#ifdef FEATURE_RDKB_LED_MANAGER
+            /* Either image download or flashing failed. set previous state */
+            if(sysevent_led_fd != -1)
+            {
+                sysevent_set(sysevent_led_fd, sysevent_led_token, SYSEVENT_LED_STATE, FW_UPDATE_STOP_EVENT, 0);
+            }
+#endif
 	    printf("\nXCONF BIN : HTTP DOWNLOAD ERROR with status : %d. Exiting.",http_dl_status);
 	    if(http_dl_status == 500)
 	    {
@@ -279,6 +310,13 @@ INT HTTP_Download ()
 	    }
 	    t2_event_d("XCONF_Dwnld_error",1);
     }
+
+#ifdef FEATURE_RDKB_LED_MANAGER
+    if (0 <= sysevent_led_fd)
+    {
+        sysevent_close(sysevent_led_fd, sysevent_led_token);
+    }
+#endif
 
     return http_dl_status;  
     
