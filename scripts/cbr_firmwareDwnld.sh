@@ -157,6 +157,8 @@ checkFirmwareUpgCriteria()
 
     # Retrieve current firmware version
     currentVersion=`getCurrentFw`
+    current_FW_Version=$currentVersion
+    update_FW_Version=$firmwareVersion
 
     #Comcast signed firmware images are represented in lower case and vendor signed images are represented in upper case.
     #In order to avoid confusion in string comparison, converting both currentVersion and firmwareVersion to lower case.
@@ -1167,6 +1169,22 @@ do
            else
               echo_t  "XCONF SCRIPT : Reboot Immediately : TRUE : Downloading image now" >> $XCONF_LOG_FILE
            fi
+   
+           if [ "$MODEL_NUM" = "CGA4332COM" ]; then
+
+                #Trigger FirmwareDownloadStartedNotification before commencement of firmware download
+                current_time=`date +%s`
+                echo_t "current_time calculated as $current_time" >> $XCONF_LOG_FILE
+                if [ "$rebootImmediately" == "true" ];then
+                     reboot_flag="forced"
+                else
+                     reboot_flag="deferred"
+                fi
+                FW_DWLD_NOTIFICATION_STRING="$current_time,$reboot_flag,$current_FW_Version,$update_FW_Version"
+                echo_t "XCONF SCRIPT : FirmwareDownloadStartedNotification parameters are $FW_DWLD_NOTIFICATION_STRING" >> $XCONF_LOG_FILE
+                dmcli eRT setv Device.DeviceInfo.X_RDKCENTRAL-COM_xOpsDeviceMgmt.RPC.FirmwareDownloadStartedNotification string $FW_DWLD_NOTIFICATION_STRING
+                echo_t "XCONF SCRIPT : FirmwareDownloadStartedNotification SET is triggered" >> $XCONF_LOG_FILE
+           fi
 			
            # Start the image download
            echo "[ $(date) ] XCONF SCRIPT  ### httpdownload started ###" >> $XCONF_LOG_FILE
@@ -1197,6 +1215,20 @@ do
 			exit
 		   fi
            fi
+
+           if [ "$MODEL_NUM" = "CGA4332COM" ]; then
+
+                #Trigger FirmwareDownloadCompletedNotification after firmware download
+                # true indicates successful download and false indicates unsuccessful download.
+                if [ $http_dl_stat -eq 0 ];then
+                        dmcli eRT setv Device.DeviceInfo.X_RDKCENTRAL-COM_xOpsDeviceMgmt.RPC.FirmwareDownloadCompletedNotification bool true
+                        echo_t "FirmwareDownloadCompletedNotification SET to true is triggered" >> $XCONF_LOG_FILE
+                else
+                        dmcli eRT setv Device.DeviceInfo.X_RDKCENTRAL-COM_xOpsDeviceMgmt.RPC.FirmwareDownloadCompletedNotification bool false
+                        echo_t "FirmwareDownloadCompletedNotification SET to false is triggered" >> $XCONF_LOG_FILE
+                fi
+           fi
+
        else
                 download_image_success=0
             	# Set the flag to 0 to force a requery
