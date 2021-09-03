@@ -59,13 +59,6 @@ if [ -z "$BOX" ]; then
     echo_t "Box Type Not found exiting scheduler script"  >> $XCONF_LOG_FILE
     exit
 fi
-isPeriodicFWCheckEnabled=`syscfg get PeriodicFWCheck_Enable`
-if [ "$isPeriodicFWCheckEnabled" != "true" ]
-then
-  echo "XCONF SCRIPT : Calling XCONF CDL script"
-  $DOWNLOAD_SCRIPT 1 &
-  exit
-fi
 
 DOWNLOAD_SCRIPT_PRESENT=`crontab -l | grep -i firmwareDwnld.sh`
 RDKFWUPGRADER_PRESENT=`crontab -l | grep -i rdkfwupgrader_check_now.sh`
@@ -110,6 +103,15 @@ then
    echo_t "XCONF SCRIPT: Removed firmwareDwnld crontab entry, exiting... "
    exit
 fi
+
+isPeriodicFWCheckEnabled=`syscfg get PeriodicFWCheck_Enable`
+if [ "$isPeriodicFWCheckEnabled" != "true" ]
+then
+  echo "XCONF SCRIPT : Calling XCONF CDL script"
+  $DOWNLOAD_SCRIPT 1 &
+  exit
+fi
+
 # Check if we have DCM response file
 if [ ! -f $FORMATTED_TMP_DCM_RESPONSE ]
 then
@@ -129,7 +131,7 @@ then
 fi
 if [ ! -f $REBOOT_WAIT ]
 then
-    killall $DOWNLOAD_SCRIPT
+    killall $SCRIPT_NAME
 fi
 
 	      cronPattern=""
