@@ -1466,10 +1466,18 @@ while [ $reboot_device_success -eq 0 ]; do
 
     else
         #RebootImmediately is TRUE
-        echo_t "XCONF SCRIPT : Reboot Immediately : TRUE!, rebooting device now"
-        http_reboot_ready_stat=0    
-        echo_t "XCONF SCRIPT : http_reboot_ready_stat is $http_reboot_ready_stat"
-                            
+	echo_t "XCONF SCRIPT : Reboot Immediately : TRUE!, Checking MTA lines status"
+	XconfHttpDl http_reboot_status >> $XCONF_LOG_FILE
+	http_reboot_ready_stat=$?
+
+	while [ $http_reboot_ready_stat -eq 1 ]
+	do
+		sleep 10
+		XconfHttpDl http_reboot_status >> $XCONF_LOG_FILE
+		http_reboot_ready_stat=$?
+	done
+	echo_t "XCONF SCRIPT : http_reboot_ready_stat is $http_reboot_ready_stat"
+	echo_t "XCONF SCRIPT : reboot status ok, reboot now"
     fi 
                     
     echo_t "XCONF SCRIPT : http_reboot_ready_stat is $http_reboot_ready_stat" >> $XCONF_LOG_FILE
