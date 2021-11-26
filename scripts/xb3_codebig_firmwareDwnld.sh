@@ -1356,18 +1356,6 @@ do
 
     if [ $image_upg_avl -eq 1 ];then
 
-        #Wait for dnsmasq to start
-        DNSMASQ_PID=`pidof dnsmasq`
-
-        while [ "$DNSMASQ_PID" = "" ]
-        do
-                sleep 10
-                echo_t "XCONF SCRIPT : Waiting for dnsmasq process to start"
-                echo_t "XCONF SCRIPT : Waiting for dnsmasq process to start" >> $XCONF_LOG_FILE
-                DNSMASQ_PID=`pidof dnsmasq`
-        done
-                echo_t "XCONF SCRIPT : dnsmasq process  started!!"
-                echo_t "XCONF SCRIPT : dnsmasq process  started!!" >> $XCONF_LOG_FILE
 
         echo "$firmwareLocation" > /tmp/xconfdownloadurl
 
