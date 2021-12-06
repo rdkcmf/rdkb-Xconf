@@ -500,7 +500,14 @@ getFirmwareUpgDetail()
             echo_t "XCONF SCRIPT : Delay Time :"$delayDownload
             echo_t "XCONF SCRIPT : factoryResetImmediately :"$factoryResetImmediately
             echo_t "XCONF SCRIPT : dlCertBundle :"$dlCertBundle
-	
+            
+            dmcli eRT setv Device.DeviceInfo.X_RDKCENTRAL-COM_FirmwareDownloadURL string "$firmwareLocation"
+            #RDKB-35095 AC#3
+            if [ "$firmwareFilename" = "" ];then
+                dmcli eRT setv Device.DeviceInfo.X_RDKCENTRAL-COM_FirmwareToDownload string "$currentVersion"
+            else
+                dmcli eRT setv Device.DeviceInfo.X_RDKCENTRAL-COM_FirmwareToDownload string "$firmwareFilename"
+            fi
 
             if [ -n "$delayDownload" ]; then
                 echo_t "XCONF SCRIPT : Device configured with download delay of $delayDownload minutes"

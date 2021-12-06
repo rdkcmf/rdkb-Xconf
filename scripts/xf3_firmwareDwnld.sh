@@ -557,6 +557,7 @@ getFirmwareUpgDetail()
                     echo_t "XCONF SCRIPT : Reboot   :"$rebootImmediately
                     echo_t "XCONF SCRIPT : factoryResetImmediately :"$factoryResetImmediately
                     echo_t "XCONF SCRIPT : dlCertBundle :"$dlCertBundle
+                    dmcli eRT setv Device.DeviceInfo.X_RDKCENTRAL-COM_FirmwareDownloadURL string "$firmwareLocation"
                 else
                     echo_t "XCONF SCRIPT : SSR download is set to : CODEBIG" 
                     echo_t "XCONF SCRIPT : SSR download is set to : CODEBIG" >> $XCONF_LOG_FILE
@@ -574,6 +575,14 @@ getFirmwareUpgDetail()
                     echo_t "XCONF SCRIPT : Reboot   :"$rebootImmediately
                     echo_t "XCONF SCRIPT : factoryResetImmediately :"$factoryResetImmediately
                     echo_t "XCONF SCRIPT : dlCertBundle :"$dlCertBundle
+                    dmcli eRT setv Device.DeviceInfo.X_RDKCENTRAL-COM_FirmwareDownloadURL string "`echo "$serverUrl" | sed -ne 's/\/'"$firmwareFilename.*"'//p'`"
+                fi
+
+                #RDKB-35095 AC#3
+                if [ "$firmwareFilename" = "" ];then
+                    dmcli eRT setv Device.DeviceInfo.X_RDKCENTRAL-COM_FirmwareToDownload string "$currentVersion"
+                else
+                    dmcli eRT setv Device.DeviceInfo.X_RDKCENTRAL-COM_FirmwareToDownload string "$firmwareFilename"
                 fi
 
                 if [ -n "$delayDownload" ]; then
