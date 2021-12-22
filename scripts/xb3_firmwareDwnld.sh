@@ -371,6 +371,10 @@ getFirmwareUpgDetail()
     else
         addr_type="-4"
     fi
+
+    uptime=`cat /proc/uptime | awk '{ print $1 }' | cut -d"." -f1`
+    echo_t "XCONF SCRIPT : Searching for connection type:$uptime" >> $XCONF_LOG_FILE
+    t2ValNotify "xconf_reaching_ssr" "$uptime"
     get_Codebigconfig
 
     # Check with the XCONF server if an update is available 
@@ -1055,7 +1059,10 @@ do
 		
             if [ $http_dl_stat -eq 0 ];then
                 echo_t "XCONF SCRIPT : HTTP download Successful" >> $XCONF_LOG_FILE
-		t2CountNotify "XCONF_Dwld_success"
+		    t2CountNotify "XCONF_Dwld_success"
+                uptime=`cat /proc/uptime | awk '{ print $1 }' | cut -d"." -f1`
+                echo_t "XCONF SCRIPT :xconf download is success:$uptime" >> $XCONF_LOG_FILE
+                t2ValNotify "xconf_download_success" "$uptime"
                 # Indicate succesful download
                 download_image_success=1
                 if [ "$triggeredFrom" == "bootup" ]; then
