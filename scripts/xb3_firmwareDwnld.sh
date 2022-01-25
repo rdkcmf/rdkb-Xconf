@@ -23,6 +23,7 @@ source /fss/gw/etc/utopia/service.d/log_env_var.sh
 source /lib/rdk/getpartnerid.sh
 source /lib/rdk/getaccountid.sh
 source /lib/rdk/t2Shared_api.sh
+source /etc/waninfo.sh
 
 if [ -f /etc/device.properties ]
 then
@@ -39,7 +40,7 @@ XCONF_LOG_FILE_PATHNAME=${LOG_PATH}/${XCONF_LOG_FILE_NAME}
 XCONF_LOG_FILE=${XCONF_LOG_FILE_PATHNAME}
 
 CURL_PATH=/fss/gw/usr/bin
-interface=erouter0
+interface=$(getWanInterfaceName)
 BIN_PATH=/fss/gw/usr/bin
 REBOOT_WAIT="/tmp/.waitingreboot"
 DOWNLOAD_INPROGRESS="/tmp/.downloadingfw"
@@ -335,7 +336,7 @@ getFirmwareUpgDetail()
     # respose or the URL received
     xconf_retry_count=0
     retry_flag=1
-    isIPv6=`ifconfig erouter0 | grep inet6 | grep -i 'Global'`
+    isIPv6=`ifconfig $interface | grep inet6 | grep -i 'Global'`
 
     # Set the XCONF server url read from /tmp/Xconf 
     # Determine the env from $type
@@ -643,6 +644,7 @@ getFirmwareUpgDetail()
             #Increment the retry count
             xconf_retry_count=$((xconf_retry_count+1))
         fi
+        interface=$(getWanInterfaceName)
 
     done
 
@@ -1023,6 +1025,7 @@ while [ "$estbIp" = "" ] && [ "$estbIp6" = "" ]
 do
     echo "[ $(date) ] XCONF SCRIPT - No IP yet! sleep(5)" >> $XCONF_LOG_FILE
     sleep 5
+    interface=$(getWanInterfaceName)
 
     estbIp=`ifconfig $interface | grep "inet addr" | tr -s " " | cut -d ":" -f2 | cut -d " " -f1`
     estbIp6=`ifconfig $interface | grep "inet6 addr" | grep "Global" | tr -s " " | cut -d ":" -f2- | cut -d "/" -f1 | tr -d " "`
@@ -1105,6 +1108,7 @@ do
        # availability at a random time,every 24 hrs
        while  [ $image_upg_avl -eq 0 ];
        do
+         interface=$(getWanInterfaceName)
          echo_t "XCONF SCRIPT : Rechecking image availability within 24 hrs" 
          echo_t "XCONF SCRIPT : Rechecking image availability within 24 hrs" >> $XCONF_LOG_FILE
 

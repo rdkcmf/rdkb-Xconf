@@ -39,6 +39,7 @@ then
 fi
 
 source /lib/rdk/t2Shared_api.sh
+source /etc/waninfo.sh
 
 XCONF_LOG_PATH=/rdklogs/logs
 XCONF_LOG_FILE_NAME=xconf.txt.0
@@ -55,7 +56,7 @@ ABORT_REBOOT="/tmp/AbortReboot"
 abortReboot_count=0
 
 CURL_PATH=/bin
-interface=erouter0
+interface=$(getWanInterfaceName)
 BIN_PATH=/bin
 CURL_REQUEST=""
 HTTP_CODE=/tmp/fwdl_http_code.txt
@@ -422,7 +423,7 @@ getFirmwareUpgDetail()
              isIPv6=`ifconfig $interface | grep inet6 | grep -i 'Global'`
        fi
     else
-       isIPv6=`ifconfig erouter0 | grep inet6 | grep -i 'Global'`
+       isIPv6=`ifconfig $interface | grep inet6 | grep -i 'Global'`
     fi
     # Set the XCONF server url read from /tmp/Xconf 
     # Determine the env from $type
@@ -749,6 +750,7 @@ getFirmwareUpgDetail()
             xconf_retry_count=$((xconf_retry_count+1))
 
         fi
+        interface=$(getWanInterfaceName)
 
     done
 
@@ -1145,6 +1147,7 @@ while [ "$estbIp" = "" ] && [ "$estbIp6" = "" ]
 do
     echo_t "[ $(date) ] XCONF SCRIPT - No IP yet! sleep(5)" >> $XCONF_LOG_FILE
     sleep 5
+    interface=$(getWanInterfaceName)
     estbIp=`ifconfig $interface | grep "inet addr" | tr -s " " | cut -d ":" -f2 | cut -d " " -f1`
     if [ "x$BOX_TYPE" = "xHUB4" ]; then
        CURRENT_WAN_IPV6_STATUS=`sysevent get ipv6_connection_state`
@@ -1236,6 +1239,7 @@ do
        # availability at a random time,every 24 hrs
        while  [ $image_upg_avl -eq 0 ];
        do
+         interface=$(getWanInterfaceName)
          echo_t "XCONF SCRIPT : Rechecking image availability within 24 hrs" 
          echo_t "XCONF SCRIPT : Rechecking image availability within 24 hrs" >> $XCONF_LOG_FILE
 
