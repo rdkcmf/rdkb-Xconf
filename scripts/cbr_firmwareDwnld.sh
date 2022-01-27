@@ -1,5 +1,4 @@
 #!/bin/sh
-
 ##########################################################################
 # If not stated otherwise in this file or this component's Licenses.txt
 # file the following copyright and licenses apply:
@@ -44,6 +43,7 @@ interface=$(getWanInterfaceName)
 BIN_PATH=/usr/bin
 REBOOT_WAIT="/tmp/.waitingreboot"
 DOWNLOAD_INPROGRESS="/tmp/.downloadingfw"
+Downloaded="/tmp/Downloadedimage"
 
 FWDL_JSON=/tmp/response.txt
 
@@ -79,10 +79,8 @@ CRON_FILE_BK="/tmp/cron_tab$$.txt"
 LAST_HTTP_RESPONSE="/tmp/XconfSavedOutput"
 #GLOBAL DECLARATIONS
 image_upg_avl=0
-reb_window=0
 useStaticXpkiMtlsFWDownload="false"
 
-isPeriodicFWCheckEnabled=`syscfg get PeriodicFWCheck_Enable`
 isWanLinkHealEnabled=`syscfg get wanlinkheal`
 
 checkXpkiMtlsBasedFWDownload()
@@ -113,14 +111,12 @@ checkStaticXpkiMtlsBasedFWDownload()
 }
 
 # NOTE:: RDKB-20262 if rdkfwupgrader daemon is enabled, don't do anything in these scripts.
-if [ "$isPeriodicFWCheckEnabled" == "true" ] ;then
         /etc/rdkfwupgrader_message.sh
         
         if [ $? -ne 0 ] ;then
             exit 1
         fi
 
-fi
 
 #
 # release numbering system rules
@@ -206,10 +202,7 @@ checkFirmwareUpgCriteria()
 			echo_t "XCONF SCRIPT : Current image ("$currentVersion") and Requested image ("$firmwareVersion") are same. No upgrade/downgrade required"
 			echo_t "XCONF SCRIPT : Current image ("$currentVersion") and Requested image ("$firmwareVersion") are same. No upgrade/downgrade required">> $XCONF_LOG_FILE
 			image_upg_avl=0
-                        
-                        if [ "$isPeriodicFWCheckEnabled" == "true" ]; then
-			   exit
-			fi
+			exit
 		else
 			echo_t "XCONF SCRIPT : Current image ("$currentVersion") and Requested image ("$firmwareVersion") are different. Processing Upgrade/Downgrade"
 			echo_t "XCONF SCRIPT : Current image ("$currentVersion") and Requested image ("$firmwareVersion") are different. Processing Upgrade/Downgrade">> $XCONF_LOG_FILE
@@ -219,10 +212,7 @@ checkFirmwareUpgCriteria()
 		echo_t "XCONF SCRIPT : Current image ("$currentVersion") Or Requested image ("$firmwareVersion") returned NULL. No Upgrade/Downgrade"
 		echo_t "XCONF SCRIPT : Current image ("$currentVersion") Or Requested image ("$firmwareVersion") returned NULL. No Upgrade/Downgrade">> $XCONF_LOG_FILE
 		image_upg_avl=0
-                
-                if [ "$isPeriodicFWCheckEnabled" == "true" ]; then
-		   exit
-		fi
+                 exit
 	fi
 }
 
@@ -629,19 +619,13 @@ getFirmwareUpgDetail()
 
                     echo_t "XCONF SCRIPT : current Time: $now, download scheduled at $SchedAtHr:$SchedAtMin" >> $XCONF_LOG_FILE
 
-                    if [ "$isPeriodicFWCheckEnabled" == "true" ]; then
-                        crontab -l -c $CRONTAB_DIR > $CRON_FILE_BK
-                        SCRIPT_NAME=${0##*/}
-                        sed -i "/[A-Za-z0-9]*$SCRIPT_NAME 5 */d" $CRON_FILE_BK
-                        echo "$SchedAtMin $SchedAtHr * * * /etc/$SCRIPT_NAME 5" >> $CRON_FILE_BK
-                        crontab $CRON_FILE_BK -c $CRONTAB_DIR
-                        rm -rf $CRON_FILE_BK
-
-                        exit
-                    else
-                        delayDownloadSec=$((delayDownload*60))
-                        sleep $delayDownloadSec
-                    fi
+                    crontab -l -c $CRONTAB_DIR > $CRON_FILE_BK
+                    SCRIPT_NAME=${0##*/}
+                    sed -i "/[A-Za-z0-9]*$SCRIPT_NAME 5 */d" $CRON_FILE_BK
+                    echo "$SchedAtMin $SchedAtHr * * * /etc/$SCRIPT_NAME 5" >> $CRON_FILE_BK
+                    crontab $CRON_FILE_BK -c $CRONTAB_DIR
+                    rm -rf $CRON_FILE_BK
+                    exit
 		fi
 
             fi
@@ -651,10 +635,7 @@ getFirmwareUpgDetail()
             retry_flag=0
             image_upg_avl=0
             echo_t "XCONF SCRIPT : Response code received is 404" >> $XCONF_LOG_FILE
-                
-            if [ "$isPeriodicFWCheckEnabled" == "true" ]; then
-                exit
-            fi
+            exit
         # If a response code of 0 was received, the server is unreachable
         # Try reconnecting
         else
@@ -687,9 +668,7 @@ getFirmwareUpgDetail()
             touch $FORCE_DIRECT_ONCE
         fi
         echo_t "XCONF SCRIPT : Retry limit to connect with XCONF server reached, so exit" 
-        if [ "$isPeriodicFWCheckEnabled" == "true" ]; then
-	   exit
-	fi
+        exit
     fi
 }
 
@@ -737,6 +716,31 @@ fetchFirmwareDetail()
         do_Codebig_signing "SSR"
     fi
 }
+set_maintenance_time()
+{
+  # To set default time
+  # Extract maintenance window start and end time
+    start_time=0
+    end_time=0
+    if [ -f "$FW_START" ] && [ -f "$FW_END" ]
+    then
+      start_time=`cat $FW_START`
+      end_time=`cat $FW_END`
+    fi
+
+    if [ "$start_time" = "$end_time" ]
+    then
+        echo_t "XCONF SCRIPT : Start time can not be equal to end time"
+        echo_t "XCONF SCRIPT : Resetting values to default"
+        echo_t "XCONF SCRIPT : Start time can not be equal to end time" >> $XCONF_LOG_FILE
+        t2CountNotify "Test_StartEndEqual"
+        echo_t "XCONF SCRIPT : Resetting values to default" >> $XCONF_LOG_FILE
+        start_time=0
+        end_time=10800
+        echo "$start_time" > $FW_START
+        echo "$end_time" > $FW_END
+    fi
+}
 
 calcRandTime()
 {
@@ -749,32 +753,7 @@ calcRandTime()
 
     # Calculate random second
     rand_sec=`awk -v min=0 -v max=59 -v seed="$(date +%N)" 'BEGIN{srand(seed);print int(min+rand()*(max-min+1))}'`
-
-   # Extract maintenance window start and end time
-    if [ -f "$FW_START" ] && [ -f "$FW_END" ]
-    then
-      start_time=`cat $FW_START`
-      end_time=`cat $FW_END`
-    fi
-
-    if [ "$start_time" = "$end_time" ]
-    then
-        echo_t "XCONF SCRIPT : Start time can not be equal to end time"
-        echo_t "XCONF SCRIPT : Resetting values to default"
-        echo_t "XCONF SCRIPT : Start time can not be equal to end time" >> $XCONF_LOG_FILE
-	t2CountNotify "Test_StartEndEqual"
-        echo_t "XCONF SCRIPT : Resetting values to default" >> $XCONF_LOG_FILE
-        start_time=0
-        end_time=10800
-        echo "$start_time" > $FW_START
-        echo "$end_time" > $FW_END
-    fi
-
-    echo_t "XCONF SCRIPT : Firmware upgrade start time : $start_time"
-    echo_t "XCONF SCRIPT : Firmware upgrade end time : $end_time"
-    echo_t "XCONF SCRIPT : Firmware upgrade start time : $start_time" >> $XCONF_LOG_FILE
-    echo_t "XCONF SCRIPT : Firmware upgrade end time : $end_time" >> $XCONF_LOG_FILE
-
+    set_maintenance_time
     #
     # Generate time to check for update
     #
@@ -799,80 +778,6 @@ calcRandTime()
         date_upgch_final=`date -d @"$date_upgch_part"`
 
         echo_t "Checking update on $date_upgch_final" >> $XCONF_LOG_FILE
-
-    fi
-
-    #
-    # Generate time to downlaod HTTP image
-    # device reboot time 
-    #
-    if [ $2 -eq '1' ]; then
-
-        if [ "$3" == "r" ]; then
-            echo_t "XCONF SCRIPT : Device reboot time being calculated in maintenance window"
-            echo_t "XCONF SCRIPT : Device reboot time being calculated in maintenance window" >> $XCONF_LOG_FILE
-        fi
-
-        if [ "$start_time" -gt "$end_time" ]
-        then
-            start_time=$(($start_time-86400))
-        fi
-
-        #Calculate random value
-        random_time=`awk -v min=$start_time -v max=$end_time 'BEGIN{srand(); print int(min+rand()*(max-min+1))}'`
-
-        if [ $random_time -le 0 ]
-        then
-            random_time=$((random_time+86400))
-        fi
-        random_time_in_sec=$random_time
-
-        # Calculate random second
-        rand_sec=$((random_time%60))
-
-        # Calculate random min
-        random_time=$((random_time/60))
-        rand_min=$((random_time%60))
-
-        # Calculate random hour
-        random_time=$((random_time/60))
-        rand_hr=$((random_time%60))
-
-        echo_t "XCONF SCRIPT : Time Generated : $rand_hr hr $rand_min min $rand_sec sec"
-        echo_t "XCONF SCRIPT : Time Generated : $rand_hr hr $rand_min min $rand_sec sec" >> $XCONF_LOG_FILE
-
-        # Get current time
-        if [ "$UTC_ENABLE" == "true" ]
-        then
-            cur_hr=`LTime H | sed 's/^0*//'`
-            cur_min=`LTime M | sed 's/^0*//'`
-            cur_sec=`date +"%S" | sed 's/^0*//'`
-        else
-            cur_hr=`date +"%H" | sed 's/^0*//'`
-            cur_min=`date +"%M" | sed 's/^0*//'`
-            cur_sec=`date +"%S" | sed 's/^0*//'`
-        fi
-        echo_t "XCONF SCRIPT : Current Local Time: $cur_hr hr $cur_min min $cur_sec sec" >> $XCONF_LOG_FILE
-
-        curr_hr_in_sec=$((cur_hr*60*60))
-        curr_min_in_sec=$((cur_min*60))
-        curr_time_in_sec=$((curr_hr_in_sec+curr_min_in_sec+cur_sec))
-        echo_t "XCONF SCRIPT : Current Time in secs: $curr_time_in_sec sec" >> $XCONF_LOG_FILE
-
-        if [ $curr_time_in_sec -le $random_time_in_sec ]
-        then
-            sec_to_sleep=$((random_time_in_sec-curr_time_in_sec))
-        else
-            sec_to_12=$((86400-curr_time_in_sec))
-            sec_to_sleep=$((sec_to_12+random_time_in_sec))
-        fi
-
-        time=$(( `date +%s`+$sec_to_sleep ))
-        date_final=`date -d @${time} +"%T"`
-
-        echo_t "Action on $date_final"
-        echo_t "Action on $date_final" >> $XCONF_LOG_FILE
-        touch $REBOOT_WAIT
 
     fi
 
@@ -938,62 +843,6 @@ removeLegacyResources()
 	echo_t "XCONF SCRIPT : Done Cleanup" >> $XCONF_LOG_FILE
 }
 
-# Check if it is still in maintenance window
-checkMaintenanceWindow()
-{
-    if [ -f "$FW_START" ] && [ -f "$FW_END" ]
-    then
-      start_time=`cat $FW_START`
-      end_time=`cat $FW_END`
-    fi
-
-    if [ "$start_time" -eq "$end_time" ]
-    then
-        echo_t "XCONF SCRIPT : Start time can not be equal to end time"
-        echo_t "XCONF SCRIPT : Resetting values to default"
-        echo_t "XCONF SCRIPT : Start time can not be equal to end time" >> $XCONF_LOG_FILE
-	t2CountNotify "Test_StartEndEqual"
-        echo_t "XCONF SCRIPT : Resetting values to default" >> $XCONF_LOG_FILE
-        start_time=0
-        end_time=10800
-        echo "$start_time" > $FW_START
-        echo "$end_time" > $FW_END
-    fi
-
-    echo_t "XCONF SCRIPT : Firmware upgrade start time : $start_time"
-    echo_t "XCONF SCRIPT : Firmware upgrade start time : $start_time" >> $XCONF_LOG_FILE
-    echo_t "XCONF SCRIPT : Firmware upgrade end time : $end_time"
-    echo_t "XCONF SCRIPT : Firmware upgrade end time : $end_time" >> $XCONF_LOG_FILE
-
-    if [ "$UTC_ENABLE" == "true" ]
-    then
-        reb_hr=`LTime H | sed 's/^0*//'`
-        reb_min=`LTime M | sed 's/^0*//'`
-        reb_sec=`date +"%S" | sed 's/^0*//'`
-    else
-        reb_hr=`date +"%H" | sed 's/^0*//'`
-        reb_min=`date +"%M" | sed 's/^0*//'`
-        reb_sec=`date +"%S" | sed 's/^0*//'`
-    fi
-
-    reb_window=0
-    reb_hr_in_sec=$((reb_hr*60*60))
-    reb_min_in_sec=$((reb_min*60))
-    reb_time_in_sec=$((reb_hr_in_sec+reb_min_in_sec+reb_sec))
-    echo_t "XCONF SCRIPT : Current time in seconds : $reb_time_in_sec"
-    echo_t "XCONF SCRIPT : Current time in seconds : $reb_time_in_sec" >> $XCONF_LOG_FILE
-
-    if [ $start_time -lt $end_time ] && [ $reb_time_in_sec -ge $start_time ] && [ $reb_time_in_sec -lt $end_time ]
-    then
-        reb_window=1
-    elif [ $start_time -gt $end_time ] && [[ $reb_time_in_sec -lt $end_time || $reb_time_in_sec -ge $start_time ]]
-    then
-        reb_window=1
-    else
-        reb_window=0
-    fi
-}
-
 #####################################################Main Application#####################################################
 
 #Setting up the iptable rule that needed for ci-xconf to communicate
@@ -1006,13 +855,14 @@ iptables -t mangle -A OUTPUT -o erouter0 -j DSCP --set-dscp-class AF32
 
 removeLegacyResources
 getBuildType
+set_maintenance_time
 
 # Check if the firmware download process is initiated by scheduler or during boot up.
 triggeredFrom=""
 if [[ $1 -eq 1 ]]
 then
    echo_t "XCONF SCRIPT : Trigger is from boot" >> $XCONF_LOG_FILE
-   triggeredFrom="boot"
+   triggeredFrom="bootup"
 elif [[ $1 -eq 2 ]]
 then
    echo_t "XCONF SCRIPT : Trigger is from cron" >> $XCONF_LOG_FILE
@@ -1158,26 +1008,12 @@ is_already_flash_led_disable=0
 
 while [ $download_image_success -eq 0 ]; 
 do
+    if [ -f $Downloaded ]
+   then
+    echo_t "XCONF SCRIPT : image already downloaded" >> $XCONF_LOG_FILE
+    break
+   fi
     
-    if [ "$isPeriodicFWCheckEnabled" != "true" ]
-    then
-       # If an image wasn't available, check it's 
-       # availability at a random time,every 24 hrs
-       while  [ $image_upg_avl -eq 0 ];
-       do
-         interface=$(getWanInterfaceName)
-         echo_t "XCONF SCRIPT : Rechecking image availability within 24 hrs" 
-         echo_t "XCONF SCRIPT : Rechecking image availability within 24 hrs" >> $XCONF_LOG_FILE
-
-         # Sleep for a random time less than 
-         # a 24 hour duration 
-         calcRandTime 1 0
-    
-         # Check for the availability of an update   
-         getFirmwareUpgDetail
-       done
-    fi
-
     if [ ! -f $DOWNLOAD_INPROGRESS ]
     then
         touch $DOWNLOAD_INPROGRESS
@@ -1253,6 +1089,9 @@ do
 		t2CountNotify "XCONF_Dwld_success"
                 # Indicate succesful download
                 download_image_success=1
+                if [ "$triggeredFrom" == "bootup" ]; then
+                    touch $Downloaded
+                fi
                 rm -rf $DOWNLOAD_INPROGRESS
             else
                 # Indicate an unsuccesful download
@@ -1262,10 +1101,8 @@ do
                 download_image_success=0
                 # Set the flag to 0 to force a requery
                 image_upg_avl=0
-                if [ "$isPeriodicFWCheckEnabled" == "true" ]; then
-			# No need of looping here as we will trigger a cron job at random time
-			exit
-		   fi
+		# No need of looping here as we will trigger a cron job at random time
+		exit
            fi
 
            if [ "$MODEL_NUM" = "CGA4332COM" ]; then
@@ -1286,15 +1123,13 @@ do
             	# Set the flag to 0 to force a requery
             	image_upg_avl=0
                 rm -rf $DOWNLOAD_INPROGRESS
- 	       if [ "$isPeriodicFWCheckEnabled" == "true" ]; then
-          	   retry_download=`expr $retry_download + 1`
-		       
+          	   retry_download=`expr $retry_download + 1`		       
         	   if [ $retry_download -eq 3 ]
           	   then
              	       echo_t "XCONF SCRIPT : ERROR : URL & Filename not set correctly after 3 retries.Exiting" >> $XCONF_LOG_FILE
         	       exit  
           	   fi
-               fi
+
        fi
     fi
 done
@@ -1308,61 +1143,30 @@ done
     # 2. If an immediate reboot is not possile ,calculate and remain within the reboot maintenance window
     # 3. The reboot ready status is OK within the maintenance window 
     # 4. The rebootImmediate flag is set to true
-
+Retry_count=0
 while [ $reboot_device_success -eq 0 ]; do
                     
     # Verify reboot criteria ONLY if rebootImmediately is FALSE
     if [ "$rebootImmediately" == "false" ];then
-
-        # Check if still within reboot window
-        checkMaintenanceWindow
-
-        if [ $reb_window -eq 1 ]; then
-            echo_t "XCONF SCRIPT : Still within current maintenance window for reboot"
-            echo_t "XCONF SCRIPT : Still within current maintenance window for reboot" >> $XCONF_LOG_FILE
-            reboot_now=1
-        else
-            echo_t "XCONF SCRIPT : Not within current maintenance window for reboot.Rebooting in the next window"
-            echo_t "XCONF SCRIPT : Not within current maintenance window for reboot.Rebooting in the next window" >> $XCONF_LOG_FILE
-            reboot_now=0
+        set_maintenance_time
+        
+        if [ "$triggeredFrom" == "bootup" ]; then
+            echo_t "XCONF SCRIPT :reboot in cron scheduler trigger as it is bootup case" >> $XCONF_LOG_FILE
+            exit
         fi
 
-
-        if [ $reboot_now -eq 0 ] && [ $is_already_flash_led_disable -eq 0 ];
-		then
-			echo "XCONF SCRIPT	: ### httpdownload flash LED disabled ###" >> $XCONF_LOG_FILE
-			$BIN_PATH/XconfHttpDl http_flash_led $http_flash_led_disable
-            is_already_flash_led_disable=1
-        fi    
-
-        # If we are not supposed to reboot now, calculate random time
-        # to reboot in next maintenance window 
-        if [ $reboot_now -eq 0 ];then
-            calcRandTime 0 1 r
-        fi    
+        Retry_count=$((Retry_count+1))
+        if [ $Retry_count -eq 3 ];then
+        echo_t "XCONF SCRIPT : Reboot failed after 3 retries.. exiting" >> $XCONF_LOG_FILE
+        touch $Downloaded
+        exit
+        fi
 
         # Check the Reboot status
         # Continously check reboot status every 10 seconds  
         # till the end of the maintenace window until the reboot status is OK
         $BIN_PATH/XconfHttpDl http_reboot_status
         http_reboot_ready_stat=$?
-
-        while [ $http_reboot_ready_stat -eq 1 ]   
-        do    
-            sleep 10
-            checkMaintenanceWindow
-
-            if [ $reb_window -eq 1 ]
-            then
-                #We're still within the reboot window 
-                $BIN_PATH/XconfHttpDl http_reboot_status
-                http_reboot_ready_stat=$?
-                    
-            else
-                #If we're out of the reboot window, exit while loop
-                break
-            fi
-        done 
 
     else
         #RebootImmediately is TRUE
@@ -1387,7 +1191,33 @@ while [ $reboot_device_success -eq 0 ]; do
 	if [ "x$isWanLinkHealEnabled" == "xtrue" ];then
 	/usr/ccsp/tad/check_gw_health.sh store-health
 	fi
-        #Reboot the device
+     if [ "$rebootImmediately" == "false" ];then
+        RFC_STATUS=`sysevent get RFC_Execution`
+        if [ "$RFC_STATUS" = "" ] || [ "$RFC_STATUS" !=  "Completed" ]
+        then
+            event_retry_count=0
+            while [ $event_retry_count -lt 3 ]; do
+                RFC_STATUS=`sysevent get RFC_Execution`
+                # Rfc execution status is not null, checking whether it is completed,if not completed
+                # wait for 5 min to complete.
+                if [ "$RFC_STATUS" != "" ]; then
+                    echo_t "XCONF SCRIPT : $RFC_STATUS not equal to null, checking completion status" >> $XCONF_LOG_FILE
+                    if [ "$RFC_STATUS" !=  "Completed" ]; then
+                        echo_t "XCONF SCRIPT : Sleeping for 5 mins for rfc completion " >> $XCONF_LOG_FILE
+                        sleep 300
+                        break
+                    elif [ "$RFC_STATUS" =  "Completed" ]; then
+                        echo_t "XCONF SCRIPT : Breaking the rfc event check loop and continuing the script as rfc execution completed " >> $XCONF_LOG_FILE
+                        break
+                    fi    
+                else
+                    event_retry_count=$((event_retry_count+1))
+                    echo_t "XCONF SCRIPT : Retrying for rfc status $event_retry_count" >> $XCONF_LOG_FILE
+                fi
+            done
+        fi
+    fi
+            #Reboot the device
         echo_t "XCONF SCRIPT : Reboot possible. Issuing reboot command"
         echo_t "RDKB_REBOOT : Reboot command issued from XCONF"
         $BIN_PATH/XconfHttpDl http_reboot 
