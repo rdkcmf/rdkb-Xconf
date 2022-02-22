@@ -322,7 +322,8 @@ useDirectRequest()
             # log security failure
             case $ret in
               35|51|53|54|58|59|60|64|66|77|80|82|83|90|91)
-                echo_t "Direct Communication Failure - ret:$ret, http_code:$HTTP_RESPONSE_CODE" >> $XCONF_LOG_FILE
+                echo_t "swdl HTTPS --tlsv1.2 failed to connect to swdl server with curl error code:$ret" >> $XCONF_LOG_FILE
+                t2ValNotify "swdlCurlFail_split" "$ret"
                 ;;
             esac
             [ "x$HTTP_RESPONSE_CODE" != "x" ] || HTTP_RESPONSE_CODE=0
@@ -356,7 +357,8 @@ useCodebigRequest()
             # log security failure
             case $ret in
               35|51|53|54|58|59|60|64|66|77|80|82|83|90|91)
-                echo_t "Codebig Communication Failure - ret:$ret, http_code:$HTTP_RESPONSE_CODE" >> $XCONF_LOG_FILE
+                echo_t "swdl HTTPS --tlsv1.2 failed to connect to Codebig swdl server with curl error code:$ret" >> $XCONF_LOG_FILE
+                t2ValNotify "swdlCBCurlFail_split" "$ret"
                 ;;
             esac
 }
