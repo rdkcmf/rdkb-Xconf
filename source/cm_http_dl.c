@@ -40,7 +40,7 @@
 #include <sysevent/sysevent.h>
 #define SYS_IP_ADDR    "127.0.0.1"
 #define SYSEVENT_LED_STATE    "led_event"
-#define FW_UPDATE_START_EVENT "rdkb_fwupdate_start"
+#define FW_DOWNLOAD_START_EVENT "rdkb_fwdownload_start"
 #define FW_UPDATE_STOP_EVENT "rdkb_fwupdate_stop"
 #define FW_UPDATE_COMPLETE_EVENT "rdkb_fwupdate_complete"
 int sysevent_led_fd = -1;
@@ -163,7 +163,7 @@ INT HTTP_Download ()
 #ifdef FEATURE_RDKB_LED_MANAGER
             if(sysevent_led_fd != -1)
             {
-                sysevent_set(sysevent_led_fd, sysevent_led_token, SYSEVENT_LED_STATE, FW_UPDATE_START_EVENT, 0);
+                sysevent_set(sysevent_led_fd, sysevent_led_token, SYSEVENT_LED_STATE, FW_DOWNLOAD_START_EVENT, 0);
             }
 #endif
 #ifdef FEATURE_FWUPGRADE_MANAGER
