@@ -40,6 +40,7 @@ XCONF_LOG_FILE=${XCONF_LOG_FILE_PATHNAME}
 
 CURL_PATH=/usr/bin
 interface=$(getWanInterfaceName)
+wan_interface=$(getWanMacInterfaceName)
 BIN_PATH=/usr/bin
 REBOOT_WAIT="/tmp/.waitingreboot"
 DOWNLOAD_INPROGRESS="/tmp/.downloadingfw"
@@ -436,8 +437,8 @@ getFirmwareUpgDetail()
         factoryResetImmediately=""
        
         currentVersion=`getCurrentFw`
-		
-        MAC=`ifconfig  | grep $interface |  grep -v $interface:0 | tr -s ' ' | cut -d ' ' -f5`
+
+        MAC=`ifconfig  | grep $wan_interface |  grep -v $wan_interface:0 | tr -s ' ' | cut -d ' ' -f5`
         date=`date`
 
         echo_t "XCONF SCRIPT : CURRENT VERSION : $currentVersion" 
@@ -792,7 +793,7 @@ calcRandTime()
 # Get the MAC address of the WAN interface
 getMacAddress()
 {
-	ifconfig  | grep $interface |  grep -v $interface:0 | tr -s ' ' | cut -d ' ' -f5
+    ifconfig  | grep $wan_interface |  grep -v $wan_interface:0 | tr -s ' ' | cut -d ' ' -f5
 }
 
 getBuildType()

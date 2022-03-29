@@ -58,6 +58,7 @@ abortReboot_count=0
 
 CURL_PATH=/bin
 interface=$(getWanInterfaceName)
+wan_interface=$(getWanMacInterfaceName)
 BIN_PATH=/bin
 CURL_REQUEST=""
 HTTP_CODE=/tmp/fwdl_http_code.txt
@@ -501,7 +502,7 @@ getFirmwareUpgDetail()
             wan_if=`syscfg get wan_physical_ifname`
             MAC=`cat /sys/class/net/$wan_if/address | tr '[a-f]' '[A-F]' `
         else	
-            MAC=`ifconfig $interface  | grep HWaddr | cut -d' ' -f7`
+            MAC=`ifconfig $wan_interface  | grep HWaddr | cut -d' ' -f7`
 	fi
         date=`date`
         partnerId=$(getPartnerId)
@@ -881,7 +882,7 @@ getMacAddress()
         mac=`cat /sys/class/net/$wan_if/address | tr '[a-f]' '[A-F]' `
         echo $mac
     else	
-	ifconfig  | grep $interface |  grep -v $interface:0 | tr -s ' ' | cut -d ' ' -f5
+	ifconfig  | grep $wan_interface |  grep -v $wan_interface:0 | tr -s ' ' | cut -d ' ' -f5
     fi
 }
 
