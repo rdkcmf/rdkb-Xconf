@@ -415,7 +415,7 @@ getFirmwareUpgDetail()
     # respose or the URL received
     xconf_retry_count=0
     retry_flag=1
-    if [ "x$BOX_TYPE" = "xHUB4" ]; then
+    if [ "x$BOX_TYPE" = "xHUB4" ] || [ "x$BOX_TYPE" = "xSR300" ]; then
        CURRENT_WAN_IPV6_STATUS=`sysevent get ipv6_connection_state`
        if [ "xup" = "x$CURRENT_WAN_IPV6_STATUS" ] ; then
              isIPv6=`ifconfig $HUB4_IPV6_INTERFACE | grep Global |  awk '/inet6/{print $3}' | cut -d '/' -f1 | head -n1`
@@ -1131,7 +1131,7 @@ echo_t "XCONF SCRIPT : Values written to /tmp/Xconf are URL=$url" >> $XCONF_LOG_
 
 # Check if the WAN interface has an ip address, if not , wait for it to receive one
 estbIp=`ifconfig $interface | grep "inet addr" | tr -s " " | cut -d ":" -f2 | cut -d " " -f1`
-if [ "x$BOX_TYPE" = "xHUB4" ]; then
+if [ "x$BOX_TYPE" = "xHUB4" ] || [ "x$BOX_TYPE" = "xSR300" ]; then
    CURRENT_WAN_IPV6_STATUS=`sysevent get ipv6_connection_state`
    if [ "xup" = "x$CURRENT_WAN_IPV6_STATUS" ] ; then
          estbIp6=`ifconfig $HUB4_IPV6_INTERFACE | grep Global |  awk '/inet6/{print $3}' | cut -d '/' -f1 | head -n1`
@@ -1149,7 +1149,7 @@ do
     sleep 5
     interface=$(getWanInterfaceName)
     estbIp=`ifconfig $interface | grep "inet addr" | tr -s " " | cut -d ":" -f2 | cut -d " " -f1`
-    if [ "x$BOX_TYPE" = "xHUB4" ]; then
+    if [ "x$BOX_TYPE" = "xHUB4" ] || [ "x$BOX_TYPE" = "xSR300" ]; then
        CURRENT_WAN_IPV6_STATUS=`sysevent get ipv6_connection_state`
        if [ "xup" = "x$CURRENT_WAN_IPV6_STATUS" ] ; then
              estbIp6=`ifconfig $HUB4_IPV6_INTERFACE | grep Global |  awk '/inet6/{print $3}' | cut -d '/' -f1 | head -n1`
