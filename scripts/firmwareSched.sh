@@ -142,7 +142,7 @@ fi
                   rm -rf $CRON_FILE_BK
 	      fi
               
-              if [ ! -f $REBOOT_WAIT ]
+              if [ ! -f $REBOOT_WAIT ] && [ "$1" != "DCM_Trigger" ]
 	      then
               	  echo_t "XCONF SCRIPT: Cron scheduling done, now call download script during bootup"
                   $DOWNLOAD_SCRIPT 1 &
@@ -151,7 +151,7 @@ fi
              #Cron pattern not found for Xconf firmware download.
              echo_t "Cron pattern not found for firmware downlaod, call firmware download script"
              updateCron
-             if [ ! -f $REBOOT_WAIT ]
+             if [ ! -f $REBOOT_WAIT ] && [ "$1" != "DCM_Trigger" ]
 	           then
               	$DOWNLOAD_SCRIPT 1 &           
              fi
@@ -159,7 +159,7 @@ fi
        else
            echo_t "firmwareSched.sh: File->/tmp/DCMSettings.conf not available, call firmware download script"            
            updateCron
-    	   if [ ! -f $REBOOT_WAIT ]
+    	   if [ ! -f $REBOOT_WAIT ] && [ "$1" != "DCM_Trigger" ]
 	   then
             	$DOWNLOAD_SCRIPT 1 &     
            fi
