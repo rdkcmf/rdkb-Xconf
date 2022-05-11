@@ -38,6 +38,16 @@ XCONF_LOG_FILE_NAME=xconf.txt.0
 XCONF_LOG_FILE_PATHNAME=${LOG_PATH}/${XCONF_LOG_FILE_NAME}
 XCONF_LOG_FILE=${XCONF_LOG_FILE_PATHNAME}
 
+CERT=""
+
+if [ -f /lib/rdk/mtlsUtils.sh ]
+then
+   source /lib/rdk/mtlsUtils.sh 
+   echo_t "XCONF: calling getMtlsCreds"
+   CERT="`getMtlsCreds ${BOX_TYPE}_firmwareDwnld.sh`"
+fi
+
+PARTNER_ID="$(getPartnerId)"
 CURL_PATH=/usr/bin
 interface=$(getWanInterfaceName)
 wan_interface=$(getWanMacInterfaceName)
@@ -61,8 +71,42 @@ EnableOCSP="/tmp/.EnableOCSPCA"
 
 DAC15_DOMAIN="dac15cdlserver.ae.ccp.xcal.tv"
 
+#Default xconf url
+dml_URL="$(dmcli eRT getv Device.DeviceInfo.X_RDKCENTRAL-COM_Syndication.XconfURL | grep string | cut -d":" -f3- | cut -d" " -f2- | tr -d ' ')"
+if [ $dml_URL != "" ];then
+    if [ "$PARTNER_ID" = "sky-uk" ]
+    then
+        xconf_url="${dml_URL}/xconf/swu/sky"
+    else
+        xconf_url="${dml_URL}/xconf/swu/stb/"
+    fi
+else
+    echo_t "XCONF SCRIPT : default xconf_url not found via TR181" >> $XCONF_LOG_FILE
+    if [ "$PARTNER_ID" = "sky-uk" ]
+    then
+        xconf_url="https://xconf.xdp.eu-1.xcal.tv/xconf/swu/sky"
+    else
+        xconf_url="https://xconf.xcal.tv/xconf/swu/stb/"
+    fi
+fi
+
 if [ -f $EnableOCSPStapling ] || [ -f $EnableOCSP ]; then
     CERT_STATUS="--cert-status"
+fi
+
+#Partner sky-uk should impose MTLS only connection
+if [ "$PARTNER_ID" = "sky-uk" ]
+then
+   echo_t "XCONF: Check MTLS only for partner sky-uk" >> $XCONF_LOG_FILE
+   if [ "$CERT" = "" ]
+   then
+      echo_t "XCONF: getMtlsCreds failed for sky-uk. Exiting" >> $XCONF_LOG_FILE
+      exit
+   else
+      echo_t "XCONF : getMtlsCreds returned $CERT" >> $XCONF_LOG_FILE
+   fi
+else
+   echo_t "XCONF : getMtlsCreds returned $CERT" >> $XCONF_LOG_FILE
 fi
 
 CONN_RETRIES=3
@@ -83,33 +127,6 @@ image_upg_avl=0
 useStaticXpkiMtlsFWDownload="false"
 
 isWanLinkHealEnabled=`syscfg get wanlinkheal`
-
-checkXpkiMtlsBasedFWDownload()
-{
-    if [ -f /usr/bin/rdkssacli ] && [ -f /nvram/certs/devicecert_1.pk12 ]; then
-        useXpkiMtlsFWDownload="true"
-    else
-        useXpkiMtlsFWDownload="false"
-    fi
-}
-
-checkStaticXpkiMtlsBasedFWDownload()
-{
-    if [ -f /etc/ssl/certs/staticXpkiCrt.pk12 ] && [ -x /usr/bin/GetConfigFile ]; then
-        ID="/tmp/.cfgStaticxpki"
-        if [ ! -f "$ID" ]; then
-            GetConfigFile $ID
-	    if [ ! -f "$ID" ]; then
-                echo_t "Getconfig file fails , use standard TLS"
-                useStaticXpkiMtlsFWDownload="false"
-            else
-		useStaticXpkiMtlsFWDownload="true"
-            fi
-        else
-            useStaticXpkiMtlsFWDownload="true"
-        fi
-    fi
-}
 
 # NOTE:: RDKB-20262 if rdkfwupgrader daemon is enabled, don't do anything in these scripts.
         /etc/rdkfwupgrader_message.sh
@@ -297,21 +314,10 @@ do_Codebig_signing()
 # Direct connection Download function
 useDirectRequest()
 {
-	    checkXpkiMtlsBasedFWDownload
-            checkStaticXpkiMtlsBasedFWDownload
             curr_conn_type="direct"
             echo_t "Trying Direct Communication"
             echo_t "Trying Direct Communication" >> $XCONF_LOG_FILE
-	    if [ $useXpkiMtlsFWDownload == "true" ]; then
-		    echo_t "XpkiMtlsBasedFWDownload true for xconf" >> $XCONF_LOG_FILE
-		    CURL_CMD="$CURL_PATH/curl --interface $interface $addr_type -w '%{http_code}\n' --tlsv1.2 --cert-type P12 --cert /nvram/certs/devicecert_1.pk12:$(/usr/bin/rdkssacli "{STOR=GET,SRC=kquhqtoczcbx,DST=/dev/stdout}") -d \"$JSONSTR\" -o \"$FWDL_JSON\" \"$xconf_url\" $CERT_STATUS --connect-timeout 30 -m 30"
-            elif [ "$useStaticXpkiMtlsFWDownload" == "true" ]; then
-                    echo_t "StaticXpkiMtlsBasedFWDownload true for xconf" >> $XCONF_LOG_FILE
-		    CURL_CMD="$CURL_PATH/curl --interface $interface $addr_type -w '%{http_code}\n' --tlsv1.2 --cert-type P12 --cert /etc/ssl/certs/staticXpkiCrt.pk12:$(cat $ID) -d \"$JSONSTR\" -o \"$FWDL_JSON\" \"$xconf_url\" $CERT_STATUS --connect-timeout 30 -m 30"
-            else
-                    echo_t "no xpki used for xconf" >> $XCONF_LOG_FILE
-                    CURL_CMD="$CURL_PATH/curl --interface $interface $addr_type -w '%{http_code}\n' --tlsv1.2 -d \"$JSONSTR\" -o \"$FWDL_JSON\" \"$xconf_url\" $CERT_STATUS --connect-timeout 30 -m 30"
-            fi		    
+            CURL_CMD="$CURL_PATH/curl $CERT --interface $interface $addr_type -w '%{http_code}\n' --tlsv1.2 -d \"$JSONSTR\" -o \"$FWDL_JSON\" \"$xconf_url\" $CERT_STATUS --connect-timeout 30 -m 30"
             HTTP_CODE=`result= eval $CURL_CMD`
             ret=$?
 	    CURL_CMD=`echo "$CURL_CMD" | sed 's/devicecert_1.* -d/devicecert_1.pk12<hidden key>/' | sed 's/staticXpkiCr.* -d/staticXpkiCrt.pk12<hidden key>/'`
@@ -384,7 +390,6 @@ getFirmwareUpgDetail()
         echo_t "XCONF SCRIPT : ERROR : /tmp/Xconf file not found! Using defaults"
         echo_t "XCONF SCRIPT : ERROR : /tmp/Xconf file not found! Using defaults" >> $XCONF_LOG_FILE
         env="PROD"
-        xconf_url="https://xconf.xcal.tv/xconf/swu/stb/"
     else
         xconf_url=`cut -d "=" -f2 /tmp/Xconf`
     fi
@@ -905,7 +910,7 @@ fi
 echo_t "XCONF SCRIPT : MODEL IS $modelName" >> $XCONF_LOG_FILE
 
 # Default url setting
-url="https://xconf.xcal.tv/xconf/swu/stb/"
+url="$xconf_url"
 
 # Override mechanism should work only for non-production build.
 if [ -f /nvram/swupdate.conf ]; then
