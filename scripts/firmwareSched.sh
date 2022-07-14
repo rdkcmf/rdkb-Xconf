@@ -104,6 +104,14 @@ then
    exit
 fi
 
+isPeriodicFWCheckEnabled=`syscfg get PeriodicFWCheck_Enable`
+if [ "$isPeriodicFWCheckEnabled" != "true" ]
+then
+  echo "XCONF SCRIPT : Calling XCONF CDL script"
+  $DOWNLOAD_SCRIPT 1 &
+  exit
+fi
+
 # Check if we have DCM response file
 if [ ! -f $FORMATTED_TMP_DCM_RESPONSE ]
 then
