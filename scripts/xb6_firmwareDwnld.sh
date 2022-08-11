@@ -94,7 +94,7 @@ EnableOCSP="/tmp/.EnableOCSPCA"
 
 #Default xconf url
 dml_URL="$(dmcli eRT getv Device.DeviceInfo.X_RDKCENTRAL-COM_Syndication.XconfURL | grep string | cut -d":" -f3- | cut -d" " -f2- | tr -d ' ')"
-if [ $dml_URL != "" ];then
+if [ "$dml_URL" != "" ];then
     if [ "$PARTNER_ID" = "sky-uk" ]
     then
         xconf_url="${dml_URL}/xconf/swu/sky"
