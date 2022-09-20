@@ -520,7 +520,7 @@ getFirmwareUpgDetail()
             wan_if=`syscfg get wan_physical_ifname`
             MAC=`cat /sys/class/net/$wan_if/address | tr '[a-f]' '[A-F]' `
         else	
-            MAC=`ifconfig $wan_interface  | grep HWaddr | cut -d' ' -f7`
+            MAC=`cat /sys/class/net/$wan_interface/address | tr '[a-f]' '[A-F]' `
 	fi
         date=`date`
         partnerId=$(getPartnerId)
