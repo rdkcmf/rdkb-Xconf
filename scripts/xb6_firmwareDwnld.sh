@@ -1295,9 +1295,17 @@ do
           # Set the url and filename
           echo_t "XCONF SCRIPT : URL --- --tlsv1.2 -fgL $firmwareLocation and NAME --- $firmwareFilename"
           echo_t "XCONF SCRIPT : URL --- --tlsv1.2 -fgL $firmwareLocation and NAME --- $firmwareFilename" >> $XCONF_LOG_FILE
-
-          XconfHttpDl set_http_url "$firmwareLocation" "$firmwareFilename"
-          set_url_stat=$?
+          if ([ "$BOX_TYPE" = "SR300" ] || [ "$BOX_TYPE" = "SR213" ]) && [ "$PARTNER_ID" = "sky-uk" ] && [ "$CERT" != "" ] && [[ "$firmwareLocation" == *"ssr.xdp.eu-1.xcal.tv"* ]]; then
+            #Use the MTLS certificates only for EU xconf "ssr.xdp.eu-1.xcal.tv"
+            XconfHttpDl set_http_url "$firmwareLocation" "$firmwareFilename" "$CERT"
+            set_url_stat=$?
+            echo_t "XCONF SCRIPT : URL with certificate --- --tlsv1.2 -fgL $firmwareLocation and NAME --- $firmwareFilename"
+            echo_t "XCONF SCRIPT : URL with certificate --- --tlsv1.2 -fgL $firmwareLocation and NAME --- $firmwareFilename" >> $XCONF_LOG_FILE
+          
+          else
+            XconfHttpDl set_http_url "$firmwareLocation" "$firmwareFilename"
+            set_url_stat=$?
+          fi
         else
           # Set the url and filename
           echo_t "XCONF SCRIPT : URL --- `echo "$CURL_SSR_PARAM"| sed -e  's/oauth_consumer_key=.*oauth_signature=.*/<hidden>/g'` and NAME --- $firmwareFilename"

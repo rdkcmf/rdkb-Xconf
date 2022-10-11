@@ -427,6 +427,12 @@ int main(int argc,char *argv[])
                           rc = strcpy_s(pHttpUrl,sizeof(pHttpUrl), argv[2]);
                           ERR_CHK(rc);
                           ret_code = Set_HTTP_Download_Url(pHttpUrl, pfilename);
+#ifdef _SR300_PRODUCT_REQ_
+                       } else if((strstr(argv[4], "--cert")) && (strstr(argv[2], "ssr.xdp.eu-1.xcal.tv"))) {
+                            rc = sprintf_s(pHttpUrl, sizeof(pHttpUrl), "%s '%s/%s'", argv[4], argv[2], pfilename);
+                            ERR_CHK(rc);
+                            ret_code = Set_HTTP_Download_Url(pHttpUrl, pfilename);
+#endif
                        } else {
                             printf("XCONF BIN : Unknown 3rd argument %s . Failed to complete set_http_url operation.\n", argv[4]);
                        }
