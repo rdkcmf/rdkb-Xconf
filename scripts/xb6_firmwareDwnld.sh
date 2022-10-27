@@ -1540,6 +1540,28 @@ while [ $reboot_device_success -eq 0 ]; do
 	echo_t "RDKB_REBOOT : Reboot command issued from XCONF"
 	echo_t "XCONF SCRIPT : setting LastRebootReason"
 	dmcli eRT setv Device.DeviceInfo.X_RDKCENTRAL-COM_LastRebootReason string Software_upgrade
+    
+    IHC_Enable="`syscfg get IHC_Mode`"
+    #RDKB-39919 adding the IHC here as backuplogs.sh is not started when SW reboot happen in Arris platforms
+    if [ "$BOX_TYPE" = "XB6" -a "$MANUFACTURE" = "Arris" ] && [ "$IHC_Enable" = "Monitor" ];
+    then
+        echo "Starting the ImageHealthChecker from store-health mode" >> /rdklogs/logs/Consolelog.txt.0
+        /usr/bin/ImageHealthChecker store-health &
+        #wait until IHC completed
+            iter=0
+            while [ $iter -le 8 ]
+            do
+                if [ -f /tmp/IHC_completed ]
+                then
+                    echo "IHC execution completed ....." >> /rdklogs/logs/Consolelog.txt.0
+                    rm -rf /tmp/IHC_completed
+                    break;
+               fi
+                echo "waiting for IHC execution to be completed ....." >> /rdklogs/logs/Consolelog.txt.0
+                sleep 1
+                iter=$((iter+1))
+            done
+    fi
 	echo_t "XCONF SCRIPT : SET succeeded"
 	XconfHttpDl http_reboot >> $XCONF_LOG_FILE 
 	reboot_device=$?
