@@ -519,6 +519,14 @@ getFirmwareUpgDetail()
             #FEATURE_RDKB_WAN_MANAGER
             wan_if=`syscfg get wan_physical_ifname`
             MAC=`cat /sys/class/net/$wan_if/address | tr '[a-f]' '[A-F]' `
+            if [ "$PARTNER_ID" = "sky-uk" ]; then
+                if [ "$MAC" = "" ]; then
+                    #use atm0 mac if this adsl line
+                    if [ -f "/sys/class/net/atm0/address" ]; then
+                        MAC=$(cat /sys/class/net/atm0/address | tr '[a-f]' '[A-F]')
+                    fi
+                fi
+            fi
         else	
             MAC=`cat /sys/class/net/$wan_interface/address | tr '[a-f]' '[A-F]' `
 	fi
